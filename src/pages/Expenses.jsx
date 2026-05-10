@@ -1,0 +1,166 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+
+const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "أخرى"];
+
+const branchColor = {
+  "فرع زكريا": "bg-blue-100 text-blue-800",
+  "فرع بسيسة": "bg-purple-100 text-purple-800",
+  "فرع المنشية": "bg-orange-100 text-orange-800",
+};
+
+const emptyForm = { description: "", amount: "", branch: "", category: "", date: new Date().toISOString().split("T")[0], notes: "" };
+
+export default function Expenses() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [filterBranch, setFilterBranch] = useState("الكل");
+  const queryClient = useQueryClient();
+
+  const { data: expenses = [], isLoading } = useQuery({
+    queryKey: ["expenses"],
+    queryFn: () => base44.entities.Expense.list("-created_date"),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.Expense.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDialogOpen(false); },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDialogOpen(false); setEditing(null); },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Expense.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+  });
+
+  const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
+  const openEdit = (e) => {
+    setEditing(e);
+    setForm({ description: e.description, amount: e.amount ?? "", branch: e.branch || "", category: e.category || "", date: e.date || new Date().toISOString().split("T")[0], notes: e.notes || "" });
+    setDialogOpen(true);
+  };
+  const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
+
+  const handleSubmit = (ev) => {
+    ev.preventDefault();
+    const data = { ...form, amount: parseFloat(form.amount) || 0 };
+    if (editing) updateMutation.mutate({ id: editing.id, data });
+    else createMutation.mutate(data);
+  };
+
+  const filtered = filterBranch === "الكل" ? expenses : expenses.filter((e) => e.branch === filterBranch);
+  const total = filtered.reduce((s, e) => s + (e.amount || 0), 0);
+
+  return (
+    <div dir="rtl" className="p-4 md:p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">المصروفات</h1>
+          <p className="text-gray-500 text-sm mt-0.5">إجمالي: {total.toLocaleString("ar-EG")} ج</p>
+        </div>
+        <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+          <Plus className="w-4 h-4" /> إضافة مصروف
+        </Button>
+      </div>
+
+      {/* Branch Filter */}
+      <div className="flex gap-2 flex-wrap">
+        {["الكل", ...BRANCHES].map((b) => (
+          <button key={b} onClick={() => setFilterBranch(b)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}>
+            {b}
+          </button>
+        ))}
+      </div>
+
+      <Card className="overflow-hidden">
+        {isLoading ? (
+          <div className="text-center py-12 text-gray-400">جاري التحميل...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">لا توجد مصروفات</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="text-right">الوصف</TableHead>
+                  <TableHead className="text-right">المبلغ</TableHead>
+                  <TableHead className="text-right">الفرع</TableHead>
+                  <TableHead className="text-right">النوع</TableHead>
+                  <TableHead className="text-right">التاريخ</TableHead>
+                  <TableHead className="text-right">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((e) => (
+                  <TableRow key={e.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">{e.description}</TableCell>
+                    <TableCell className="font-semibold text-red-600">{(e.amount || 0).toLocaleString("ar-EG")} ج</TableCell>
+                    <TableCell><Badge className={`${branchColor[e.branch]} border-0 text-xs`}>{e.branch}</Badge></TableCell>
+                    <TableCell className="text-gray-600 text-sm">{e.category || "—"}</TableCell>
+                    <TableCell className="text-gray-500 text-sm">{e.date || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(e)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(e.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader><DialogTitle className="text-right">{editing ? "تعديل مصروف" : "إضافة مصروف"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-1"><Label>الوصف *</Label><Input value={form.description} onChange={(e) => set("description", e.target.value)} required /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>المبلغ *</Label><Input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => set("amount", e.target.value)} required /></div>
+              <div className="space-y-1"><Label>التاريخ *</Label><Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} required /></div>
+            </div>
+            <div className="space-y-1">
+              <Label>الفرع *</Label>
+              <Select value={form.branch} onValueChange={(v) => set("branch", v)} required>
+                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>نوع المصروف</Label>
+              <Select value={form.category} onValueChange={(v) => set("category", v)}>
+                <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
+                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label>ملاحظات</Label><Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} /></div>
+            <DialogFooter className="gap-2 flex-row-reverse">
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={createMutation.isPending || updateMutation.isPending}>
+                {editing ? "تحديث" : "حفظ"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
 const emptyForm = {
   system_invoice_number: "",
   supplier_invoice_number: "",
+  supplier_name: "",
+  branch: "",
   total_value: "",
   returned_value: "",
   paid_value: "",
@@ -29,6 +31,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       setForm({
         system_invoice_number: invoice.system_invoice_number || "",
         supplier_invoice_number: invoice.supplier_invoice_number || "",
+        supplier_name: invoice.supplier_name || "",
+        branch: invoice.branch || "",
         total_value: invoice.total_value ?? "",
         returned_value: invoice.returned_value ?? "",
         paid_value: invoice.paid_value ?? "",
@@ -74,20 +78,28 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>رقم الفاتورة على البرنامج *</Label>
-              <Input
-                value={form.system_invoice_number}
-                onChange={(e) => set("system_invoice_number", e.target.value)}
-                placeholder="مثال: INV-001"
-                required
-              />
+              <Input value={form.system_invoice_number} onChange={(e) => set("system_invoice_number", e.target.value)} placeholder="INV-001" required />
             </div>
             <div className="space-y-1">
-              <Label>رقم الفاتورة من المخزن/الشركة</Label>
-              <Input
-                value={form.supplier_invoice_number}
-                onChange={(e) => set("supplier_invoice_number", e.target.value)}
-                placeholder="رقم فاتورة المورد"
-              />
+              <Label>رقم الفاتورة من المورد</Label>
+              <Input value={form.supplier_invoice_number} onChange={(e) => set("supplier_invoice_number", e.target.value)} placeholder="رقم المورد" />
+            </div>
+          </div>
+
+          {/* Supplier & Branch */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>اسم المورد</Label>
+              <Input value={form.supplier_name} onChange={(e) => set("supplier_name", e.target.value)} placeholder="اسم المورد" />
+            </div>
+            <div className="space-y-1">
+              <Label>الفرع *</Label>
+              <Select value={form.branch} onValueChange={(v) => set("branch", v)} required>
+                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                <SelectContent>
+                  {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -95,40 +107,18 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>القيمة الإجمالية *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.total_value}
-                onChange={(e) => set("total_value", e.target.value)}
-                placeholder="0.00"
-                required
-              />
+              <Input type="number" step="0.01" min="0" value={form.total_value} onChange={(e) => set("total_value", e.target.value)} placeholder="0.00" required />
             </div>
             <div className="space-y-1">
               <Label>المرتجع</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.returned_value}
-                onChange={(e) => set("returned_value", e.target.value)}
-                placeholder="0.00"
-              />
+              <Input type="number" step="0.01" min="0" value={form.returned_value} onChange={(e) => set("returned_value", e.target.value)} placeholder="0.00" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>المدفوع</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.paid_value}
-                onChange={(e) => set("paid_value", e.target.value)}
-                placeholder="0.00"
-              />
+              <Input type="number" step="0.01" min="0" value={form.paid_value} onChange={(e) => set("paid_value", e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-1">
               <Label>المتبقي</Label>
@@ -138,53 +128,41 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
-          {/* Payment Type */}
-          <div className="space-y-1">
-            <Label>طريقة الدفع *</Label>
-            <Select value={form.payment_type} onValueChange={(v) => set("payment_type", v)} required>
-              <SelectTrigger>
-                <SelectValue placeholder="اختر طريقة الدفع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="كاش">💵 كاش</SelectItem>
-                <SelectItem value="آجل">📋 آجل</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Payment & Status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>طريقة الدفع *</Label>
+              <Select value={form.payment_type} onValueChange={(v) => set("payment_type", v)} required>
+                <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="كاش">💵 كاش</SelectItem>
+                  <SelectItem value="آجل">📋 آجل</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>حالة الفاتورة *</Label>
+              <Select value={form.status} onValueChange={(v) => set("status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="انتظار المراجعة">⏳ انتظار المراجعة</SelectItem>
+                  <SelectItem value="يتم الحفظ">✅ يتم الحفظ</SelectItem>
+                  <SelectItem value="تعلق تحت التصريف">🔄 تعلق تحت التصريف</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Status */}
-          <div className="space-y-1">
-            <Label>حالة الفاتورة *</Label>
-            <Select value={form.status} onValueChange={(v) => set("status", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="اختر الحالة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="انتظار المراجعة">⏳ انتظار المراجعة</SelectItem>
-                <SelectItem value="يتم الحفظ">✅ يتم الحفظ</SelectItem>
-                <SelectItem value="تعلق تحت التصريف">🔄 تعلق تحت التصريف</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Notes */}
           <div className="space-y-1">
             <Label>ملاحظات</Label>
-            <Textarea
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              placeholder="أي ملاحظات إضافية..."
-              rows={2}
-            />
+            <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} />
           </div>
 
           <DialogFooter className="gap-2 flex-row-reverse">
             <Button type="submit" disabled={isLoading} className="bg-teal-600 hover:bg-teal-700">
               {isLoading ? "جاري الحفظ..." : invoice ? "تحديث" : "حفظ الفاتورة"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              إلغاء
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
           </DialogFooter>
         </form>
       </DialogContent>
