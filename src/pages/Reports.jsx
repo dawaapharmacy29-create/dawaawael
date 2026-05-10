@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line
 } from "recharts";
+import ExportButtons from "@/components/reports/ExportButtons";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const BRANCH_COLORS = { "فرع زكريا": "#3b82f6", "فرع بسيسة": "#a855f7", "فرع المنشية": "#f97316" };
@@ -98,13 +99,22 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-gray-800">التقارير التفصيلية</h1>
           <p className="text-gray-500 text-sm mt-0.5">مقارنة الفروع والنفقات الشهرية</p>
         </div>
-        <select
-          value={year}
-          onChange={(e) => setYear(parseInt(e.target.value))}
-          className="border rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
-        >
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={year}
+            onChange={(e) => setYear(parseInt(e.target.value))}
+            className="border rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
+          >
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <ExportButtons
+            invoices={invoices.filter((i) => new Date(i.created_date).getFullYear() === year)}
+            expenses={expenses.filter((e) => new Date(e.date).getFullYear() === year)}
+            year={year}
+            branchData={branchData}
+            monthlyData={monthlyData}
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}

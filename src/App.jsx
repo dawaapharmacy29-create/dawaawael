@@ -11,6 +11,7 @@ import PurchaseInvoices from './pages/PurchaseInvoices';
 import Suppliers from './pages/Suppliers';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
+import SupplierBalances from './pages/SupplierBalances';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -40,6 +41,7 @@ const AuthenticatedApp = () => {
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/supplier-balances" element={<SupplierBalances />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
