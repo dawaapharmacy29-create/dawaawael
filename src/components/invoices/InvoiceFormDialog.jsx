@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -25,6 +27,7 @@ const emptyForm = {
 
 export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading }) {
   const [form, setForm] = useState(emptyForm);
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
 
   useEffect(() => {
     if (invoice) {
@@ -89,8 +92,13 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           {/* Supplier & Branch */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>اسم المورد</Label>
-              <Input value={form.supplier_name} onChange={(e) => set("supplier_name", e.target.value)} placeholder="اسم المورد" />
+              <Label>المورد</Label>
+              <Select value={form.supplier_name} onValueChange={(v) => set("supplier_name", v)}>
+                <SelectTrigger><SelectValue placeholder="اختر المورد" /></SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>الفرع *</Label>

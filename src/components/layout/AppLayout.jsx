@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const navItems = [
   { path: "/invoices", label: "فواتير الشراء", icon: FileText },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/expenses", label: "المصروفات", icon: Receipt },
+  { path: "/reports", label: "التقارير", icon: BarChart2 },
 ];
 
 export default function AppLayout() {

@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import PurchaseInvoices from './pages/PurchaseInvoices';
 import Suppliers from './pages/Suppliers';
 import Expenses from './pages/Expenses';
+import Reports from './pages/Reports';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -38,6 +39,7 @@ const AuthenticatedApp = () => {
         <Route path="/invoices" element={<PurchaseInvoices />} />
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
+        <Route path="/reports" element={<Reports />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
