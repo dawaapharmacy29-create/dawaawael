@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, Receipt, TrendingUp, Building2 } from "lucide-react";
+import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -23,6 +24,10 @@ export default function Dashboard() {
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses"],
     queryFn: () => base44.entities.Expense.list(),
+  });
+  const { data: budgets = [] } = useQuery({
+    queryKey: ["branch-budgets"],
+    queryFn: () => base44.entities.BranchBudget.list(),
   });
 
   const totalInvoiceValue = invoices.reduce((s, i) => s + (i.total_value || 0), 0);
@@ -56,6 +61,11 @@ export default function Dashboard() {
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* Branch Budget */}
+      <div>
+        <BranchBudgetCard invoices={invoices} budgets={budgets} />
       </div>
 
       {/* Branches Summary */}
