@@ -7,6 +7,8 @@ import {
   LineChart, Line
 } from "recharts";
 import ExportButtons from "@/components/reports/ExportButtons";
+import AgingReport from "@/components/reports/AgingReport";
+import TopSuppliers from "@/components/reports/TopSuppliers";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const BRANCH_COLORS = { "فرع زكريا": "#3b82f6", "فرع بسيسة": "#a855f7", "فرع المنشية": "#f97316" };
@@ -163,6 +165,12 @@ export default function Reports() {
           </LineChart>
         </ResponsiveContainer>
       </Card>
+
+      {/* Aging Report */}
+      <AgingReport invoices={invoices} />
+
+      {/* Top Suppliers */}
+      <TopSuppliers invoices={invoices} year={year} />
 
       {/* Monthly per Branch Bar Chart */}
       <Card className="p-4">

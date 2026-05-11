@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { logActivity } from "@/lib/activityLogger";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "أخرى"];
@@ -29,6 +31,7 @@ export default function Expenses() {
   const [form, setForm] = useState(emptyForm);
   const [filterBranch, setFilterBranch] = useState("الكل");
   const queryClient = useQueryClient();
+  const { isManager } = useUserRole();
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses"],
@@ -37,15 +40,27 @@ export default function Expenses() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Expense.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDialogOpen(false); },
+    onSuccess: (_, data) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      setDialogOpen(false);
+      logActivity({ action_type: "create", entity_type: "expense", entity_label: data.description, details: `إضافة مصروف: ${data.description} - ${data.amount} ج` });
+    },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDialogOpen(false); setEditing(null); },
+    onSuccess: (_, { data }) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      setDialogOpen(false);
+      setEditing(null);
+      logActivity({ action_type: "update", entity_type: "expense", entity_label: data.description, details: `تعديل مصروف: ${data.description}` });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Expense.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      logActivity({ action_type: "delete", entity_type: "expense", entity_id: id, details: `حذف مصروف` });
+    },
   });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
@@ -73,9 +88,11 @@ export default function Expenses() {
           <h1 className="text-2xl font-bold text-gray-800">المصروفات</h1>
           <p className="text-gray-500 text-sm mt-0.5">إجمالي: {total.toLocaleString("ar-EG")} ج</p>
         </div>
-        <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-          <Plus className="w-4 h-4" /> إضافة مصروف
-        </Button>
+        {isManager && (
+          <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+            <Plus className="w-4 h-4" /> إضافة مصروف
+          </Button>
+        )}
       </div>
 
       {/* Branch Filter */}
@@ -116,8 +133,8 @@ export default function Expenses() {
                     <TableCell className="text-gray-500 text-sm">{e.date || "—"}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(e)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(e.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        {isManager && <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(e)}><Pencil className="w-3.5 h-3.5" /></Button>}
+                        {isManager && <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(e.id)}><Trash2 className="w-3.5 h-3.5" /></Button>}
                       </div>
                     </TableCell>
                   </TableRow>

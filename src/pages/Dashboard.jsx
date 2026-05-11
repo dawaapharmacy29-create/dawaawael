@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, Receipt, TrendingUp, Building2 } from "lucide-react";
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
+import BudgetAlert from "@/components/dashboard/BudgetAlert";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -62,6 +63,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Budget Alerts */}
+      <BudgetAlert invoices={invoices} expenses={expenses} budgets={budgets} />
 
       {/* Branch Budget */}
       <div>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { useUserRole } from "@/lib/useUserRole";
 
 const statusColor = {
   "انتظار المراجعة": "bg-yellow-100 text-yellow-800",
@@ -18,6 +19,7 @@ const branchColor = {
 };
 
 export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete }) {
+  const { isManager } = useUserRole();
   if (isLoading) {
     return <Card className="p-8 text-center text-gray-400"><div className="w-8 h-8 border-4 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />جاري التحميل...</Card>;
   }
@@ -64,10 +66,12 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete }) 
                   <TableCell><Badge className={`${paymentColor[inv.payment_type]} border-0 text-xs`}>{inv.payment_type === "كاش" ? "💵" : "📋"} {inv.payment_type}</Badge></TableCell>
                   <TableCell><Badge className={`${statusColor[inv.status]} border-0 text-xs`}>{statusIcon[inv.status]} {inv.status}</Badge></TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(inv)}><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => onDelete(inv.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                    </div>
+                    {isManager ? (
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(inv)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => onDelete(inv.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    ) : <span className="text-xs text-gray-400">—</span>}
                   </TableCell>
                 </TableRow>
               );

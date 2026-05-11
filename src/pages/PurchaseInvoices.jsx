@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Search } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -14,7 +16,11 @@ export default function PurchaseInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const queryClient = useQueryClient();
+  const { isManager } = useUserRole();
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -51,7 +57,14 @@ export default function PurchaseInvoices() {
     else createMutation.mutate(formData);
   };
 
-  const filtered = filterBranch === "الكل" ? invoices : invoices.filter((i) => i.branch === filterBranch);
+  const filtered = invoices.filter((i) => {
+    const branchMatch = filterBranch === "الكل" || i.branch === filterBranch;
+    const searchMatch = !search || i.system_invoice_number?.includes(search) || i.supplier_name?.includes(search) || i.supplier_invoice_number?.includes(search);
+    const dateKey = i.invoice_date || i.created_date?.split("T")[0];
+    const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
+    const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
+    return branchMatch && searchMatch && fromMatch && toMatch;
+  });
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -60,12 +73,27 @@ export default function PurchaseInvoices() {
           <h1 className="text-2xl font-bold text-gray-800">فواتير الشراء</h1>
           <p className="text-gray-500 text-sm mt-0.5">{invoices.length} فاتورة إجمالية</p>
         </div>
-        <Button onClick={() => { setEditingInvoice(null); setDialogOpen(true); }} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-          <Plus className="w-4 h-4" /> إضافة فاتورة
-        </Button>
+        {isManager && (
+          <Button onClick={() => { setEditingInvoice(null); setDialogOpen(true); }} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+            <Plus className="w-4 h-4" /> إضافة فاتورة
+          </Button>
+        )}
       </div>
 
       <InvoiceStats invoices={invoices} />
+
+      {/* Search & Date Filter */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+          <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36 h-9" />
+          <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36 h-9" />
+          {(dateFrom || dateTo || search) && <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); }} className="text-xs text-red-500 hover:underline">مسح</button>}
+        </div>
+      </div>
 
       {/* Branch Filter */}
       <div className="flex gap-2 flex-wrap">
