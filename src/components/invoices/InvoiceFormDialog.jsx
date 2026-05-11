@@ -17,6 +17,7 @@ const emptyForm = {
   supplier_invoice_number: "",
   supplier_name: "",
   branch: "",
+  invoice_date: new Date().toISOString().split("T")[0],
   total_value: "",
   returned_value: "",
   paid_value: "",
@@ -36,6 +37,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         supplier_invoice_number: invoice.supplier_invoice_number || "",
         supplier_name: invoice.supplier_name || "",
         branch: invoice.branch || "",
+        invoice_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
         total_value: invoice.total_value ?? "",
         returned_value: invoice.returned_value ?? "",
         paid_value: invoice.paid_value ?? "",
@@ -87,6 +89,12 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               <Label>رقم الفاتورة من المورد</Label>
               <Input value={form.supplier_invoice_number} onChange={(e) => set("supplier_invoice_number", e.target.value)} placeholder="رقم المورد" />
             </div>
+          </div>
+
+          {/* Invoice Date */}
+          <div className="space-y-1">
+            <Label>تاريخ الفاتورة</Label>
+            <Input type="date" value={form.invoice_date} onChange={(e) => set("invoice_date", e.target.value)} />
           </div>
 
           {/* Supplier & Branch */}

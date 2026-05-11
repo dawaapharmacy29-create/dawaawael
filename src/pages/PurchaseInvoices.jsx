@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
+import { logActivity } from "@/lib/activityLogger";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -22,15 +23,27 @@ export default function PurchaseInvoices() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PurchaseInvoice.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] }); setDialogOpen(false); },
+    onSuccess: (inv, data) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      setDialogOpen(false);
+      logActivity({ action_type: "create", entity_type: "invoice", entity_id: inv?.id, entity_label: data.system_invoice_number, details: `إنشاء فاتورة ${data.system_invoice_number}` });
+    },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.PurchaseInvoice.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] }); setDialogOpen(false); setEditingInvoice(null); },
+    onSuccess: (_, { id, data }) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      setDialogOpen(false);
+      setEditingInvoice(null);
+      logActivity({ action_type: "update", entity_type: "invoice", entity_id: id, entity_label: data.system_invoice_number, details: `تعديل فاتورة ${data.system_invoice_number}` });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.PurchaseInvoice.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف فاتورة` });
+    },
   });
 
   const handleSubmit = (formData) => {

@@ -34,6 +34,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete }) 
               <TableHead className="text-right">رقم البرنامج</TableHead>
               <TableHead className="text-right">رقم المورد</TableHead>
               <TableHead className="text-right">المورد</TableHead>
+              <TableHead className="text-right">التاريخ</TableHead>
               <TableHead className="text-right">الفرع</TableHead>
               <TableHead className="text-right">القيمة</TableHead>
               <TableHead className="text-right">المرتجع</TableHead>
@@ -52,6 +53,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete }) 
                   <TableCell className="font-mono font-semibold text-teal-700">{inv.system_invoice_number}</TableCell>
                   <TableCell className="text-gray-600">{inv.supplier_invoice_number || "—"}</TableCell>
                   <TableCell className="text-gray-700">{inv.supplier_name || "—"}</TableCell>
+                  <TableCell className="text-gray-600 text-sm">{inv.invoice_date || "—"}</TableCell>
                   <TableCell>
                     {inv.branch ? <Badge className={`${branchColor[inv.branch]} border-0 text-xs`}>{inv.branch}</Badge> : "—"}
                   </TableCell>
