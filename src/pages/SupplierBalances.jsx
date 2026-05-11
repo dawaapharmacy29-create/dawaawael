@@ -45,6 +45,7 @@ export default function SupplierBalances() {
   // Group unpaid/partial invoices by supplier
   const supplierGroups = useMemo(() => {
     const creditInvoices = invoices.filter((i) => {
+      if (i.payment_type !== "آجل") return false;
       const remaining = (i.total_value || 0) - (i.returned_value || 0) - (i.paid_value || 0);
       return remaining > 0;
     });
