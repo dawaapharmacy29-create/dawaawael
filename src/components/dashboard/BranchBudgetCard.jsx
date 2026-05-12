@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Settings } from "lucide-react";
+import { useUserRole } from "@/lib/useUserRole";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
@@ -16,6 +17,7 @@ const branchColor = {
 };
 
 export default function BranchBudgetCard({ invoices, budgets }) {
+  const { canSetBudget } = useUserRole();
   const [editOpen, setEditOpen] = useState(false);
   const [limits, setLimits] = useState({});
   const queryClient = useQueryClient();
@@ -52,9 +54,11 @@ export default function BranchBudgetCard({ invoices, budgets }) {
     <>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold text-gray-700">📊 الحد الأقصى للمشتريات لكل فرع</h2>
-        <Button size="sm" variant="outline" onClick={openEdit} className="gap-1 text-xs">
-          <Settings className="w-3.5 h-3.5" /> تعديل الحدود
-        </Button>
+        {canSetBudget && (
+          <Button size="sm" variant="outline" onClick={openEdit} className="gap-1 text-xs">
+            <Settings className="w-3.5 h-3.5" /> تعديل الحدود
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

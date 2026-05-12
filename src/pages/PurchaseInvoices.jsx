@@ -20,7 +20,7 @@ export default function PurchaseInvoices() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const queryClient = useQueryClient();
-  const { isManager } = useUserRole();
+  const { canSaveInvoice } = useUserRole();
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -73,7 +73,7 @@ export default function PurchaseInvoices() {
           <h1 className="text-2xl font-bold text-gray-800">فواتير الشراء</h1>
           <p className="text-gray-500 text-sm mt-0.5">{invoices.length} فاتورة إجمالية</p>
         </div>
-        {isManager && (
+        {canSaveInvoice && (
           <Button onClick={() => { setEditingInvoice(null); setDialogOpen(true); }} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
             <Plus className="w-4 h-4" /> إضافة فاتورة
           </Button>

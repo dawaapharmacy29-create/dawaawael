@@ -8,14 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShieldCheck, UserPlus, Mail } from "lucide-react";
+import { ShieldCheck, UserPlus, Mail, Check, X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const ROLE_CONFIG = {
-  admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة" },
+  admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
   manager: { label: "محاسب / مشرف", color: "bg-blue-100 text-blue-700", desc: "إضافة وتعديل وعرض" },
-  viewer: { label: "مشاهد", color: "bg-gray-100 text-gray-700", desc: "عرض فقط" },
+  viewer: { label: "مشاهد", color: "bg-gray-100 text-gray-700", desc: "عرض فقط (يمكن تخصيص صلاحيات إضافية)" },
 };
+
+const PERMISSIONS = [
+  { key: "can_save_invoice", label: "إضافة وتعديل الفواتير" },
+  { key: "can_delete_invoice", label: "حذف الفواتير" },
+  { key: "can_manage_team", label: "إدارة فريق العمل" },
+  { key: "can_set_budget", label: "تحديد الحد الأقصى للمشتريات" },
+];
 
 export default function UserManagement() {
   const qc = useQueryClient();
@@ -30,6 +37,11 @@ export default function UserManagement() {
 
   const updateRole = useMutation({
     mutationFn: ({ id, role }) => base44.entities.User.update(id, { role }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+
+  const updatePerm = useMutation({
+    mutationFn: ({ id, perm, value }) => base44.entities.User.update(id, { [perm]: value }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
@@ -89,7 +101,7 @@ export default function UserManagement() {
                     <p className="text-xs text-gray-500 flex items-center gap-1"><Mail className="w-3 h-3" />{user.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <Badge className={`${cfg.color} border-0 hidden sm:inline-flex`}>{cfg.label}</Badge>
                   <Select value={role} onValueChange={(v) => updateRole.mutate({ id: user.id, role: v })}>
                     <SelectTrigger className="w-36 h-8 text-xs">
@@ -102,6 +114,26 @@ export default function UserManagement() {
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Permissions row - only show for non-admin */}
+                {role !== "admin" && (
+                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
+                    {PERMISSIONS.map((p) => {
+                      const val = !!user[p.key];
+                      return (
+                        <button
+                          key={p.key}
+                          onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val })}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            val ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-teal-200"
+                          }`}
+                        >
+                          {val ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
             );
           })}

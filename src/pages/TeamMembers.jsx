@@ -25,7 +25,7 @@ const emptyForm = { name: "", branches: [], role: "", phone: "" };
 
 export default function TeamMembers() {
   const qc = useQueryClient();
-  const { isManager } = useUserRole();
+  const { canManageTeam } = useUserRole();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -81,7 +81,7 @@ export default function TeamMembers() {
           <h1 className="text-2xl font-bold text-gray-800">فريق العمل</h1>
           <p className="text-gray-500 text-sm mt-0.5">{members.length} عضو في جميع الفروع</p>
         </div>
-        {isManager && (
+        {canManageTeam && (
           <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
             <Plus className="w-4 h-4" /> إضافة عضو
           </Button>
@@ -121,7 +121,7 @@ export default function TeamMembers() {
                             </div>
                           )}
                         </div>
-                        {isManager && (
+                        {canManageTeam && (
                           <div className="flex gap-1">
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => openEdit(m)}>
                               <Pencil className="w-3.5 h-3.5" />

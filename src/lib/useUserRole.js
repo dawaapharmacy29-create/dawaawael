@@ -12,5 +12,10 @@ export function useUserRole() {
   const isManager = role === "admin" || role === "manager";
   const isViewer = role === "viewer";
 
-  return { role, isAdmin, isManager, isViewer, user };
+  const canDeleteInvoice = isAdmin || !!user?.can_delete_invoice;
+  const canSaveInvoice = isAdmin || role === "manager" || !!user?.can_save_invoice;
+  const canManageTeam = isAdmin || !!user?.can_manage_team;
+  const canSetBudget = isAdmin || !!user?.can_set_budget;
+
+  return { role, isAdmin, isManager, isViewer, user, canDeleteInvoice, canSaveInvoice, canManageTeam, canSetBudget };
 }
