@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/supplier-balances", label: "أرصدة الموردين", icon: HandCoins },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: ShieldCheck },
+  { path: "/team-members", label: "فريق العمل", icon: UserCheck },
 ];
 
 export default function AppLayout() {

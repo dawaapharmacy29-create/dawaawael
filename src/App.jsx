@@ -14,6 +14,7 @@ import Reports from './pages/Reports';
 import SupplierBalances from './pages/SupplierBalances';
 import ActivityLog from './pages/ActivityLog';
 import UserManagement from './pages/UserManagement';
+import TeamMembers from './pages/TeamMembers';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -46,6 +47,7 @@ const AuthenticatedApp = () => {
         <Route path="/supplier-balances" element={<SupplierBalances />} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
+        <Route path="/team-members" element={<TeamMembers />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

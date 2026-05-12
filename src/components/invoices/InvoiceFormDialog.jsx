@@ -17,6 +17,7 @@ const emptyForm = {
   supplier_invoice_number: "",
   supplier_name: "",
   branch: "",
+  entered_by: "",
   invoice_date: new Date().toISOString().split("T")[0],
   total_value: "",
   returned_value: "",
@@ -29,6 +30,8 @@ const emptyForm = {
 export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading }) {
   const [form, setForm] = useState(emptyForm);
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
+  const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members"], queryFn: () => base44.entities.TeamMember.list("name") });
+  const branchMembers = teamMembers.filter((m) => m.branch === form.branch);
 
   useEffect(() => {
     if (invoice) {
@@ -37,11 +40,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         supplier_invoice_number: invoice.supplier_invoice_number || "",
         supplier_name: invoice.supplier_name || "",
         branch: invoice.branch || "",
-        invoice_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
-        total_value: invoice.total_value ?? "",
-        returned_value: invoice.returned_value ?? "",
-        paid_value: invoice.paid_value ?? "",
-        payment_type: invoice.payment_type || "",
+        entered_by: invoice.entered_by || "",
+          payment_type: invoice.payment_type || "",
         status: invoice.status || "انتظار المراجعة",
         notes: invoice.notes || "",
       });
@@ -144,6 +144,23 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
+          {/* Entered By */}
+          {form.branch && (
+            <div className="space-y-1">
+              <Label>مدخل الفاتورة</Label>
+              <Select value={form.entered_by} onValueChange={(v) => set("entered_by", v)}>
+                <SelectTrigger><SelectValue placeholder="اختر مدخل الفاتورة" /></SelectTrigger>
+                <SelectContent>
+                  {branchMembers.length === 0 ? (
+                    <SelectItem value="_none" disabled>لا يوجد عاملين في هذا الفرع</SelectItem>
+                  ) : (
+                    branchMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Payment & Status */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -153,6 +170,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                 <SelectContent>
                   <SelectItem value="كاش">💵 كاش</SelectItem>
                   <SelectItem value="آجل">📋 آجل</SelectItem>
+                  <SelectItem value="انستا">📱 انستا</SelectItem>
+                  <SelectItem value="فودافون">📱 فودافون</SelectItem>
                 </SelectContent>
               </Select>
             </div>

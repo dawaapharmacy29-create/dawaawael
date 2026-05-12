@@ -1,0 +1,158 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { useUserRole } from "@/lib/useUserRole";
+
+const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const branchColor = {
+  "فرع زكريا": "bg-blue-50 border-blue-200",
+  "فرع بسيسة": "bg-purple-50 border-purple-200",
+  "فرع المنشية": "bg-orange-50 border-orange-200",
+};
+
+const emptyForm = { name: "", branch: "", role: "", phone: "" };
+
+export default function TeamMembers() {
+  const qc = useQueryClient();
+  const { isManager } = useUserRole();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ["team-members"],
+    queryFn: () => base44.entities.TeamMember.list("name"),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.TeamMember.create(data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); setDialogOpen(false); },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.TeamMember.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); setDialogOpen(false); setEditingMember(null); },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.TeamMember.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team-members"] }),
+  });
+
+  const openAdd = () => { setEditingMember(null); setForm(emptyForm); setDialogOpen(true); };
+  const openEdit = (m) => { setEditingMember(m); setForm({ name: m.name, branch: m.branch, role: m.role || "", phone: m.phone || "" }); setDialogOpen(true); };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (editingMember) updateMutation.mutate({ id: editingMember.id, data: form });
+    else createMutation.mutate(form);
+  };
+
+  const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
+
+  const byBranch = BRANCHES.map((b) => ({ branch: b, members: members.filter((m) => m.branch === b) }));
+
+  return (
+    <div dir="rtl" className="p-4 md:p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">فريق العمل</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{members.length} عامل في جميع الفروع</p>
+        </div>
+        {isManager && (
+          <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+            <Plus className="w-4 h-4" /> إضافة عامل
+          </Button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <Card className="p-8 text-center text-gray-400">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />
+          جاري التحميل...
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {byBranch.map(({ branch, members: bm }) => (
+            <div key={branch}>
+              <div className={`rounded-xl border-2 ${branchColor[branch]} overflow-hidden`}>
+                <div className="px-4 py-3 border-b flex items-center gap-2">
+                  <Users className="w-4 h-4 text-gray-500" />
+                  <h2 className="font-bold text-gray-700">{branch}</h2>
+                  <span className="mr-auto text-xs bg-white rounded-full px-2 py-0.5 border text-gray-500">{bm.length} عامل</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {bm.length === 0 ? (
+                    <p className="text-center text-gray-400 text-sm py-4">لا يوجد عاملين بعد</p>
+                  ) : (
+                    bm.map((m) => (
+                      <div key={m.id} className="bg-white rounded-lg p-3 border flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm">{m.name}</p>
+                          {m.role && <p className="text-xs text-gray-500">{m.role}</p>}
+                          {m.phone && <p className="text-xs text-gray-400">{m.phone}</p>}
+                        </div>
+                        {isManager && (
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => openEdit(m)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(m.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditingMember(null); }}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingMember ? "تعديل بيانات العامل" : "إضافة عامل جديد"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <Label>الاسم *</Label>
+              <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="اسم العامل" required />
+            </div>
+            <div className="space-y-1">
+              <Label>الفرع *</Label>
+              <Select value={form.branch} onValueChange={(v) => set("branch", v)} required>
+                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                <SelectContent>
+                  {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>الدور / المنصب</Label>
+              <Input value={form.role} onChange={(e) => set("role", e.target.value)} placeholder="مثل: صيدلاني، موظف..." />
+            </div>
+            <div className="space-y-1">
+              <Label>رقم الهاتف</Label>
+              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" />
+            </div>
+            <DialogFooter className="gap-2 flex-row-reverse">
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={createMutation.isPending || updateMutation.isPending}>
+                {createMutation.isPending || updateMutation.isPending ? "جاري الحفظ..." : editingMember ? "تحديث" : "حفظ"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, Receipt, TrendingUp, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check } from "lucide-react";
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 
@@ -14,6 +17,10 @@ const branchColor = {
 };
 
 export default function Dashboard() {
+  const qc = useQueryClient();
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState("");
+
   const { data: invoices = [] } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
@@ -31,13 +38,31 @@ export default function Dashboard() {
     queryFn: () => base44.entities.BranchBudget.list(),
   });
 
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const { data: targetGoals = [] } = useQuery({
+    queryKey: ["target-goals"],
+    queryFn: () => base44.entities.TargetGoal.list(),
+  });
+  const currentTarget = targetGoals.find((t) => t.month === currentMonth);
+
+  const saveTargetMutation = useMutation({
+    mutationFn: async (amount) => {
+      if (currentTarget) return base44.entities.TargetGoal.update(currentTarget.id, { target_amount: amount, month: currentMonth });
+      return base44.entities.TargetGoal.create({ label: "الهدف الشهري", target_amount: amount, month: currentMonth });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
+  });
+
   const totalInvoiceValue = invoices.reduce((s, i) => s + (i.total_value || 0), 0);
   const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalPayments = totalInvoiceValue + totalExpenses;
+  const targetAmount = currentTarget?.target_amount || 0;
+  const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة").length;
 
   const stats = [
     { label: "إجمالي الفواتير", value: invoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
-    { label: "قيمة المشتريات", value: totalInvoiceValue.toLocaleString("ar-EG") + " ج", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "إجمالي قيمة المدفوعات", value: totalPayments.toLocaleString("ar-EG") + " ج", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "الموردين", value: suppliers.length, icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "المصروفات", value: totalExpenses.toLocaleString("ar-EG") + " ج", icon: Receipt, color: "text-orange-600", bg: "bg-orange-50" },
   ];
@@ -52,13 +77,40 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s) => (
-          <Card key={s.label} className="p-4 flex items-center gap-3">
+          <Card key={s.label} className={`p-4 flex items-center gap-3 ${s.label === "إجمالي قيمة المدفوعات" ? "col-span-2 md:col-span-1" : ""}`}>
             <div className={`p-2 rounded-lg ${s.bg}`}>
               <s.icon className={`w-5 h-5 ${s.color}`} />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500">{s.label}</p>
               <p className="text-lg font-bold text-gray-800">{s.value}</p>
+              {s.label === "إجمالي قيمة المدفوعات" && (
+                <div className="mt-1.5">
+                  {targetAmount > 0 ? (
+                    <div>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="text-gray-400">من {targetAmount.toLocaleString("ar-EG")} ج</span>
+                        <span className={targetPercent >= 100 ? "text-red-600 font-bold" : targetPercent >= 80 ? "text-orange-500 font-bold" : "text-green-600 font-semibold"}>{targetPercent}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 rounded-full">
+                        <div className={`h-1.5 rounded-full transition-all ${targetPercent >= 100 ? "bg-red-500" : targetPercent >= 80 ? "bg-orange-400" : "bg-green-500"}`} style={{ width: `${targetPercent}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">لم يحدد هدف شهري</p>
+                  )}
+                  {editingTarget ? (
+                    <div className="flex gap-1 mt-1.5">
+                      <Input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} className="h-6 text-xs px-2 w-28" placeholder="الهدف..." />
+                      <Button size="icon" className="h-6 w-6 bg-teal-600" onClick={() => saveTargetMutation.mutate(parseFloat(targetInput))}><Check className="w-3 h-3" /></Button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setTargetInput(targetAmount ? targetAmount.toString() : ""); setEditingTarget(true); }} className="flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1">
+                      <Pencil className="w-3 h-3" /> تعديل الهدف
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
         ))}
