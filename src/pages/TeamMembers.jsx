@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -16,8 +15,13 @@ const branchColor = {
   "فرع بسيسة": "bg-purple-50 border-purple-200",
   "فرع المنشية": "bg-orange-50 border-orange-200",
 };
+const branchBadgeColor = {
+  "فرع زكريا": "bg-blue-100 text-blue-700",
+  "فرع بسيسة": "bg-purple-100 text-purple-700",
+  "فرع المنشية": "bg-orange-100 text-orange-700",
+};
 
-const emptyForm = { name: "", branch: "", role: "", phone: "" };
+const emptyForm = { name: "", branches: [], role: "", phone: "" };
 
 export default function TeamMembers() {
   const qc = useQueryClient();
@@ -45,7 +49,11 @@ export default function TeamMembers() {
   });
 
   const openAdd = () => { setEditingMember(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (m) => { setEditingMember(m); setForm({ name: m.name, branch: m.branch, role: m.role || "", phone: m.phone || "" }); setDialogOpen(true); };
+  const openEdit = (m) => {
+    setEditingMember(m);
+    setForm({ name: m.name, branches: m.branches || [], role: m.role || "", phone: m.phone || "" });
+    setDialogOpen(true);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -53,20 +61,29 @@ export default function TeamMembers() {
     else createMutation.mutate(form);
   };
 
-  const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
+  const toggleBranch = (b) => {
+    setForm((prev) => ({
+      ...prev,
+      branches: prev.branches.includes(b) ? prev.branches.filter((x) => x !== b) : [...prev.branches, b],
+    }));
+  };
 
-  const byBranch = BRANCHES.map((b) => ({ branch: b, members: members.filter((m) => m.branch === b) }));
+  // Group by branch (member can appear in multiple)
+  const byBranch = BRANCHES.map((b) => ({
+    branch: b,
+    members: members.filter((m) => (m.branches || []).includes(b)),
+  }));
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">فريق العمل</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{members.length} عامل في جميع الفروع</p>
+          <p className="text-gray-500 text-sm mt-0.5">{members.length} عضو في جميع الفروع</p>
         </div>
         {isManager && (
           <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Plus className="w-4 h-4" /> إضافة عامل
+            <Plus className="w-4 h-4" /> إضافة عضو
           </Button>
         )}
       </div>
@@ -84,11 +101,11 @@ export default function TeamMembers() {
                 <div className="px-4 py-3 border-b flex items-center gap-2">
                   <Users className="w-4 h-4 text-gray-500" />
                   <h2 className="font-bold text-gray-700">{branch}</h2>
-                  <span className="mr-auto text-xs bg-white rounded-full px-2 py-0.5 border text-gray-500">{bm.length} عامل</span>
+                  <span className="mr-auto text-xs bg-white rounded-full px-2 py-0.5 border text-gray-500">{bm.length} عضو</span>
                 </div>
                 <div className="p-3 space-y-2">
                   {bm.length === 0 ? (
-                    <p className="text-center text-gray-400 text-sm py-4">لا يوجد عاملين بعد</p>
+                    <p className="text-center text-gray-400 text-sm py-4">لا يوجد أعضاء بعد</p>
                   ) : (
                     bm.map((m) => (
                       <div key={m.id} className="bg-white rounded-lg p-3 border flex items-center justify-between">
@@ -96,6 +113,13 @@ export default function TeamMembers() {
                           <p className="font-semibold text-gray-800 text-sm">{m.name}</p>
                           {m.role && <p className="text-xs text-gray-500">{m.role}</p>}
                           {m.phone && <p className="text-xs text-gray-400">{m.phone}</p>}
+                          {(m.branches || []).length > 1 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {(m.branches || []).map((b) => (
+                                <span key={b} className={`text-xs rounded-full px-2 py-0.5 ${branchBadgeColor[b]}`}>{b}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {isManager && (
                           <div className="flex gap-1">
@@ -120,32 +144,39 @@ export default function TeamMembers() {
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditingMember(null); }}>
         <DialogContent dir="rtl" className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingMember ? "تعديل بيانات العامل" : "إضافة عامل جديد"}</DialogTitle>
+            <DialogTitle>{editingMember ? "تعديل بيانات العضو" : "إضافة عضو جديد"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label>الاسم *</Label>
-              <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="اسم العامل" required />
+              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="اسم العضو" required />
             </div>
             <div className="space-y-1">
-              <Label>الفرع *</Label>
-              <Select value={form.branch} onValueChange={(v) => set("branch", v)} required>
-                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
-                <SelectContent>
-                  {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>الفروع * (يمكن اختيار أكثر من فرع)</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {BRANCHES.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => toggleBranch(b)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${form.branches.includes(b) ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+              {form.branches.length === 0 && <p className="text-xs text-red-500 mt-1">يرجى اختيار فرع واحد على الأقل</p>}
             </div>
             <div className="space-y-1">
               <Label>الدور / المنصب</Label>
-              <Input value={form.role} onChange={(e) => set("role", e.target.value)} placeholder="مثل: صيدلاني، موظف..." />
+              <Input value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} placeholder="مثل: صيدلاني، موظف..." />
             </div>
             <div className="space-y-1">
               <Label>رقم الهاتف</Label>
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" />
+              <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="01xxxxxxxxx" />
             </div>
             <DialogFooter className="gap-2 flex-row-reverse">
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={form.branches.length === 0 || createMutation.isPending || updateMutation.isPending}>
                 {createMutation.isPending || updateMutation.isPending ? "جاري الحفظ..." : editingMember ? "تحديث" : "حفظ"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>

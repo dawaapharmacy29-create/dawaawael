@@ -86,7 +86,7 @@ export default function PurchaseInvoices() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
-          <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+          <Input placeholder="بحث برقم الفاتورة أو المورد أو رقم فاتورة المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36 h-9" />

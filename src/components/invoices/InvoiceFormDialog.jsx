@@ -31,7 +31,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const [form, setForm] = useState(emptyForm);
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members"], queryFn: () => base44.entities.TeamMember.list("name") });
-  const branchMembers = teamMembers.filter((m) => m.branch === form.branch);
+  const branchMembers = teamMembers.filter((m) => (m.branches || []).includes(form.branch));
 
   useEffect(() => {
     if (invoice) {
