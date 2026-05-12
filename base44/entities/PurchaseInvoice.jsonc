@@ -77,5 +77,60 @@
     "payment_type",
     "status",
     "branch"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "can_save_invoice": true
+          }
+        }
+      ]
+    },
+    "read": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "can_save_invoice": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "can_delete_invoice": true
+          }
+        }
+      ]
+    }
+  }
 }
