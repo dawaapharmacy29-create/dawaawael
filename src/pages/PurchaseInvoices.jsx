@@ -61,7 +61,7 @@ export default function PurchaseInvoices() {
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.PurchaseInvoice.delete(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      queryClient.setQueryData(["purchase-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
       setSelectedIds((prev) => prev.filter((s) => s !== id));
       logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف فاتورة` });
     },
