@@ -43,7 +43,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="w-10 text-center">
-                <Checkbox checked={allSelected} onCheckedChange={(v) => onToggleAll(v, invoices)} />
+                <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, invoices)} />
               </TableHead>
               <TableHead className="text-right">رقم البرنامج</TableHead>
               <TableHead className="text-right">رقم المورد</TableHead>
@@ -64,7 +64,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               const isSelected = selectedIds.includes(inv.id);
               return (
                 <TableRow key={inv.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? "bg-teal-50" : ""}`}>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(inv.id)} />
                   </TableCell>
                   <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>{inv.system_invoice_number}</TableCell>

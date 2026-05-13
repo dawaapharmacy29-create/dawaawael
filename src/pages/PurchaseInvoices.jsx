@@ -8,6 +8,7 @@ import { Plus, Search, Trash2, CheckSquare } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
+import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
@@ -25,6 +26,9 @@ export default function PurchaseInvoices() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
+  const [singleDeleteId, setSingleDeleteId] = useState(null);
   const queryClient = useQueryClient();
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
@@ -69,13 +73,17 @@ export default function PurchaseInvoices() {
   };
 
   // Bulk actions
-  const handleBulkDelete = () => {
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedIds.length} فاتورة؟`)) return;
+  const executeBulkDelete = () => {
     selectedIds.forEach((id) => deleteMutation.mutate(id));
+    setSelectedIds([]);
   };
 
-  const handleBulkSave = () => {
-    if (!window.confirm(`تحويل ${selectedIds.length} فاتورة إلى "يتم الحفظ"؟`)) return;
+  const executeSingleDelete = () => {
+    if (singleDeleteId) deleteMutation.mutate(singleDeleteId);
+    setSingleDeleteId(null);
+  };
+
+  const executeBulkSave = () => {
     selectedIds.forEach((id) => {
       const inv = invoices.find((i) => i.id === id);
       if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" } });
@@ -94,6 +102,7 @@ export default function PurchaseInvoices() {
 
   const handleView = (inv) => { setViewInvoice(inv); setViewOpen(true); };
   const handleEdit = (inv) => { setEditingInvoice(inv); setDialogOpen(true); };
+  const handleSingleDelete = (id) => { setSingleDeleteId(id); setConfirmDelete(true); };
 
   const uniqueSuppliers = [...new Set(invoices.map((i) => i.supplier_name).filter(Boolean))];
 
@@ -167,12 +176,12 @@ export default function PurchaseInvoices() {
           <span className="text-sm font-semibold text-teal-700">تم تحديد {selectedIds.length} فاتورة</span>
           <div className="flex gap-2 mr-auto">
             {canSaveInvoice && (
-              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={handleBulkSave}>
+              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={() => setConfirmSave(true)}>
                 <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"
               </Button>
             )}
             {canDeleteInvoice && (
-              <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 gap-1.5" onClick={handleBulkDelete}>
+              <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 gap-1.5" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="w-3.5 h-3.5" /> حذف المحدد
               </Button>
             )}
@@ -185,7 +194,7 @@ export default function PurchaseInvoices() {
         invoices={filtered}
         isLoading={isLoading}
         onEdit={handleEdit}
-        onDelete={(id) => deleteMutation.mutate(id)}
+        onDelete={handleSingleDelete}
         onView={handleView}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
@@ -206,6 +215,25 @@ export default function PurchaseInvoices() {
         onOpenChange={setViewOpen}
         invoice={viewInvoice}
         onEdit={canSaveInvoice ? handleEdit : null}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={(o) => { setConfirmDelete(o); if (!o) setSingleDeleteId(null); }}
+        title="تأكيد الحذف"
+        description={singleDeleteId ? "هل أنت متأكد من حذف هذه الفاتورة؟" : `هل أنت متأكد من حذف ${selectedIds.length} فاتورة؟`}
+        onConfirm={singleDeleteId ? executeSingleDelete : executeBulkDelete}
+        confirmLabel="حذف"
+      />
+
+      <ConfirmDialog
+        open={confirmSave}
+        onOpenChange={setConfirmSave}
+        title="تأكيد التحويل"
+        description={`هل أنت متأكد من تحويل ${selectedIds.length} فاتورة إلى "يتم الحفظ"؟`}
+        onConfirm={executeBulkSave}
+        confirmLabel="تحويل"
+        confirmClass="bg-green-600 hover:bg-green-700"
       />
     </div>
   );
