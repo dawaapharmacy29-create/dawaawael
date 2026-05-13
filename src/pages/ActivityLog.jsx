@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +20,19 @@ const ENTITY_LABELS = {
 };
 
 export default function ActivityLog() {
+  const queryClient = useQueryClient();
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["activity-logs"],
     queryFn: () => base44.entities.ActivityLog.list("-created_date", 100),
+    staleTime: 5000,
   });
+
+  useEffect(() => {
+    const unsub = base44.entities.ActivityLog.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+    });
+    return unsub;
+  }, []);
 
   const fmt = (dateStr) => {
     if (!dateStr) return "";

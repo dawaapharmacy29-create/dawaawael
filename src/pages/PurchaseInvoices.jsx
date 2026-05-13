@@ -52,28 +52,40 @@ export default function PurchaseInvoices() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PurchaseInvoice.create(data),
-    onSuccess: (inv, data) => {
+    mutationFn: async (data) => {
+      const inv = await base44.entities.PurchaseInvoice.create(data);
+      await logActivity({ action_type: "create", entity_type: "invoice", entity_id: inv?.id, entity_label: data.system_invoice_number, details: `إنشاء فاتورة ${data.system_invoice_number}` });
+      return inv;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       setDialogOpen(false);
-      logActivity({ action_type: "create", entity_type: "invoice", entity_id: inv?.id, entity_label: data.system_invoice_number, details: `إنشاء فاتورة ${data.system_invoice_number}` });
     },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PurchaseInvoice.update(id, data),
-    onSuccess: (_, { id, data }) => {
+    mutationFn: async ({ id, data }) => {
+      await base44.entities.PurchaseInvoice.update(id, data);
+      await logActivity({ action_type: "update", entity_type: "invoice", entity_id: id, entity_label: data.system_invoice_number, details: `تعديل فاتورة ${data.system_invoice_number}` });
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       setDialogOpen(false);
       setEditingInvoice(null);
-      logActivity({ action_type: "update", entity_type: "invoice", entity_id: id, entity_label: data.system_invoice_number, details: `تعديل فاتورة ${data.system_invoice_number}` });
     },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PurchaseInvoice.delete(id),
-    onSuccess: (_, id) => {
+    mutationFn: async (id) => {
+      const inv = invoices.find((i) => i.id === id);
+      await logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: inv?.system_invoice_number || id, details: `حذف فاتورة ${inv?.system_invoice_number || ""}` });
+      await base44.entities.PurchaseInvoice.delete(id);
+      return id;
+    },
+    onSuccess: (id) => {
       queryClient.setQueryData(["purchase-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       setSelectedIds((prev) => prev.filter((s) => s !== id));
-      logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف فاتورة` });
     },
   });
 
