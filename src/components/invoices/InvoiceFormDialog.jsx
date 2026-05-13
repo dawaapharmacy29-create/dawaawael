@@ -90,11 +90,14 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       return;
     }
     setDupError("");
+    const totalVal = parseFloat(form.total_value) || 0;
+    const returnedVal = parseFloat(form.returned_value) || 0;
+    const isCash = ["كاش", "انستا", "فودافون"].includes(form.payment_type);
     onSubmit({
       ...form,
-      total_value: parseFloat(form.total_value) || 0,
-      returned_value: parseFloat(form.returned_value) || 0,
-      paid_value: 0,
+      total_value: totalVal,
+      returned_value: returnedVal,
+      paid_value: isCash ? totalVal - returnedVal : 0,
     });
   };
 
