@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,19 @@ export default function PurchaseInvoices() {
   const queryClient = useQueryClient();
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
+  // Real-time: تحديث تلقائي عند أي تغيير
+  useEffect(() => {
+    const unsub = base44.entities.PurchaseInvoice.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+    });
+    return unsub;
+  }, []);
+
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 500),
+    staleTime: 15000,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],

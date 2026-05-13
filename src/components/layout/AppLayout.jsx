@@ -22,11 +22,12 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  const { data: invoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+  const { data: pendingInvoices = [] } = useQuery({
+    queryKey: ["pending-invoices-count"],
+    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }),
+    staleTime: 30000,
   });
-  const pendingCount = invoices.filter((i) => i.status === "انتظار المراجعة").length;
+  const pendingCount = pendingInvoices.length;
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">

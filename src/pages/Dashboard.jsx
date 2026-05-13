@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
@@ -21,22 +21,38 @@ export default function Dashboard() {
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
-  const { data: invoices = [] } = useQuery({
+  const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 200),
+    staleTime: 20000,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: () => base44.entities.Supplier.list(),
+    staleTime: 60000,
   });
-  const { data: expenses = [] } = useQuery({
+  const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ["expenses"],
-    queryFn: () => base44.entities.Expense.list(),
+    queryFn: () => base44.entities.Expense.list("-created_date", 200),
+    staleTime: 20000,
   });
   const { data: budgets = [] } = useQuery({
     queryKey: ["branch-budgets"],
     queryFn: () => base44.entities.BranchBudget.list(),
+    staleTime: 60000,
   });
+
+  // Real-time subscriptions
+  useEffect(() => {
+    const unsub1 = base44.entities.PurchaseInvoice.subscribe(() => {
+      refetchInvoices();
+      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+    });
+    const unsub2 = base44.entities.Expense.subscribe(() => {
+      refetchExpenses();
+    });
+    return () => { unsub1(); unsub2(); };
+  }, []);
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const { data: targetGoals = [] } = useQuery({
