@@ -1,11 +1,14 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
   { path: "/invoices", label: "فواتير الشراء", icon: FileText },
+  { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/expenses", label: "المصروفات", icon: Receipt },
   { path: "/reports", label: "التقارير", icon: BarChart2 },
@@ -18,6 +21,12 @@ const navItems = [
 export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["purchase-invoices"],
+    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+  });
+  const pendingCount = invoices.filter((i) => i.status === "انتظار المراجعة").length;
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">
@@ -40,7 +49,10 @@ export default function AppLayout() {
               )}
             >
               <item.icon className="w-4 h-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge && pendingCount > 0 && (
+                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+              )}
             </Link>
           ))}
         </nav>
@@ -73,7 +85,10 @@ export default function AppLayout() {
                   )}
                 >
                   <item.icon className="w-4 h-4" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && pendingCount > 0 && (
+                    <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                  )}
                 </Link>
               ))}
             </nav>
