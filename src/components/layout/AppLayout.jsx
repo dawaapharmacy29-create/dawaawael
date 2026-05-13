@@ -9,6 +9,7 @@ const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
   { path: "/invoices", label: "فواتير الشراء", icon: FileText },
   { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true },
+  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/expenses", label: "المصروفات", icon: Receipt },
   { path: "/reports", label: "التقارير", icon: BarChart2 },
@@ -16,7 +17,6 @@ const navItems = [
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: ShieldCheck },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck },
-  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical },
 ];
 
 export default function AppLayout() {
@@ -45,12 +45,14 @@ export default function AppLayout() {
               to={item.path}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                location.pathname === item.path
+                item.gold
+                  ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
+                  : location.pathname === item.path
                   ? "bg-teal-50 text-teal-700"
                   : "text-gray-600 hover:bg-gray-100"
               )}
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className={cn("w-4 h-4", item.gold && "text-yellow-500")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && pendingCount > 0 && (
                 <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
@@ -81,12 +83,14 @@ export default function AppLayout() {
                   onClick={() => setOpen(false)}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    location.pathname === item.path
+                    item.gold
+                      ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
+                      : location.pathname === item.path
                       ? "bg-teal-50 text-teal-700"
                       : "text-gray-600 hover:bg-gray-100"
                   )}
                 >
-                  <item.icon className="w-4 h-4" />
+                  <item.icon className={cn("w-4 h-4", item.gold && "text-yellow-500")} />
                   <span className="flex-1">{item.label}</span>
                   {item.badge && pendingCount > 0 && (
                     <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
