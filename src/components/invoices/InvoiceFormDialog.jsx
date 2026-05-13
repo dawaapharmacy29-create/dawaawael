@@ -93,11 +93,12 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     const totalVal = parseFloat(form.total_value) || 0;
     const returnedVal = parseFloat(form.returned_value) || 0;
     const isCash = ["كاش", "انستا", "فودافون"].includes(form.payment_type);
+    const currentPaid = parseFloat(invoice?.paid_value) || 0;
     onSubmit({
       ...form,
       total_value: totalVal,
       returned_value: returnedVal,
-      paid_value: isCash ? totalVal - returnedVal : 0,
+      paid_value: isCash ? totalVal - returnedVal : (form.payment_type === "آجل" ? currentPaid : 0),
     });
   };
 
