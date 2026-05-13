@@ -59,11 +59,12 @@ export default function Dashboard() {
   const targetAmount = currentTarget?.target_amount || 0;
   const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة").length;
+  const totalCashPurchases = invoices.filter((i) => i.payment_type === "كاش").reduce((s, i) => s + (i.total_value || 0), 0);
 
   const stats = [
     { label: "إجمالي الفواتير", value: invoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
     { label: "إجمالي قيمة المدفوعات", value: totalPayments.toLocaleString("ar-EG") + " ج", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "الموردين", value: suppliers.length, icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
+    { label: "مشتريات الكاش", value: totalCashPurchases.toLocaleString("ar-EG") + " ج", icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "المصروفات", value: totalExpenses.toLocaleString("ar-EG") + " ج", icon: Receipt, color: "text-orange-600", bg: "bg-orange-50" },
   ];
 

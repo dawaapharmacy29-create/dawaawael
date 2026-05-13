@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Trash2, CheckSquare } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
+import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
@@ -15,16 +17,24 @@ const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشي
 export default function PurchaseInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [viewInvoice, setViewInvoice] = useState(null);
+  const [viewOpen, setViewOpen] = useState(false);
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [filterSupplier, setFilterSupplier] = useState("الكل");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const queryClient = useQueryClient();
-  const { canSaveInvoice } = useUserRole();
+  const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+  });
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => base44.entities.Supplier.list(),
   });
 
   const createMutation = useMutation({
@@ -48,6 +58,7 @@ export default function PurchaseInvoices() {
     mutationFn: (id) => base44.entities.PurchaseInvoice.delete(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      setSelectedIds((prev) => prev.filter((s) => s !== id));
       logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف فاتورة` });
     },
   });
@@ -57,21 +68,53 @@ export default function PurchaseInvoices() {
     else createMutation.mutate(formData);
   };
 
+  // Bulk actions
+  const handleBulkDelete = () => {
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedIds.length} فاتورة؟`)) return;
+    selectedIds.forEach((id) => deleteMutation.mutate(id));
+  };
+
+  const handleBulkSave = () => {
+    if (!window.confirm(`تحويل ${selectedIds.length} فاتورة إلى "يتم الحفظ"؟`)) return;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" } });
+    });
+    setSelectedIds([]);
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]);
+  };
+
+  const handleToggleAll = (checked, rows) => {
+    if (checked) setSelectedIds(rows.map((r) => r.id));
+    else setSelectedIds([]);
+  };
+
+  const handleView = (inv) => { setViewInvoice(inv); setViewOpen(true); };
+  const handleEdit = (inv) => { setEditingInvoice(inv); setDialogOpen(true); };
+
+  const uniqueSuppliers = [...new Set(invoices.map((i) => i.supplier_name).filter(Boolean))];
+
   const filtered = invoices.filter((i) => {
     const branchMatch = filterBranch === "الكل" || i.branch === filterBranch;
+    const supplierMatch = filterSupplier === "الكل" || i.supplier_name === filterSupplier;
     const searchMatch = !search || i.system_invoice_number?.includes(search) || i.supplier_name?.includes(search) || i.supplier_invoice_number?.includes(search);
     const dateKey = i.invoice_date || i.created_date?.split("T")[0];
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
-    return branchMatch && searchMatch && fromMatch && toMatch;
+    return branchMatch && supplierMatch && searchMatch && fromMatch && toMatch;
   });
 
+  const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || search || dateFrom || dateTo;
+
   return (
-    <div dir="rtl" className="p-4 md:p-6 space-y-6">
+    <div dir="rtl" className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">فواتير الشراء</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{invoices.length} فاتورة إجمالية</p>
+          <p className="text-gray-500 text-sm mt-0.5">{filtered.length} من {invoices.length} فاتورة</p>
         </div>
         {canSaveInvoice && (
           <Button onClick={() => { setEditingInvoice(null); setDialogOpen(true); }} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
@@ -82,34 +125,71 @@ export default function PurchaseInvoices() {
 
       <InvoiceStats invoices={invoices} />
 
-      {/* Search & Date Filter */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
-          <Input placeholder="بحث برقم الفاتورة أو المورد أو رقم فاتورة المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9" />
+      {/* Filters Row */}
+      <div className="bg-white rounded-lg border p-3 space-y-3">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+            <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 h-9" />
+          </div>
+          <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="كل الموردين" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="الكل">كل الموردين</SelectItem>
+              {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-32 h-9" />
+            <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-32 h-9" />
+          </div>
+          {hasFilters && (
+            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); }} className="text-xs text-red-500 hover:underline whitespace-nowrap">
+              مسح الكل
+            </button>
+          )}
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36 h-9" />
-          <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36 h-9" />
-          {(dateFrom || dateTo || search) && <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); }} className="text-xs text-red-500 hover:underline">مسح</button>}
+
+        {/* Branch Filter */}
+        <div className="flex gap-2 flex-wrap">
+          {["الكل", ...BRANCHES].map((b) => (
+            <button key={b} onClick={() => setFilterBranch(b)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}>
+              {b}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Branch Filter */}
-      <div className="flex gap-2 flex-wrap">
-        {["الكل", ...BRANCHES].map((b) => (
-          <button key={b} onClick={() => setFilterBranch(b)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}>
-            {b}
-          </button>
-        ))}
-      </div>
+      {/* Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-semibold text-teal-700">تم تحديد {selectedIds.length} فاتورة</span>
+          <div className="flex gap-2 mr-auto">
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={handleBulkSave}>
+                <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"
+              </Button>
+            )}
+            {canDeleteInvoice && (
+              <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 gap-1.5" onClick={handleBulkDelete}>
+                <Trash2 className="w-3.5 h-3.5" /> حذف المحدد
+              </Button>
+            )}
+            <button className="text-xs text-gray-500 hover:underline" onClick={() => setSelectedIds([])}>إلغاء</button>
+          </div>
+        </div>
+      )}
 
       <InvoiceTable
         invoices={filtered}
         isLoading={isLoading}
-        onEdit={(inv) => { setEditingInvoice(inv); setDialogOpen(true); }}
+        onEdit={handleEdit}
         onDelete={(id) => deleteMutation.mutate(id)}
+        onView={handleView}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleAll={handleToggleAll}
       />
 
       <InvoiceFormDialog
@@ -118,6 +198,14 @@ export default function PurchaseInvoices() {
         onSubmit={handleSubmit}
         invoice={editingInvoice}
         isLoading={createMutation.isPending || updateMutation.isPending}
+        allInvoices={invoices}
+      />
+
+      <InvoiceViewDialog
+        open={viewOpen}
+        onOpenChange={setViewOpen}
+        invoice={viewInvoice}
+        onEdit={canSaveInvoice ? handleEdit : null}
       />
     </div>
   );
