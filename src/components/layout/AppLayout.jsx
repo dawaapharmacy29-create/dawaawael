@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -16,6 +16,7 @@ const navItems = [
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: ShieldCheck },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck },
+  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical },
 ];
 
 export default function AppLayout() {

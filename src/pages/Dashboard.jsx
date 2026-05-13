@@ -69,13 +69,27 @@ export default function Dashboard() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
   });
 
-  const totalInvoiceValue = invoices.reduce((s, i) => s + (i.total_value || 0), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  // فلترة الشهر الحالي فقط
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+
+  const monthInvoices = invoices.filter((i) => {
+    const d = i.invoice_date || i.created_date?.split("T")[0];
+    return d && d >= monthStart && d <= monthEnd;
+  });
+  const monthExpenses = expenses.filter((e) => {
+    const d = e.date || e.created_date?.split("T")[0];
+    return d && d >= monthStart && d <= monthEnd;
+  });
+
+  const totalInvoiceValue = monthInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalExpenses = monthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const totalPayments = totalInvoiceValue + totalExpenses;
   const targetAmount = currentTarget?.target_amount || 0;
   const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة").length;
-  const totalCashPurchases = invoices.filter((i) => i.payment_type === "كاش").reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalCashPurchases = monthInvoices.filter((i) => i.payment_type === "كاش").reduce((s, i) => s + (i.total_value || 0), 0);
 
   const stats = [
     { label: "إجمالي الفواتير", value: invoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
@@ -88,7 +102,9 @@ export default function Dashboard() {
     <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">الصفحة الرئيسية</h1>
-        <p className="text-gray-500 text-sm mt-0.5">نظرة عامة على النشاط</p>
+        <p className="text-gray-500 text-sm mt-0.5">
+          نظرة عامة — {now.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}
+        </p>
       </div>
 
       {/* Stats */}
@@ -148,10 +164,10 @@ export default function Dashboard() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {BRANCHES.map((branch) => {
-            const branchInvoices = invoices.filter((i) => i.branch === branch);
+            const branchInvoices = monthInvoices.filter((i) => i.branch === branch);
             const branchTotal = branchInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
             const branchPaid = branchInvoices.reduce((s, i) => s + (i.paid_value || 0), 0);
-            const branchExpenses = expenses.filter((e) => e.branch === branch);
+            const branchExpenses = monthExpenses.filter((e) => e.branch === branch);
             const branchExpTotal = branchExpenses.reduce((s, e) => s + (e.amount || 0), 0);
             return (
               <Card key={branch} className={`p-4 border-2 ${branchColor[branch]}`}>

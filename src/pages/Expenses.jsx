@@ -23,7 +23,7 @@ const branchColor = {
   "فرع المنشية": "bg-orange-100 text-orange-800",
 };
 
-const emptyForm = { description: "", amount: "", branch: "", category: "", date: new Date().toISOString().split("T")[0], notes: "" };
+const emptyForm = { description: "", amount: "", branch: "", category: "", date: new Date().toISOString().split("T")[0], team_member_name: "", notes: "" };
 
 export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -32,6 +32,11 @@ export default function Expenses() {
   const [filterBranch, setFilterBranch] = useState("الكل");
   const queryClient = useQueryClient();
   const { isManager } = useUserRole();
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members"],
+    queryFn: () => base44.entities.TeamMember.list("name"),
+    staleTime: 60000,
+  });
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses"],
@@ -75,7 +80,7 @@ export default function Expenses() {
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (e) => {
     setEditing(e);
-    setForm({ description: e.description, amount: e.amount ?? "", branch: e.branch || "", category: e.category || "", date: e.date || new Date().toISOString().split("T")[0], notes: e.notes || "" });
+    setForm({ description: e.description, amount: e.amount ?? "", branch: e.branch || "", category: e.category || "", date: e.date || new Date().toISOString().split("T")[0], team_member_name: e.team_member_name || "", notes: e.notes || "" });
     setDialogOpen(true);
   };
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
@@ -129,6 +134,7 @@ export default function Expenses() {
                   <TableHead className="text-right">الفرع</TableHead>
                   <TableHead className="text-right">النوع</TableHead>
                   <TableHead className="text-right">التاريخ</TableHead>
+                  <TableHead className="text-right">العضو</TableHead>
                   <TableHead className="text-right">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -140,7 +146,8 @@ export default function Expenses() {
                     <TableCell><Badge className={`${branchColor[e.branch]} border-0 text-xs`}>{e.branch}</Badge></TableCell>
                     <TableCell className="text-gray-600 text-sm">{e.category || "—"}</TableCell>
                     <TableCell className="text-gray-500 text-sm">{e.date || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-gray-600 text-sm">{e.team_member_name || "—"}</TableCell>
+                     <TableCell>
                       <div className="flex gap-1">
                         {isManager && <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(e)}><Pencil className="w-3.5 h-3.5" /></Button>}
                         {isManager && <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(e.id)}><Trash2 className="w-3.5 h-3.5" /></Button>}
@@ -175,6 +182,16 @@ export default function Expenses() {
               <Select value={form.category} onValueChange={(v) => set("category", v)}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>عضو فريق العمل</Label>
+              <Select value={form.team_member_name} onValueChange={(v) => set("team_member_name", v)}>
+                <SelectTrigger><SelectValue placeholder="اختر العضو (اختياري)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>— بدون تحديد —</SelectItem>
+                  {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1"><Label>ملاحظات</Label><Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} /></div>
