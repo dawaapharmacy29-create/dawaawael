@@ -16,7 +16,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import ExpensesReport from "@/components/expenses/ExpensesReport";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "نت", "نثريات", "نظافة", "أخرى"];
+const CATEGORIES = ["طباعة", "كهرباء", "مياه", "رواتب", "صيانة", "نت", "نثريات", "نظافة", "أخرى"];
 
 const branchColor = {
   "فرع زكريا": "bg-blue-100 text-blue-800",
