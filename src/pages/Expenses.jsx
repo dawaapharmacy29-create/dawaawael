@@ -24,7 +24,9 @@ const branchColor = {
   "فرع المنشية": "bg-orange-100 text-orange-800",
 };
 
-const emptyForm = { description: "", amount: "", branch: "", category: "", date: new Date().toISOString().split("T")[0], team_member_name: "", notes: "" };
+const PAYMENT_METHODS = ["كاش", "انستا/فودافون"];
+
+const emptyForm = { description: "", amount: "", branch: "", category: "", payment_method: "", date: new Date().toISOString().split("T")[0], team_member_name: "", notes: "" };
 
 export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,7 +84,7 @@ export default function Expenses() {
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (e) => {
     setEditing(e);
-    setForm({ description: e.description, amount: e.amount ?? "", branch: e.branch || "", category: e.category || "", date: e.date || new Date().toISOString().split("T")[0], team_member_name: e.team_member_name || "", notes: e.notes || "" });
+    setForm({ description: e.description, amount: e.amount ?? "", branch: e.branch || "", category: e.category || "", payment_method: e.payment_method || "", date: e.date || new Date().toISOString().split("T")[0], team_member_name: e.team_member_name || "", notes: e.notes || "" });
     setDialogOpen(true);
   };
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
@@ -151,6 +153,7 @@ export default function Expenses() {
                   <TableHead className="text-right">الفرع</TableHead>
                   <TableHead className="text-right">النوع</TableHead>
                   <TableHead className="text-right">التاريخ</TableHead>
+                  <TableHead className="text-right">الدفع</TableHead>
                   <TableHead className="text-right">العضو</TableHead>
                   <TableHead className="text-right">إجراءات</TableHead>
                 </TableRow>
@@ -163,6 +166,7 @@ export default function Expenses() {
                     <TableCell><Badge className={`${branchColor[e.branch]} border-0 text-xs`}>{e.branch}</Badge></TableCell>
                     <TableCell className="text-gray-600 text-sm">{e.category || "—"}</TableCell>
                     <TableCell className="text-gray-500 text-sm">{e.date || "—"}</TableCell>
+                    <TableCell className="text-gray-600 text-sm">{e.payment_method || "—"}</TableCell>
                     <TableCell className="text-gray-600 text-sm">{e.team_member_name || "—"}</TableCell>
                      <TableCell>
                       <div className="flex gap-1">
@@ -200,6 +204,13 @@ export default function Expenses() {
               <Select value={form.category} onValueChange={(v) => set("category", v)}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>طريقة الدفع</Label>
+              <Select value={form.payment_method} onValueChange={(v) => set("payment_method", v)}>
+                <SelectTrigger><SelectValue placeholder="اختر طريقة الدفع" /></SelectTrigger>
+                <SelectContent>{PAYMENT_METHODS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
