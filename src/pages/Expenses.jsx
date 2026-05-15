@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, BarChart2, List } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
+import ExpensesReport from "@/components/expenses/ExpensesReport";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "أخرى"];
+const CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "نت", "نثريات", "نظافة", "أخرى"];
 
 const branchColor = {
   "فرع زكريا": "bg-blue-100 text-blue-800",
@@ -30,6 +31,7 @@ export default function Expenses() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [activeTab, setActiveTab] = useState("list");
   const queryClient = useQueryClient();
   const { isManager } = useUserRole();
   const { data: teamMembers = [] } = useQuery({
@@ -109,6 +111,21 @@ export default function Expenses() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <button onClick={() => setActiveTab("list")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === "list" ? "bg-white shadow text-teal-700" : "text-gray-500 hover:text-gray-700"}`}>
+          <List className="w-4 h-4" /> قائمة المصروفات
+        </button>
+        <button onClick={() => setActiveTab("report")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === "report" ? "bg-white shadow text-teal-700" : "text-gray-500 hover:text-gray-700"}`}>
+          <BarChart2 className="w-4 h-4" /> تقرير المصروفات
+        </button>
+      </div>
+
+      {activeTab === "report" && <ExpensesReport expenses={filtered} />}
+
+      {activeTab === "list" && <>
       {/* Branch Filter */}
       <div className="flex gap-2 flex-wrap">
         {["الكل", ...BRANCHES].map((b) => (
@@ -160,6 +177,7 @@ export default function Expenses() {
           </div>
         )}
       </Card>
+      </>}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}>
         <DialogContent className="max-w-md" dir="rtl">

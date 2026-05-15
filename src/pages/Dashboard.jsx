@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check } from "lucide-react";
+import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check, Calendar } from "lucide-react";
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 
@@ -16,10 +16,30 @@ const branchColor = {
   "فرع المنشية": "bg-orange-50 border-orange-200 text-orange-700",
 };
 
+const today = new Date().toISOString().split("T")[0];
+const firstOfMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
+
+function getStoredDates() {
+  try {
+    const s = localStorage.getItem("dashboard_date_filter");
+    if (s) return JSON.parse(s);
+  } catch {}
+  return { from: firstOfMonth, to: today };
+}
+
 export default function Dashboard() {
   const qc = useQueryClient();
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState("");
+  const [dateFilter, setDateFilter] = useState(getStoredDates);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [tempDate, setTempDate] = useState(getStoredDates);
+
+  const applyDateFilter = () => {
+    setDateFilter(tempDate);
+    localStorage.setItem("dashboard_date_filter", JSON.stringify(tempDate));
+    setShowDateFilter(false);
+  };
 
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -69,10 +89,8 @@ export default function Dashboard() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
   });
 
-  // فلترة الشهر الحالي فقط
   const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+  const { from: monthStart, to: monthEnd } = dateFilter;
 
   const monthInvoices = invoices.filter((i) => {
     const d = i.invoice_date || i.created_date?.split("T")[0];
@@ -100,11 +118,35 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">الصفحة الرئيسية</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          نظرة عامة — {now.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">الصفحة الرئيسية</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            من {monthStart} إلى {monthEnd}
+          </p>
+        </div>
+        <div className="relative">
+          <Button variant="outline" size="sm" onClick={() => { setTempDate(dateFilter); setShowDateFilter((v) => !v); }} className="gap-2 text-sm">
+            <Calendar className="w-4 h-4" /> تحديد الفترة
+          </Button>
+          {showDateFilter && (
+            <div className="absolute left-0 top-10 z-50 bg-white border rounded-xl shadow-lg p-4 space-y-3 w-64" dir="rtl">
+              <p className="text-sm font-semibold text-gray-700">اختر الفترة الزمنية</p>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">من تاريخ</label>
+                <Input type="date" value={tempDate.from} onChange={(e) => setTempDate((p) => ({ ...p, from: e.target.value }))} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">إلى تاريخ</label>
+                <Input type="date" value={tempDate.to} onChange={(e) => setTempDate((p) => ({ ...p, to: e.target.value }))} className="h-8 text-sm" />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="bg-teal-600 hover:bg-teal-700 flex-1" onClick={applyDateFilter}>تطبيق</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowDateFilter(false)}>إلغاء</Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
