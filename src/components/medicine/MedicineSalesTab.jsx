@@ -8,57 +8,42 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, CalendarRange, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
-// Returns array of 7-day periods from 2025-01-01 up to today
-function generate7DayPeriods() {
-  const start = new Date("2025-01-01");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const periods = [];
-  let cur = new Date(start);
-  while (cur <= today) {
-    const from = new Date(cur);
-    const to = new Date(cur);
-    to.setDate(to.getDate() + 6);
-    periods.push({
-      from: from.toISOString().split("T")[0],
-      to: to.toISOString().split("T")[0],
-      label: `${formatDateAr(from)} — ${formatDateAr(to)}`,
-    });
-    cur.setDate(cur.getDate() + 7);
-  }
-  return periods.reverse(); // newest first
-}
+const TODAY = new Date().toISOString().split("T")[0];
 
 function formatDateAr(d) {
+  if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" });
 }
-
-function getWeekLabel(fromStr) {
-  const d = new Date(fromStr);
-  const jan1 = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-  return `${d.getFullYear()}-W${String(week).padStart(2, "0")}`;
-}
-
-const PERIODS = generate7DayPeriods();
-const DEFAULT_PERIOD_IDX = 0; // most recent
 
 export default function MedicineSalesTab() {
   const qc = useQueryClient();
   const { isAdmin, isManager } = useUserRole();
   const canAdd = isAdmin || isManager;
+  const canSetRange = isAdmin || isManager;
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(DEFAULT_PERIOD_IDX);
-  const today = new Date().toISOString().split("T")[0];
-  const [form, setForm] = useState({ branch: "", dateFrom: today, dateTo: today, quantities: {}, balances: {} });
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+  const [form, setForm] = useState({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
+  const [rangeForm, setRangeForm] = useState({ from: "", to: "" });
   const [filterBranch, setFilterBranch] = useState("الكل");
+
+  // Load display range from ReportSettings
+  const { data: settings = [] } = useQuery({
+    queryKey: ["report-settings"],
+    queryFn: () => base44.entities.ReportSettings.list(),
+    staleTime: 30000,
+  });
+
+  const displayFrom = settings.find((s) => s.key === "medicine_display_from")?.value || "";
+  const displayTo = settings.find((s) => s.key === "medicine_display_to")?.value || "";
+  const fromSettingId = settings.find((s) => s.key === "medicine_display_from")?.id;
+  const toSettingId = settings.find((s) => s.key === "medicine_display_to")?.id;
 
   const { data: items = [] } = useQuery({
     queryKey: ["medicine-items"],
@@ -83,9 +68,32 @@ export default function MedicineSalesTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["medicine-sales"] }),
   });
 
+  const saveRangeMutation = useMutation({
+    mutationFn: async ({ from, to }) => {
+      if (fromSettingId) {
+        await base44.entities.ReportSettings.update(fromSettingId, { key: "medicine_display_from", value: from });
+      } else {
+        await base44.entities.ReportSettings.create({ key: "medicine_display_from", value: from });
+      }
+      if (toSettingId) {
+        await base44.entities.ReportSettings.update(toSettingId, { key: "medicine_display_to", value: to });
+      } else {
+        await base44.entities.ReportSettings.create({ key: "medicine_display_to", value: to });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["report-settings"] });
+      setRangeDialogOpen(false);
+    },
+  });
+
+  const openRangeDialog = () => {
+    setRangeForm({ from: displayFrom || TODAY, to: displayTo || TODAY });
+    setRangeDialogOpen(true);
+  };
+
   const openDialog = () => {
-    const today = new Date().toISOString().split("T")[0];
-    setForm({ branch: "", dateFrom: today, dateTo: today, quantities: {}, balances: {} });
+    setForm({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
     setDialogOpen(true);
   };
 
@@ -106,21 +114,36 @@ export default function MedicineSalesTab() {
     });
   };
 
-  // Filter by period (week_start in range)
   const filtered = useMemo(() => {
-    const period = PERIODS[selectedPeriodIdx];
     return sales.filter((s) => {
       const inBranch = filterBranch === "الكل" || s.branch === filterBranch;
-      const inPeriod = s.week_start >= period.from && s.week_start <= period.to;
-      return inBranch && inPeriod;
+      const inRange = displayFrom && displayTo
+        ? s.week_start >= displayFrom && s.week_start <= displayTo
+        : true;
+      return inBranch && inRange;
     });
-  }, [sales, filterBranch, selectedPeriodIdx]);
-
-  const selectedPeriod = PERIODS[selectedPeriodIdx];
+  }, [sales, filterBranch, displayFrom, displayTo]);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Display range bar */}
+      <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg px-4 py-2 gap-3">
+        <div className="flex items-center gap-2 text-sm text-teal-800">
+          <CalendarRange className="w-4 h-4" />
+          {displayFrom && displayTo ? (
+            <span>عرض الفترة: <strong>{formatDateAr(displayFrom)}</strong> — <strong>{formatDateAr(displayTo)}</strong></span>
+          ) : (
+            <span className="text-teal-600">لم يتم تحديد فترة عرض بعد</span>
+          )}
+        </div>
+        {canSetRange && (
+          <Button size="sm" variant="outline" onClick={openRangeDialog} className="text-teal-700 border-teal-300 hover:bg-teal-100 gap-1 h-7 text-xs">
+            <Pencil className="w-3 h-3" /> تغيير الفترة
+          </Button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2 flex-wrap">
           {["الكل", ...BRANCHES].map((b) => (
             <button key={b} onClick={() => setFilterBranch(b)}
@@ -180,6 +203,37 @@ export default function MedicineSalesTab() {
         </div>
       )}
 
+      {/* Set display range dialog - manager only */}
+      <Dialog open={rangeDialogOpen} onOpenChange={setRangeDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader><DialogTitle>تحديد فترة العرض</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">تحديد هذه الفترة يؤثر على ما يراه جميع المستخدمين في خانة أصناف اللسته.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>من تاريخ</Label>
+                <Input type="date" value={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, from: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>إلى تاريخ</Label>
+                <Input type="date" value={rangeForm.to} min={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, to: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 flex-row-reverse">
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={!rangeForm.from || !rangeForm.to || saveRangeMutation.isPending}
+              onClick={() => saveRangeMutation.mutate({ from: rangeForm.from, to: rangeForm.to })}
+            >
+              {saveRangeMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+            <Button variant="outline" onClick={() => setRangeDialogOpen(false)}>إلغاء</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add sales dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>إضافة مبيعات اللسته</DialogTitle></DialogHeader>
@@ -195,22 +249,11 @@ export default function MedicineSalesTab() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>من تاريخ *</Label>
-                <Input
-                  type="date"
-                  value={form.dateFrom}
-                  onChange={(e) => setForm((p) => ({ ...p, dateFrom: e.target.value }))}
-                  required
-                />
+                <Input type="date" value={form.dateFrom} onChange={(e) => setForm((p) => ({ ...p, dateFrom: e.target.value }))} required />
               </div>
               <div className="space-y-1">
                 <Label>إلى تاريخ *</Label>
-                <Input
-                  type="date"
-                  value={form.dateTo}
-                  min={form.dateFrom}
-                  onChange={(e) => setForm((p) => ({ ...p, dateTo: e.target.value }))}
-                  required
-                />
+                <Input type="date" value={form.dateTo} min={form.dateFrom} onChange={(e) => setForm((p) => ({ ...p, dateTo: e.target.value }))} required />
               </div>
             </div>
 
@@ -230,15 +273,13 @@ export default function MedicineSalesTab() {
                       type="number" min="0" step="1"
                       value={form.quantities[item.id] || ""}
                       onChange={(e) => setForm((p) => ({ ...p, quantities: { ...p.quantities, [item.id]: e.target.value } }))}
-                      className="h-8 text-center text-sm"
-                      placeholder="0"
+                      className="h-8 text-center text-sm" placeholder="0"
                     />
                     <Input
                       type="number" min="0" step="1"
                       value={form.balances[item.id] || ""}
                       onChange={(e) => setForm((p) => ({ ...p, balances: { ...p.balances, [item.id]: e.target.value } }))}
-                      className="h-8 text-center text-sm"
-                      placeholder="0"
+                      className="h-8 text-center text-sm" placeholder="0"
                     />
                   </div>
                 ))
