@@ -120,33 +120,6 @@ export default function MedicineSalesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Period selector */}
-      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-        <button
-          disabled={selectedPeriodIdx >= PERIODS.length - 1}
-          onClick={() => setSelectedPeriodIdx((i) => i + 1)}
-          className="p-1 rounded hover:bg-gray-200 disabled:opacity-30"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-        <select
-          value={selectedPeriodIdx}
-          onChange={(e) => setSelectedPeriodIdx(parseInt(e.target.value))}
-          className="flex-1 bg-transparent text-sm font-medium text-gray-700 focus:outline-none text-center"
-        >
-          {PERIODS.map((p, i) => (
-            <option key={p.from} value={i}>{p.label}</option>
-          ))}
-        </select>
-        <button
-          disabled={selectedPeriodIdx <= 0}
-          onClick={() => setSelectedPeriodIdx((i) => i - 1)}
-          className="p-1 rounded hover:bg-gray-200 disabled:opacity-30"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-      </div>
-
       <div className="flex items-center justify-between">
         <div className="flex gap-2 flex-wrap">
           {["الكل", ...BRANCHES].map((b) => (
