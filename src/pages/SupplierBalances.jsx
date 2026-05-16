@@ -21,6 +21,8 @@ export default function SupplierBalances() {
   const [debtDialog, setDebtDialog] = useState(null); // { supplier_name, existing? }
   const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "" });
   const [savingDebt, setSavingDebt] = useState(false);
+  const [generalPayDialog, setGeneralPayDialog] = useState(false);
+  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
 
   const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000) });
   const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date") });
@@ -163,6 +165,22 @@ export default function SupplierBalances() {
     },
   });
 
+  const addGeneralPayment = useMutation({
+    mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
+      await base44.entities.SupplierPayment.create({
+        supplier_name,
+        amount: parseFloat(amount),
+        payment_date,
+        notes: notes || "دفعة عامة",
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["supplier-payments"] });
+      setGeneralPayDialog(false);
+      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+    },
+  });
+
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -171,6 +189,9 @@ export default function SupplierBalances() {
           <h1 className="text-2xl font-bold text-gray-800">أرصدة الموردين</h1>
           <p className="text-gray-500 text-sm mt-0.5">تتبع الحسابات الدائنة والمدفوعات</p>
         </div>
+        <Button onClick={() => setGeneralPayDialog(true)} className="bg-green-600 hover:bg-green-700 gap-2">
+          <PlusCircle className="w-4 h-4" /> تسديد دفعة
+        </Button>
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
           <Wallet className="w-5 h-5 text-red-500" />
           <div>
@@ -393,6 +414,50 @@ export default function SupplierBalances() {
               className="bg-green-600 hover:bg-green-700"
             >
               {(addPayment.isPending || addDebtPayment.isPending) ? "جاري الحفظ..." : "تأكيد الدفعة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* General Payment Dialog */}
+      <Dialog open={generalPayDialog} onOpenChange={setGeneralPayDialog}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>تسديد دفعة عامة لمورد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>اسم المورد</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={generalPayForm.supplier_name}
+                onChange={e => setGeneralPayForm(f => ({ ...f, supplier_name: e.target.value }))}
+              >
+                <option value="">-- اختر مورد --</option>
+                {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>المبلغ المسدد (جنيه)</Label>
+              <Input type="number" value={generalPayForm.amount} onChange={e => setGeneralPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
+            </div>
+            <div className="space-y-1">
+              <Label>تاريخ السداد</Label>
+              <Input type="date" value={generalPayForm.payment_date} onChange={e => setGeneralPayForm(f => ({ ...f, payment_date: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>ملاحظات (اختياري)</Label>
+              <Textarea value={generalPayForm.notes} onChange={e => setGeneralPayForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="مثل: تحويل بنكي، شيك..." />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setGeneralPayDialog(false)}>إلغاء</Button>
+            <Button
+              disabled={!generalPayForm.supplier_name || !generalPayForm.amount || addGeneralPayment.isPending}
+              onClick={() => addGeneralPayment.mutate(generalPayForm)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {addGeneralPayment.isPending ? "جاري الحفظ..." : "تأكيد الدفعة"}
             </Button>
           </DialogFooter>
         </DialogContent>
