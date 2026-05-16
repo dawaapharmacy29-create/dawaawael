@@ -8,10 +8,7 @@ import { Plus, Trash2, Upload, X, Image, Loader2, Camera } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const REASONS = [
-  "انتهاء صلاحية", "قرب انتهاء الصلاحية", "تلف", "كسر",
-  "خطأ في التوريد", "زيادة عن الحاجة", "عدم حركة الصنف", "أخرى"
-];
+const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف"];
 
 const emptyItem = () => ({
   product_name: "", quantity: 1, batch_number: "", expiry_date: "", item_reason: "", notes: ""
@@ -151,18 +148,20 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">رقم الفاتورة *</label>
-              <Input value={form.invoice_number} onChange={e => set("invoice_number", e.target.value)} placeholder="أدخل رقم الفاتورة" />
-            </div>
-            <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">المورد أو المخزن *</label>
-              <Select value={form.supplier_name} onValueChange={v => set("supplier_name", v)}>
+              <Select value={form.supplier_name} onValueChange={v => { set("supplier_name", v); set("invoice_number", ""); }}>
                 <SelectTrigger><SelectValue placeholder="اختر المورد" /></SelectTrigger>
                 <SelectContent>
                   {suppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {form.supplier_name && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">رقم الفاتورة *</label>
+                <Input value={form.invoice_number} onChange={e => set("invoice_number", e.target.value)} placeholder={`أدخل رقم فاتورة ${form.supplier_name}`} />
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">الفرع *</label>
               <Select value={form.branch_name} onValueChange={v => { set("branch_name", v); set("employee_name", ""); }}>

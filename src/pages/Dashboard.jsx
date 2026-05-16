@@ -43,7 +43,7 @@ export default function Dashboard() {
 
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 200),
+    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000),
     staleTime: 20000,
   });
   const { data: suppliers = [] } = useQuery({
@@ -53,7 +53,7 @@ export default function Dashboard() {
   });
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ["expenses"],
-    queryFn: () => base44.entities.Expense.list("-created_date", 200),
+    queryFn: () => base44.entities.Expense.list("-created_date", 2000),
     staleTime: 20000,
   });
   const { data: budgets = [] } = useQuery({
