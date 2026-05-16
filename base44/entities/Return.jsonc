@@ -1,0 +1,177 @@
+{
+  "name": "Return",
+  "type": "object",
+  "properties": {
+    "return_number": {
+      "type": "string",
+      "description": "\u0631\u0642\u0645 \u0627\u0644\u0645\u0631\u062a\u062c\u0639 \u0627\u0644\u062a\u0644\u0642\u0627\u0626\u064a"
+    },
+    "invoice_number": {
+      "type": "string",
+      "description": "\u0631\u0642\u0645 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0631\u062f \u0623\u0648 \u0627\u0644\u0645\u062e\u0632\u0646"
+    },
+    "branch_name": {
+      "type": "string",
+      "enum": [
+        "\u0641\u0631\u0639 \u0632\u0643\u0631\u064a\u0627",
+        "\u0641\u0631\u0639 \u0628\u0633\u064a\u0633\u0629",
+        "\u0641\u0631\u0639 \u0627\u0644\u0645\u0646\u0634\u064a\u0629"
+      ],
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0641\u0631\u0639"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641"
+    },
+    "return_reason": {
+      "type": "string",
+      "enum": [
+        "\u0627\u0646\u062a\u0647\u0627\u0621 \u0635\u0644\u0627\u062d\u064a\u0629",
+        "\u0642\u0631\u0628 \u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u0635\u0644\u0627\u062d\u064a\u0629",
+        "\u062a\u0644\u0641",
+        "\u0643\u0633\u0631",
+        "\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u062a\u0648\u0631\u064a\u062f",
+        "\u0632\u064a\u0627\u062f\u0629 \u0639\u0646 \u0627\u0644\u062d\u0627\u062c\u0629",
+        "\u0639\u062f\u0645 \u062d\u0631\u0643\u0629 \u0627\u0644\u0635\u0646\u0641",
+        "\u0623\u062e\u0631\u0649"
+      ],
+      "description": "\u0633\u0628\u0628 \u0627\u0644\u0645\u0631\u062a\u062c\u0639 \u0627\u0644\u0631\u0626\u064a\u0633\u064a"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a"
+    },
+    "internal_notes": {
+      "type": "string",
+      "description": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a \u062f\u0627\u062e\u0644\u064a\u0629 \u0644\u0644\u0625\u062f\u0627\u0631\u0629 \u0641\u0642\u0637"
+    },
+    "invoice_images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u0631\u0648\u0627\u0628\u0637 \u0635\u0648\u0631 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "batch_number": {
+            "type": "string"
+          },
+          "expiry_date": {
+            "type": "string"
+          },
+          "item_reason": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "\u0627\u0644\u0623\u0635\u0646\u0627\u0641 \u0627\u0644\u0645\u0631\u062a\u062c\u0639\u0629"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Under Review",
+        "Approved",
+        "Returned",
+        "Rejected"
+      ],
+      "default": "Pending",
+      "description": "\u062d\u0627\u0644\u0629 \u0627\u0644\u0645\u0631\u062a\u062c\u0639"
+    },
+    "status_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "changed_at": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "\u0633\u062c\u0644 \u062a\u063a\u064a\u064a\u0631\u0627\u062a \u0627\u0644\u062d\u0627\u0644\u0629"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0645\u0639\u062a\u0645\u062f \u0627\u0644\u0645\u0631\u062a\u062c\u0639"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0645\u0631\u0627\u062c\u0639"
+    },
+    "returned_at": {
+      "type": "string",
+      "description": "\u062a\u0627\u0631\u064a\u062e \u062a\u0646\u0641\u064a\u0630 \u0627\u0644\u0645\u0631\u062a\u062c\u0639"
+    }
+  },
+  "required": [
+    "invoice_number",
+    "supplier_name",
+    "branch_name",
+    "employee_name",
+    "return_reason",
+    "invoice_images"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "record_condition": {
+            "created_by": "{{user.email}}"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        }
+      ]
+    }
+  }
+}

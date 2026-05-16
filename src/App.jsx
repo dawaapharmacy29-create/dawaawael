@@ -17,6 +17,7 @@ import UserManagement from './pages/UserManagement';
 import TeamMembers from './pages/TeamMembers';
 import PendingInvoices from './pages/PendingInvoices';
 import MedicineList from './pages/MedicineList';
+import Returns from './pages/Returns';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -52,6 +53,7 @@ const AuthenticatedApp = () => {
         <Route path="/team-members" element={<TeamMembers />} />
         <Route path="/pending-invoices" element={<PendingInvoices />} />
         <Route path="/medicine-list" element={<MedicineList />} />
+        <Route path="/returns" element={<Returns />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

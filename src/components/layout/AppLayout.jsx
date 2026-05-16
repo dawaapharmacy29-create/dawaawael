@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/expenses", label: "المصروفات", icon: Receipt },
+  { path: "/returns", label: "المرتجعات", icon: RotateCcw },
   { path: "/reports", label: "التقارير", icon: BarChart2 },
   { path: "/supplier-balances", label: "أرصدة الموردين", icon: HandCoins },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
