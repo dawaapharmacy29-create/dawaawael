@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line
@@ -10,10 +11,13 @@ import ExportButtons from "@/components/reports/ExportButtons";
 import AgingReport from "@/components/reports/AgingReport";
 import TopSuppliers from "@/components/reports/TopSuppliers";
 import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
+import { useUserRole } from "@/lib/useUserRole";
+import { Lock, Settings2 } from "lucide-react";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const BRANCH_COLORS = { "فرع زكريا": "#3b82f6", "فرع بسيسة": "#a855f7", "فرع المنشية": "#f97316" };
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const SETTING_KEY = "report_year";
 
 function getMonthKey(dateStr) {
   if (!dateStr) return null;
@@ -22,16 +26,15 @@ function getMonthKey(dateStr) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getMonthLabel(key) {
-  const [year, month] = key.split("-");
-  return `${MONTHS_AR[parseInt(month) - 1]} ${year}`;
-}
-
 export default function Reports() {
-  const [year, setYear] = useState(new Date().getFullYear());
+  const { isManager } = useUserRole();
+  const queryClient = useQueryClient();
+  const [savingYear, setSavingYear] = useState(false);
+  const [pendingYear, setPendingYear] = useState(null);
 
   const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
   const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
+  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.filter({ key: SETTING_KEY }) });
 
   const years = useMemo(() => {
     const all = new Set();
@@ -41,25 +44,40 @@ export default function Reports() {
     return [...all].sort((a, b) => b - a);
   }, [invoices, expenses]);
 
-  // Monthly data for line chart (all branches combined)
+  // The active year: from saved setting or default to current year
+  const savedSetting = settings[0];
+  const year = savedSetting ? parseInt(savedSetting.value) : (years[0] || new Date().getFullYear());
+
+  // Sync pendingYear when setting loads
+  useEffect(() => {
+    if (savedSetting && pendingYear === null) setPendingYear(parseInt(savedSetting.value));
+    else if (!savedSetting && pendingYear === null) setPendingYear(new Date().getFullYear());
+  }, [savedSetting]);
+
+  const saveYear = async () => {
+    setSavingYear(true);
+    if (savedSetting) {
+      await base44.entities.ReportSettings.update(savedSetting.id, { value: String(pendingYear) });
+    } else {
+      await base44.entities.ReportSettings.create({ key: SETTING_KEY, value: String(pendingYear) });
+    }
+    queryClient.invalidateQueries({ queryKey: ["report-settings"] });
+    setSavingYear(false);
+  };
+
+  // Monthly data
   const monthlyData = useMemo(() => {
     const map = {};
     for (let m = 1; m <= 12; m++) {
       const key = `${year}-${String(m).padStart(2, "0")}`;
       map[key] = { month: MONTHS_AR[m - 1], invoices: 0, expenses: 0 };
     }
-    invoices.forEach((i) => {
-      const k = getMonthKey(i.created_date);
-      if (k && map[k]) map[k].invoices += i.total_value || 0;
-    });
-    expenses.forEach((e) => {
-      const k = getMonthKey(e.date);
-      if (k && map[k]) map[k].expenses += e.amount || 0;
-    });
+    invoices.forEach((i) => { const k = getMonthKey(i.created_date); if (k && map[k]) map[k].invoices += i.total_value || 0; });
+    expenses.forEach((e) => { const k = getMonthKey(e.date); if (k && map[k]) map[k].expenses += e.amount || 0; });
     return Object.values(map);
   }, [invoices, expenses, year]);
 
-  // Branch comparison data (bar chart)
+  // Branch comparison
   const branchData = useMemo(() => {
     return BRANCHES.map((branch) => {
       const inv = invoices.filter((i) => i.branch === branch && new Date(i.created_date).getFullYear() === year);
@@ -72,7 +90,7 @@ export default function Reports() {
     });
   }, [invoices, expenses, year]);
 
-  // Monthly per branch data
+  // Monthly per branch
   const branchMonthlyData = useMemo(() => {
     const map = {};
     for (let m = 1; m <= 12; m++) {
@@ -88,10 +106,8 @@ export default function Reports() {
     return Object.values(map);
   }, [invoices, year]);
 
-  // Summary cards
   const totalInvoices = invoices.filter((i) => new Date(i.created_date).getFullYear() === year).reduce((s, i) => s + (i.total_value || 0), 0);
   const totalExpenses = expenses.filter((e) => new Date(e.date).getFullYear() === year).reduce((s, e) => s + (e.amount || 0), 0);
-
   const fmt = (n) => n.toLocaleString("ar-EG");
 
   return (
@@ -103,13 +119,29 @@ export default function Reports() {
           <p className="text-gray-500 text-sm mt-0.5">مقارنة الفروع والنفقات الشهرية</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value))}
-            className="border rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
-          >
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          {isManager ? (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <Settings2 className="w-4 h-4 text-blue-600" />
+              <span className="text-xs text-blue-600 font-medium">تحديد سنة التقارير:</span>
+              <select
+                value={pendingYear || year}
+                onChange={(e) => setPendingYear(parseInt(e.target.value))}
+                className="border-0 bg-transparent text-sm text-blue-700 font-semibold focus:outline-none"
+              >
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+              {pendingYear !== year && (
+                <Button size="sm" onClick={saveYear} disabled={savingYear} className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                  {savingYear ? "جاري الحفظ..." : "حفظ"}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <Lock className="w-4 h-4 text-gray-400" />
+              <span className="text-sm font-semibold text-gray-700">سنة {year}</span>
+            </div>
+          )}
           <ExportButtons
             invoices={invoices.filter((i) => new Date(i.created_date).getFullYear() === year)}
             expenses={expenses.filter((e) => new Date(e.date).getFullYear() === year)}
@@ -167,7 +199,7 @@ export default function Reports() {
         </ResponsiveContainer>
       </Card>
 
-      {/* Monthly Branch Report / Backup */}
+      {/* Monthly Branch Report */}
       <MonthlyBranchReport invoices={invoices} expenses={expenses} />
 
       {/* Aging Report */}
