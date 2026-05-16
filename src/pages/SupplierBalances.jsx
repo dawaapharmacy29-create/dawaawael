@@ -311,7 +311,6 @@ export default function SupplierBalances() {
                               <TableHead className="text-right text-xs">القيمة</TableHead>
                               <TableHead className="text-right text-xs">المدفوع</TableHead>
                               <TableHead className="text-right text-xs">المتبقي</TableHead>
-                              <TableHead className="text-right text-xs">إجراء</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -322,11 +321,6 @@ export default function SupplierBalances() {
                                 <TableCell className="font-semibold text-sm">{fmt(inv.total_value)} ج</TableCell>
                                 <TableCell className="text-green-600 text-sm">{fmt(inv.paid_value)} ج</TableCell>
                                 <TableCell className="text-red-600 font-semibold text-sm">{fmt(inv.remaining)} ج</TableCell>
-                                <TableCell>
-                                  <Button size="sm" variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50 h-7 text-xs gap-1" onClick={() => openPayDialog(inv)}>
-                                    <CreditCard className="w-3 h-3" /> سداد
-                                  </Button>
-                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
