@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/lib/useUserRole";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
@@ -23,6 +24,8 @@ const navItems = [
 export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { isAdmin } = useUserRole();
+  const visibleNavItems = navItems.filter(item => item.path !== "/user-management" || isAdmin);
 
   const { data: pendingInvoices = [] } = useQuery({
     queryKey: ["pending-invoices-count"],
@@ -40,7 +43,7 @@ export default function AppLayout() {
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -79,7 +82,7 @@ export default function AppLayout() {
         <div className="md:hidden fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)}>
           <div className="absolute top-12 right-0 w-56 bg-white h-full shadow-xl p-3" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1 mt-2">
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}

@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShieldCheck, UserPlus, Mail, Check, X } from "lucide-react";
+import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useUserRole } from "@/lib/useUserRole";
 
 const ROLE_CONFIG = {
   admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
@@ -27,6 +28,7 @@ const PERMISSIONS = [
 export default function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
   const [inviteDialog, setInviteDialog] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer" });
 
@@ -44,6 +46,15 @@ export default function UserManagement() {
     mutationFn: ({ id, perm, value }) => base44.entities.User.update(id, { [perm]: value }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
 
   const handleInvite = async () => {
     await base44.users.inviteUser(inviteForm.email, inviteForm.role === "admin" ? "admin" : "user");
