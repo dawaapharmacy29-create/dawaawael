@@ -142,13 +142,19 @@ export default function MedicineSalesTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(s.sales || []).map((sale, i) => (
+                    {(s.sales || []).map((sale, i) => {
+                      const itemData = items.find((it) => it.id === sale.medicine_id);
+                      return (
                       <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="px-2 py-1.5 font-medium text-gray-700">{sale.medicine_name}</td>
+                        <td className="px-2 py-1.5">
+                          <div className="font-medium text-gray-700">{sale.medicine_name}</div>
+                          {itemData?.item_code && <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>}
+                        </td>
                         <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">{sale.quantity ?? 0}</td>
                         <td className="px-2 py-1.5 text-center text-green-700 font-semibold">{sale.balance ?? "—"}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -192,7 +198,10 @@ export default function MedicineSalesTab() {
               ) : (
                 activeItems.map((item) => (
                   <div key={item.id} className="grid grid-cols-3 gap-2 items-center">
-                    <span className="text-sm font-medium text-gray-700 truncate">{item.name}</span>
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                      {item.item_code && <p className="text-xs text-teal-600 font-mono">{item.item_code}</p>}
+                    </div>
                     <Input
                       type="number" min="0" step="1"
                       value={form.quantities[item.id] || ""}
