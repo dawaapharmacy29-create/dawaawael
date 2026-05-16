@@ -114,7 +114,7 @@ export default function AppLayout() {
       {/* Main Content */}
       <main className="flex-1 md:overflow-auto pt-14 md:pt-0 flex flex-col">
         {/* Alerts bar */}
-        <div className="px-4 pt-3 pb-0 flex justify-start">
+        <div className="px-4 pt-3 pb-0 flex justify-end">
           <SmartAlerts />
         </div>
         <div className="flex-1">
