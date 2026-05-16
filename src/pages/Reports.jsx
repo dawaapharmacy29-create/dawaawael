@@ -12,12 +12,13 @@ import AgingReport from "@/components/reports/AgingReport";
 import TopSuppliers from "@/components/reports/TopSuppliers";
 import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
 import { useUserRole } from "@/lib/useUserRole";
-import { Lock, Settings2 } from "lucide-react";
+import { Lock, Settings2, Save } from "lucide-react";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const BRANCH_COLORS = { "فرع زكريا": "#3b82f6", "فرع بسيسة": "#a855f7", "فرع المنشية": "#f97316" };
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-const SETTING_KEY = "report_year";
+const SETTING_KEY_FROM = "report_date_from";
+const SETTING_KEY_TO = "report_date_to";
 
 function getMonthKey(dateStr) {
   if (!dateStr) return null;
@@ -26,89 +27,106 @@ function getMonthKey(dateStr) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function inRange(dateStr, from, to) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (from && d < new Date(from)) return false;
+  if (to && d > new Date(to + "T23:59:59")) return false;
+  return true;
+}
+
+const thisYear = new Date().getFullYear();
+const DEFAULT_FROM = `${thisYear}-01-01`;
+const DEFAULT_TO = `${thisYear}-12-31`;
+
 export default function Reports() {
   const { isManager } = useUserRole();
   const queryClient = useQueryClient();
-  const [savingYear, setSavingYear] = useState(false);
-  const [pendingYear, setPendingYear] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingFrom, setPendingFrom] = useState(DEFAULT_FROM);
+  const [pendingTo, setPendingTo] = useState(DEFAULT_TO);
 
   const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
   const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
-  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.filter({ key: SETTING_KEY }) });
+  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
 
-  const years = useMemo(() => {
-    const all = new Set();
-    invoices.forEach((i) => i.created_date && all.add(new Date(i.created_date).getFullYear()));
-    expenses.forEach((e) => e.date && all.add(new Date(e.date).getFullYear()));
-    if (all.size === 0) all.add(new Date().getFullYear());
-    return [...all].sort((a, b) => b - a);
-  }, [invoices, expenses]);
+  const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
+  const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
+  const activeFrom = settingFrom?.value || DEFAULT_FROM;
+  const activeTo = settingTo?.value || DEFAULT_TO;
 
-  // The active year: from saved setting or default to current year
-  const savedSetting = settings[0];
-  const year = savedSetting ? parseInt(savedSetting.value) : (years[0] || new Date().getFullYear());
-
-  // Sync pendingYear when setting loads
+  // Sync pending when settings load
   useEffect(() => {
-    if (savedSetting && pendingYear === null) setPendingYear(parseInt(savedSetting.value));
-    else if (!savedSetting && pendingYear === null) setPendingYear(new Date().getFullYear());
-  }, [savedSetting]);
+    if (settingFrom) setPendingFrom(settingFrom.value);
+    if (settingTo) setPendingTo(settingTo.value);
+  }, [settingFrom?.value, settingTo?.value]);
 
-  const saveYear = async () => {
-    setSavingYear(true);
-    if (savedSetting) {
-      await base44.entities.ReportSettings.update(savedSetting.id, { value: String(pendingYear) });
+  const saveSettings = async () => {
+    setSaving(true);
+    if (settingFrom) {
+      await base44.entities.ReportSettings.update(settingFrom.id, { value: pendingFrom });
     } else {
-      await base44.entities.ReportSettings.create({ key: SETTING_KEY, value: String(pendingYear) });
+      await base44.entities.ReportSettings.create({ key: SETTING_KEY_FROM, value: pendingFrom });
+    }
+    if (settingTo) {
+      await base44.entities.ReportSettings.update(settingTo.id, { value: pendingTo });
+    } else {
+      await base44.entities.ReportSettings.create({ key: SETTING_KEY_TO, value: pendingTo });
     }
     queryClient.invalidateQueries({ queryKey: ["report-settings"] });
-    setSavingYear(false);
+    setSaving(false);
   };
+
+  const filteredInvoices = useMemo(() => invoices.filter(i => inRange(i.created_date, activeFrom, activeTo)), [invoices, activeFrom, activeTo]);
+  const filteredExpenses = useMemo(() => expenses.filter(e => inRange(e.date, activeFrom, activeTo)), [expenses, activeFrom, activeTo]);
 
   // Monthly data
   const monthlyData = useMemo(() => {
     const map = {};
-    for (let m = 1; m <= 12; m++) {
-      const key = `${year}-${String(m).padStart(2, "0")}`;
-      map[key] = { month: MONTHS_AR[m - 1], invoices: 0, expenses: 0 };
-    }
-    invoices.forEach((i) => { const k = getMonthKey(i.created_date); if (k && map[k]) map[k].invoices += i.total_value || 0; });
-    expenses.forEach((e) => { const k = getMonthKey(e.date); if (k && map[k]) map[k].expenses += e.amount || 0; });
-    return Object.values(map);
-  }, [invoices, expenses, year]);
+    filteredInvoices.forEach((i) => {
+      const k = getMonthKey(i.created_date);
+      if (!k) return;
+      if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
+      map[k].invoices += i.total_value || 0;
+    });
+    filteredExpenses.forEach((e) => {
+      const k = getMonthKey(e.date);
+      if (!k) return;
+      if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
+      map[k].expenses += e.amount || 0;
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  }, [filteredInvoices, filteredExpenses]);
 
   // Branch comparison
   const branchData = useMemo(() => {
-    return BRANCHES.map((branch) => {
-      const inv = invoices.filter((i) => i.branch === branch && new Date(i.created_date).getFullYear() === year);
-      const exp = expenses.filter((e) => e.branch === branch && new Date(e.date).getFullYear() === year);
-      return {
-        branch: branch.replace("فرع ", ""),
-        مشتريات: inv.reduce((s, i) => s + (i.total_value || 0), 0),
-        مصروفات: exp.reduce((s, e) => s + (e.amount || 0), 0),
-      };
-    });
-  }, [invoices, expenses, year]);
+    return BRANCHES.map((branch) => ({
+      branch: branch.replace("فرع ", ""),
+      مشتريات: filteredInvoices.filter(i => i.branch === branch).reduce((s, i) => s + (i.total_value || 0), 0),
+      مصروفات: filteredExpenses.filter(e => e.branch === branch).reduce((s, e) => s + (e.amount || 0), 0),
+    }));
+  }, [filteredInvoices, filteredExpenses]);
 
   // Monthly per branch
   const branchMonthlyData = useMemo(() => {
     const map = {};
-    for (let m = 1; m <= 12; m++) {
-      const key = `${year}-${String(m).padStart(2, "0")}`;
-      map[key] = { month: MONTHS_AR[m - 1] };
-      BRANCHES.forEach((b) => { map[key][b.replace("فرع ", "")] = 0; });
-    }
-    invoices.forEach((i) => {
+    filteredInvoices.forEach((i) => {
       const k = getMonthKey(i.created_date);
       const bKey = i.branch?.replace("فرع ", "");
-      if (k && map[k] && bKey) map[k][bKey] += i.total_value || 0;
+      if (!k || !bKey) return;
+      if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}` }; BRANCHES.forEach(b => { map[k][b.replace("فرع ","")] = 0; }); }
+      map[k][bKey] = (map[k][bKey] || 0) + (i.total_value || 0);
     });
-    return Object.values(map);
-  }, [invoices, year]);
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  }, [filteredInvoices]);
 
-  const totalInvoices = invoices.filter((i) => new Date(i.created_date).getFullYear() === year).reduce((s, i) => s + (i.total_value || 0), 0);
-  const totalExpenses = expenses.filter((e) => new Date(e.date).getFullYear() === year).reduce((s, e) => s + (e.amount || 0), 0);
+  const totalInvoices = filteredInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const fmt = (n) => n.toLocaleString("ar-EG");
+
+  const changed = pendingFrom !== activeFrom || pendingTo !== activeTo;
+
+  const formatDateAr = (d) => d ? new Date(d).toLocaleDateString("ar-EG") : "";
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -116,36 +134,42 @@ export default function Reports() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">التقارير التفصيلية</h1>
-          <p className="text-gray-500 text-sm mt-0.5">مقارنة الفروع والنفقات الشهرية</p>
+          <p className="text-gray-500 text-sm mt-0.5">مقارنة الفروع والنفقات للفترة المحددة</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {isManager ? (
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-              <Settings2 className="w-4 h-4 text-blue-600" />
-              <span className="text-xs text-blue-600 font-medium">تحديد سنة التقارير:</span>
-              <select
-                value={pendingYear || year}
-                onChange={(e) => setPendingYear(parseInt(e.target.value))}
-                className="border-0 bg-transparent text-sm text-blue-700 font-semibold focus:outline-none"
-              >
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-              {pendingYear !== year && (
-                <Button size="sm" onClick={saveYear} disabled={savingYear} className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white">
-                  {savingYear ? "جاري الحفظ..." : "حفظ"}
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex-wrap">
+              <Settings2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="text-xs text-blue-600 font-medium">فترة التقارير:</span>
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-blue-500">من</label>
+                <input type="date" value={pendingFrom} onChange={e => setPendingFrom(e.target.value)}
+                  className="border border-blue-200 rounded px-2 py-1 text-sm text-blue-700 bg-white focus:outline-none" />
+              </div>
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-blue-500">إلى</label>
+                <input type="date" value={pendingTo} onChange={e => setPendingTo(e.target.value)}
+                  className="border border-blue-200 rounded px-2 py-1 text-sm text-blue-700 bg-white focus:outline-none" />
+              </div>
+              {changed && (
+                <Button size="sm" onClick={saveSettings} disabled={saving} className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1">
+                  <Save className="w-3 h-3" />
+                  {saving ? "جاري الحفظ..." : "حفظ"}
                 </Button>
               )}
             </div>
           ) : (
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <Lock className="w-4 h-4 text-gray-400" />
-              <span className="text-sm font-semibold text-gray-700">سنة {year}</span>
+              <span className="text-sm text-gray-600">
+                من <strong>{formatDateAr(activeFrom)}</strong> إلى <strong>{formatDateAr(activeTo)}</strong>
+              </span>
             </div>
           )}
           <ExportButtons
-            invoices={invoices.filter((i) => new Date(i.created_date).getFullYear() === year)}
-            expenses={expenses.filter((e) => new Date(e.date).getFullYear() === year)}
-            year={year}
+            invoices={filteredInvoices}
+            expenses={filteredExpenses}
+            year={new Date(activeFrom).getFullYear()}
             branchData={branchData}
             monthlyData={monthlyData}
           />
@@ -157,8 +181,8 @@ export default function Reports() {
         {[
           { label: "إجمالي المشتريات", value: fmt(totalInvoices) + " ج", color: "text-blue-600", bg: "bg-blue-50" },
           { label: "إجمالي المصروفات", value: fmt(totalExpenses) + " ج", color: "text-red-600", bg: "bg-red-50" },
-          { label: "عدد الفواتير", value: invoices.filter((i) => new Date(i.created_date).getFullYear() === year).length, color: "text-teal-600", bg: "bg-teal-50" },
-          { label: "عدد المصروفات", value: expenses.filter((e) => new Date(e.date).getFullYear() === year).length, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "عدد الفواتير", value: filteredInvoices.length, color: "text-teal-600", bg: "bg-teal-50" },
+          { label: "عدد المصروفات", value: filteredExpenses.length, color: "text-orange-600", bg: "bg-orange-50" },
         ].map((s) => (
           <Card key={s.label} className={`p-4 ${s.bg}`}>
             <p className="text-xs text-gray-500">{s.label}</p>
@@ -167,9 +191,9 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Branch Comparison Bar Chart */}
+      {/* Branch Comparison */}
       <Card className="p-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">مقارنة المشتريات والمصروفات بين الفروع - {year}</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">مقارنة المشتريات والمصروفات بين الفروع</h2>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={branchData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -183,21 +207,23 @@ export default function Reports() {
         </ResponsiveContainer>
       </Card>
 
-      {/* Monthly Trend Line Chart */}
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">تطور المشتريات والمصروفات شهرياً - {year}</h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={monthlyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
-            <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
-            <Legend />
-            <Line type="monotone" dataKey="invoices" name="مشتريات" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="expenses" name="مصروفات" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
+      {/* Monthly Trend */}
+      {monthlyData.length > 0 && (
+        <Card className="p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">تطور المشتريات والمصروفات شهرياً</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
+              <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
+              <Legend />
+              <Line type="monotone" dataKey="invoices" name="مشتريات" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="expenses" name="مصروفات" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
 
       {/* Monthly Branch Report */}
       <MonthlyBranchReport invoices={invoices} expenses={expenses} />
@@ -205,25 +231,27 @@ export default function Reports() {
       {/* Aging Report */}
       <AgingReport invoices={invoices} />
 
-      {/* Top Suppliers */}
-      <TopSuppliers invoices={invoices} year={year} />
+      {/* All Suppliers Table */}
+      <TopSuppliers invoices={invoices} dateFrom={activeFrom} dateTo={activeTo} />
 
-      {/* Monthly per Branch Bar Chart */}
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">المشتريات الشهرية لكل فرع - {year}</h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={branchMonthlyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
-            <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
-            <Legend />
-            {BRANCHES.map((b) => (
-              <Bar key={b} dataKey={b.replace("فرع ", "")} fill={BRANCH_COLORS[b]} radius={[3, 3, 0, 0]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+      {/* Monthly per Branch */}
+      {branchMonthlyData.length > 0 && (
+        <Card className="p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">المشتريات الشهرية لكل فرع</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={branchMonthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
+              <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
+              <Legend />
+              {BRANCHES.map((b) => (
+                <Bar key={b} dataKey={b.replace("فرع ", "")} fill={BRANCH_COLORS[b]} radius={[3, 3, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
     </div>
   );
 }
