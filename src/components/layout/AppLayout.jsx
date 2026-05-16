@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
+import SmartAlerts from "@/components/layout/SmartAlerts";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
@@ -111,8 +112,14 @@ export default function AppLayout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 md:overflow-auto pt-14 md:pt-0">
-        <Outlet />
+      <main className="flex-1 md:overflow-auto pt-14 md:pt-0 flex flex-col">
+        {/* Alerts bar */}
+        <div className="px-4 pt-3 pb-0 flex justify-start">
+          <SmartAlerts />
+        </div>
+        <div className="flex-1">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
