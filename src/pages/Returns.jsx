@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, RefreshCw, RotateCcw } from "lucide-react";
+import { Plus, Search, Eye, RefreshCw, RotateCcw, AlertTriangle } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ReturnFormDialog from "@/components/returns/ReturnFormDialog";
 import ReturnDetailDialog from "@/components/returns/ReturnDetailDialog";
@@ -70,6 +70,15 @@ export default function Returns() {
     return acc;
   }, {});
 
+  const stalePendingReturns = useMemo(() => {
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    return allReturns.filter((r) => {
+      if (r.status !== "Pending") return false;
+      const created = new Date(r.created_date).getTime();
+      return created < threeDaysAgo;
+    });
+  }, [allReturns]);
+
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
       {/* Header */}
@@ -85,6 +94,26 @@ export default function Returns() {
           <Plus className="w-4 h-4" /> مرتجع جديد
         </Button>
       </div>
+
+      {/* Stale Pending Alert */}
+      {stalePendingReturns.length > 0 && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl p-3 flex gap-3 items-start">
+          <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-orange-700">{stalePendingReturns.length} مرتجع معلق منذ أكثر من 3 أيام</p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {stalePendingReturns.map((r) => {
+                const days = Math.floor((Date.now() - new Date(r.created_date).getTime()) / (1000 * 60 * 60 * 24));
+                return (
+                  <button key={r.id} onClick={() => handleView(r)} className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-200 rounded-full px-2 py-0.5 transition-colors">
+                    {r.return_number || r.invoice_number} ({days} يوم)
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

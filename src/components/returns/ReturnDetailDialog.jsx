@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
-import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare, Trash2, Edit2, PauseCircle, Save } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare, Trash2, Edit2, PauseCircle, Save, Printer } from "lucide-react";
 
 const STATUS_CONFIG = {
   Pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -97,6 +97,38 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
   const isReturned = returnData.status === "Returned";
   const isDone = isRejected || isReturned;
 
+  const handlePrint = () => {
+    const STATUS_LABELS = { Pending: "في الانتظار", "Under Review": "جاري المراجعة", Approved: "معتمد", Returned: "تم التنفيذ", Rejected: "مرفوض" };
+    const itemsHtml = (returnData.items || []).map(it => `<tr><td>${it.product_name || ""}</td><td>${it.quantity || ""}</td><td>${it.item_reason || "—"}</td></tr>`).join("");
+    const historyHtml = (returnData.status_history || []).map(h => `<tr><td>${STATUS_LABELS[h.status] || h.status}</td><td>${h.changed_by || ""}</td><td>${h.changed_at ? new Date(h.changed_at).toLocaleDateString("ar-EG") : ""}</td><td>${h.note || ""}</td></tr>`).join("");
+    const w = window.open("", "_blank");
+    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقرير مرتجع ${returnData.return_number}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{color:#0d9488;font-size:18px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:8px;text-align:right;font-size:13px}th{background:#f0fdfa;color:#0d9488}
+    .badge{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:bold}
+    .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}
+    .info-cell{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px}
+    .info-label{font-size:11px;color:#6b7280}.info-value{font-size:13px;font-weight:600;margin-top:4px}
+    @media print{button{display:none}}</style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0d9488;padding-bottom:12px;margin-bottom:16px">
+      <div><h1>تقرير مرتجع — ${returnData.return_number || "—"}</h1><p style="color:#6b7280;font-size:12px;margin:0">تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}</p></div>
+      <span class="badge" style="background:#f0fdfa;color:#0d9488;border:1px solid #99f6e4">${STATUS_LABELS[returnData.status] || returnData.status}</span>
+    </div>
+    <div class="info-grid">
+      <div class="info-cell"><div class="info-label">رقم الفاتورة</div><div class="info-value">${returnData.invoice_number || "—"}</div></div>
+      <div class="info-cell"><div class="info-label">المورد</div><div class="info-value">${returnData.supplier_name || "—"}</div></div>
+      <div class="info-cell"><div class="info-label">الفرع</div><div class="info-value">${returnData.branch_name || "—"}</div></div>
+      <div class="info-cell"><div class="info-label">الموظف</div><div class="info-value">${returnData.employee_name || "—"}</div></div>
+      <div class="info-cell"><div class="info-label">التاريخ</div><div class="info-value">${returnData.created_date ? new Date(returnData.created_date).toLocaleDateString("ar-EG") : "—"}</div></div>
+      ${returnData.approved_by ? `<div class="info-cell"><div class="info-label">معتمد بواسطة</div><div class="info-value">${returnData.approved_by}</div></div>` : ""}
+    </div>
+    ${returnData.notes ? `<p style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px"><strong>ملاحظات:</strong> ${returnData.notes}</p>` : ""}
+    <h3 style="color:#0d9488;font-size:14px;margin-top:16px">الأصناف المرتجعة</h3>
+    <table><thead><tr><th>اسم الصنف</th><th>الكمية</th><th>السبب</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    ${historyHtml ? `<h3 style="color:#0d9488;font-size:14px;margin-top:16px">سجل التغييرات</h3><table><thead><tr><th>الحالة</th><th>بواسطة</th><th>التاريخ</th><th>ملاحظة</th></tr></thead><tbody>${historyHtml}</tbody></table>` : ""}
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,7 +138,12 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
               <DialogTitle className="text-lg font-bold text-teal-700">
                 تفاصيل المرتجع — {returnData.return_number}
               </DialogTitle>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg.color}`}>{cfg.label}</span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg.color}`}>{cfg.label}</span>
+                <Button size="sm" variant="outline" onClick={handlePrint} className="gap-1 h-7 text-xs text-gray-600 border-gray-300">
+                  <Printer className="w-3.5 h-3.5" /> طباعة
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
