@@ -29,6 +29,7 @@ export default function MedicineSalesTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Load display range from ReportSettings
   const { data: settings = [] } = useQuery({
@@ -65,17 +66,26 @@ export default function MedicineSalesTab() {
 
   const openDialog = () => {
     setForm({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
+    setSubmitAttempted(false);
     setDialogOpen(true);
   };
 
+  const allItemsFilled = activeItems.every(
+    (item) => form.quantities[item.id] !== "" && form.quantities[item.id] !== undefined &&
+              form.balances[item.id] !== "" && form.balances[item.id] !== undefined
+  );
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    setSubmitAttempted(true);
+    if (!form.branch || !form.dateFrom || !form.dateTo || !allItemsFilled) return;
+
     const salesArr = activeItems.map((item) => ({
       medicine_id: item.id,
       medicine_name: item.name,
       quantity: parseFloat(form.quantities[item.id] || 0),
       balance: parseFloat(form.balances[item.id] || 0),
-    })).filter((s) => s.quantity > 0 || s.balance > 0);
+    }));
 
     createMutation.mutate({
       branch: form.branch,
@@ -170,10 +180,13 @@ export default function MedicineSalesTab() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label>الفرع *</Label>
-              <Select value={form.branch} onValueChange={(v) => setForm((p) => ({ ...p, branch: v }))} required>
-                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+              <Select value={form.branch} onValueChange={(v) => setForm((p) => ({ ...p, branch: v }))}>
+                <SelectTrigger className={submitAttempted && !form.branch ? "border-red-500 ring-1 ring-red-400" : ""}>
+                  <SelectValue placeholder="اختر الفرع" />
+                </SelectTrigger>
                 <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
               </Select>
+              {submitAttempted && !form.branch && <p className="text-xs text-red-500">الفرع مطلوب</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -196,7 +209,10 @@ export default function MedicineSalesTab() {
               {activeItems.length === 0 ? (
                 <p className="text-sm text-gray-400">لا توجد أصناف — أضفها من تبويب إدارة الأصناف</p>
               ) : (
-                activeItems.map((item) => (
+                activeItems.map((item) => {
+                  const qtyMissing = submitAttempted && (form.quantities[item.id] === "" || form.quantities[item.id] === undefined);
+                  const balMissing = submitAttempted && (form.balances[item.id] === "" || form.balances[item.id] === undefined);
+                  return (
                   <div key={item.id} className="grid grid-cols-3 gap-2 items-center">
                     <div>
                       <span className="text-sm font-medium text-gray-700">{item.name}</span>
@@ -204,23 +220,27 @@ export default function MedicineSalesTab() {
                     </div>
                     <Input
                       type="number" min="0" step="1"
-                      value={form.quantities[item.id] || ""}
+                      value={form.quantities[item.id] ?? ""}
                       onChange={(e) => setForm((p) => ({ ...p, quantities: { ...p.quantities, [item.id]: e.target.value } }))}
-                      className="h-8 text-center text-sm" placeholder="0"
+                      className={`h-8 text-center text-sm ${qtyMissing ? "border-red-500 ring-1 ring-red-400" : ""}`} placeholder="0"
                     />
                     <Input
                       type="number" min="0" step="1"
-                      value={form.balances[item.id] || ""}
+                      value={form.balances[item.id] ?? ""}
                       onChange={(e) => setForm((p) => ({ ...p, balances: { ...p.balances, [item.id]: e.target.value } }))}
-                      className="h-8 text-center text-sm" placeholder="0"
+                      className={`h-8 text-center text-sm ${balMissing ? "border-red-500 ring-1 ring-red-400" : ""}`} placeholder="0"
                     />
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 
+            {submitAttempted && (!form.branch || !allItemsFilled) && (
+              <p className="text-xs text-red-500 text-center">يرجى تعبئة جميع الخانات قبل الحفظ</p>
+            )}
             <DialogFooter className="gap-2 flex-row-reverse">
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={!form.branch || !form.dateFrom || !form.dateTo || createMutation.isPending}>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={createMutation.isPending}>
                 {createMutation.isPending ? "جاري الحفظ..." : "حفظ"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
