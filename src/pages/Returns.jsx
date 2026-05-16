@@ -158,7 +158,7 @@ export default function Returns() {
                   <th className="text-right px-4 py-3 font-semibold text-gray-600">المورد</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">الفرع</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">الموظف</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">السبب</th>
+
                   <th className="text-right px-4 py-3 font-semibold text-gray-600">الحالة</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">التاريخ</th>
                   <th className="px-4 py-3"></th>
@@ -174,7 +174,7 @@ export default function Returns() {
                       <td className="px-4 py-3 text-gray-700">{ret.supplier_name}</td>
                       <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{ret.branch_name}</td>
                       <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{ret.employee_name}</td>
-                      <td className="px-4 py-3 text-gray-600 hidden md:table-cell text-xs">{ret.return_reason}</td>
+
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${cfg.color}`}>{cfg.label}</span>
                       </td>
@@ -221,6 +221,7 @@ export default function Returns() {
             setSelectedReturn(updated);
             queryClient.invalidateQueries({ queryKey: ["returns"] });
           }}
+          onDeleted={() => queryClient.invalidateQueries({ queryKey: ["returns"] })}
         />
       )}
     </div>

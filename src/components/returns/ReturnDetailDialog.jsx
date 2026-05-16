@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
-import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare, Trash2, Edit2, PauseCircle, Save } from "lucide-react";
 
 const STATUS_CONFIG = {
   Pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -14,18 +15,49 @@ const STATUS_CONFIG = {
   Rejected: { label: "مرفوض", color: "bg-red-100 text-red-800 border-red-200" },
 };
 
+const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف", "لم يصل"];
+
 const STATUS_TIMELINE = ["Pending", "Under Review", "Approved", "Returned"];
 
-export default function ReturnDetailDialog({ open, onOpenChange, returnData, onUpdated }) {
+export default function ReturnDetailDialog({ open, onOpenChange, returnData, onUpdated, onDeleted }) {
   const [note, setNote] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [internalNote, setInternalNote] = useState(returnData?.internal_notes || "");
   const [savingNote, setSavingNote] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editItems, setEditItems] = useState(returnData?.items || []);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { isManager, user } = useUserRole();
 
   if (!returnData) return null;
   const cfg = STATUS_CONFIG[returnData.status] || STATUS_CONFIG.Pending;
+
+  const handleDelete = async () => {
+    if (!confirm("هل أنت متأكد من حذف هذا المرتجع؟")) return;
+    setDeleting(true);
+    await base44.entities.Return.delete(returnData.id);
+    setDeleting(false);
+    onOpenChange(false);
+    onDeleted?.();
+  };
+
+  const saveEdit = async () => {
+    setSavingEdit(true);
+    await base44.entities.Return.update(returnData.id, { items: editItems });
+    setSavingEdit(false);
+    setEditMode(false);
+    onUpdated?.({ ...returnData, items: editItems });
+  };
+
+  const updateEditItem = (idx, field, val) => {
+    setEditItems(prev => {
+      const arr = [...prev];
+      arr[idx] = { ...arr[idx], [field]: val };
+      return arr;
+    });
+  };
 
   const changeStatus = async (newStatus) => {
     setUpdatingStatus(newStatus);
@@ -85,7 +117,6 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
               <InfoRow label="المورد" value={returnData.supplier_name} />
               <InfoRow label="الفرع" value={returnData.branch_name} />
               <InfoRow label="الموظف" value={returnData.employee_name} />
-              <InfoRow label="سبب المرتجع" value={returnData.return_reason} />
               <InfoRow label="التاريخ" value={returnData.created_date ? new Date(returnData.created_date).toLocaleDateString("ar-EG") : "—"} />
               {returnData.approved_by && <InfoRow label="معتمد بواسطة" value={returnData.approved_by} />}
               {returnData.reviewed_by && <InfoRow label="مراجع بواسطة" value={returnData.reviewed_by} />}
@@ -152,23 +183,50 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
             {/* Items */}
             {returnData.items?.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">الأصناف المرتجعة ({returnData.items.length})</h3>
-                <div className="space-y-2">
-                  {returnData.items.map((item, i) => (
-                    <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm border">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-gray-800">{item.product_name}</span>
-                        <span className="bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-xs font-bold">كمية: {item.quantity}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
-                        {item.batch_number && <span>تشغيلة: {item.batch_number}</span>}
-                        {item.expiry_date && <span>صلاحية: {item.expiry_date}</span>}
-                        {item.item_reason && <span>سبب: {item.item_reason}</span>}
-                        {item.notes && <span className="col-span-2 text-gray-600">ملاحظة: {item.notes}</span>}
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700">الأصناف المرتجعة ({returnData.items.length})</h3>
+                  {isManager && !editMode && (
+                    <Button size="sm" variant="outline" onClick={() => { setEditItems(returnData.items); setEditMode(true); }} className="gap-1 text-blue-600 border-blue-300 h-7 text-xs">
+                      <Edit2 className="w-3 h-3" /> تعديل
+                    </Button>
+                  )}
                 </div>
+                {editMode ? (
+                  <div className="space-y-2">
+                    {editItems.map((item, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg p-3 border space-y-2">
+                        <Input value={item.product_name} onChange={e => updateEditItem(i, "product_name", e.target.value)} placeholder="اسم الصنف" className="text-sm h-8" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input type="number" min="1" value={item.quantity} onChange={e => updateEditItem(i, "quantity", +e.target.value)} placeholder="العدد" className="text-sm h-8" />
+                          <Select value={item.item_reason} onValueChange={v => updateEditItem(i, "item_reason", v)}>
+                            <SelectTrigger className="text-sm h-8"><SelectValue placeholder="السبب" /></SelectTrigger>
+                            <SelectContent>
+                              {REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" onClick={saveEdit} disabled={savingEdit} className="gap-1 bg-teal-600 hover:bg-teal-700 text-white">
+                        {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} حفظ
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditMode(false)}>إلغاء</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {returnData.items.map((item, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm border">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-gray-800">{item.product_name}</span>
+                          <span className="bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-xs font-bold">كمية: {item.quantity}</span>
+                        </div>
+                        {item.item_reason && <p className="text-xs text-gray-500">سبب: {item.item_reason}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -244,6 +302,20 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
                     رفض المرتجع
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Manager actions for done returns */}
+            {isManager && isDone && (
+              <div className="border-t pt-4 flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => changeStatus("Pending")} disabled={!!updatingStatus} variant="outline" className="gap-1.5 border-yellow-400 text-yellow-700 hover:bg-yellow-50">
+                  {updatingStatus === "Pending" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                  إعادة تعليق
+                </Button>
+                <Button size="sm" onClick={handleDelete} disabled={deleting} variant="outline" className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50">
+                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  حذف المرتجع
+                </Button>
               </div>
             )}
           </div>

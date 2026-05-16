@@ -8,7 +8,7 @@ import { Plus, Trash2, Upload, X, Image, Loader2, Camera } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف"];
+const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف", "لم يصل"];
 
 const emptyItem = () => ({
   product_name: "", quantity: 1, item_reason: ""
@@ -26,7 +26,7 @@ const generateReturnNumber = () => {
 export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
   const [form, setForm] = useState({
     invoice_number: "", supplier_name: "", branch_name: "", employee_name: "",
-    return_reason: "", notes: "", items: [emptyItem()], invoice_images: []
+    notes: "", items: [emptyItem()], invoice_images: []
   });
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -85,7 +85,7 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
 
   const handleSubmit = async () => {
     setError("");
-    if (!form.invoice_number || !form.supplier_name || !form.branch_name || !form.employee_name || !form.return_reason) {
+    if (!form.invoice_number || !form.supplier_name || !form.branch_name || !form.employee_name) {
       setError("يرجى ملء جميع الحقول المطلوبة");
       return;
     }
@@ -124,7 +124,7 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
 
       onSuccess?.();
       onOpenChange(false);
-      setForm({ invoice_number: "", supplier_name: "", branch_name: "", employee_name: "", return_reason: "", notes: "", items: [emptyItem()], invoice_images: [] });
+      setForm({ invoice_number: "", supplier_name: "", branch_name: "", employee_name: "", notes: "", items: [emptyItem()], invoice_images: [] });
       setImageFiles([]);
       setImagePreviews([]);
     } finally {
@@ -173,15 +173,6 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
                 <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
                 <SelectContent>
                   {filteredMembers.map(m => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-sm font-medium text-gray-700">سبب المرتجع الرئيسي *</label>
-              <Select value={form.return_reason} onValueChange={v => set("return_reason", v)}>
-                <SelectTrigger><SelectValue placeholder="اختر السبب" /></SelectTrigger>
-                <SelectContent>
-                  {REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
