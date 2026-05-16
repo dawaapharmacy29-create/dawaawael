@@ -56,7 +56,8 @@ export default function MedicineSalesTab() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(DEFAULT_PERIOD_IDX);
-  const [form, setForm] = useState({ branch: "", periodIdx: DEFAULT_PERIOD_IDX, quantities: {}, balances: {} });
+  const today = new Date().toISOString().split("T")[0];
+  const [form, setForm] = useState({ branch: "", dateFrom: today, dateTo: today, quantities: {}, balances: {} });
   const [filterBranch, setFilterBranch] = useState("الكل");
 
   const { data: items = [] } = useQuery({
@@ -83,13 +84,13 @@ export default function MedicineSalesTab() {
   });
 
   const openDialog = () => {
-    setForm({ branch: "", periodIdx: DEFAULT_PERIOD_IDX, quantities: {}, balances: {} });
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ branch: "", dateFrom: today, dateTo: today, quantities: {}, balances: {} });
     setDialogOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const period = PERIODS[form.periodIdx];
     const salesArr = activeItems.map((item) => ({
       medicine_id: item.id,
       medicine_name: item.name,
@@ -99,8 +100,8 @@ export default function MedicineSalesTab() {
 
     createMutation.mutate({
       branch: form.branch,
-      week_start: period.from,
-      week_label: `${period.from} → ${period.to}`,
+      week_start: form.dateFrom,
+      week_label: `${form.dateFrom} → ${form.dateTo}`,
       sales: salesArr,
     });
   };
@@ -218,17 +219,26 @@ export default function MedicineSalesTab() {
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label>الفترة (7 أيام) *</Label>
-              <select
-                value={form.periodIdx}
-                onChange={(e) => setForm((p) => ({ ...p, periodIdx: parseInt(e.target.value) }))}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {PERIODS.map((p, i) => (
-                  <option key={p.from} value={i}>{p.label}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>من تاريخ *</Label>
+                <Input
+                  type="date"
+                  value={form.dateFrom}
+                  onChange={(e) => setForm((p) => ({ ...p, dateFrom: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>إلى تاريخ *</Label>
+                <Input
+                  type="date"
+                  value={form.dateTo}
+                  min={form.dateFrom}
+                  onChange={(e) => setForm((p) => ({ ...p, dateTo: e.target.value }))}
+                  required
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -263,7 +273,7 @@ export default function MedicineSalesTab() {
             </div>
 
             <DialogFooter className="gap-2 flex-row-reverse">
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={!form.branch || createMutation.isPending}>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={!form.branch || !form.dateFrom || !form.dateTo || createMutation.isPending}>
                 {createMutation.isPending ? "جاري الحفظ..." : "حفظ"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
