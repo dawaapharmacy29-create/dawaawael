@@ -11,7 +11,7 @@ const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشي
 const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف"];
 
 const emptyItem = () => ({
-  product_name: "", quantity: 1, batch_number: "", expiry_date: "", item_reason: "", notes: ""
+  product_name: "", quantity: 1, item_reason: ""
 });
 
 const generateReturnNumber = () => {
@@ -87,10 +87,6 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
     setError("");
     if (!form.invoice_number || !form.supplier_name || !form.branch_name || !form.employee_name || !form.return_reason) {
       setError("يرجى ملء جميع الحقول المطلوبة");
-      return;
-    }
-    if (imageFiles.length === 0 && form.invoice_images.length === 0) {
-      setError("يجب رفع صورة الفاتورة قبل الحفظ");
       return;
     }
     const validItems = form.items.filter(it => it.product_name.trim());
@@ -239,8 +235,8 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
             </div>
             <div className="space-y-2">
               {form.items.map((item, idx) => (
-                <div key={idx} className="border rounded-xl p-3 bg-gray-50 space-y-2">
-                  <div className="flex items-center justify-between">
+                <div key={idx} className="border rounded-xl p-3 bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-gray-600">الصنف {idx + 1}</span>
                     {form.items.length > 1 && (
                       <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
@@ -250,17 +246,14 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
                     <div className="md:col-span-2">
                       <Input placeholder="اسم الصنف *" value={item.product_name} onChange={e => updateItem(idx, "product_name", e.target.value)} className="text-sm" />
                     </div>
-                    <Input placeholder="الكمية" type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, "quantity", +e.target.value)} className="text-sm" />
-                    <Input placeholder="رقم التشغيلة" value={item.batch_number} onChange={e => updateItem(idx, "batch_number", e.target.value)} className="text-sm" />
-                    <Input placeholder="تاريخ الصلاحية" type="date" value={item.expiry_date} onChange={e => updateItem(idx, "expiry_date", e.target.value)} className="text-sm" />
-                    <Select value={item.item_reason} onValueChange={v => updateItem(idx, "item_reason", v)}>
-                      <SelectTrigger className="text-sm h-9"><SelectValue placeholder="سبب المرتجع" /></SelectTrigger>
-                      <SelectContent>
-                        {REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Input placeholder="العدد" type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, "quantity", +e.target.value)} className="text-sm" />
                     <div className="md:col-span-3">
-                      <Input placeholder="ملاحظات الصنف" value={item.notes} onChange={e => updateItem(idx, "notes", e.target.value)} className="text-sm" />
+                      <Select value={item.item_reason} onValueChange={v => updateItem(idx, "item_reason", v)}>
+                        <SelectTrigger className="text-sm h-9"><SelectValue placeholder="سبب المرتجع" /></SelectTrigger>
+                        <SelectContent>
+                          {REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
