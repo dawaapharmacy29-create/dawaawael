@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, CalendarRange, Pencil } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
@@ -25,12 +25,9 @@ export default function MedicineSalesTab() {
   const qc = useQueryClient();
   const { isAdmin, isManager } = useUserRole();
   const canAdd = isAdmin || isManager;
-  const canSetRange = isAdmin || isManager;
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
   const [form, setForm] = useState({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
-  const [rangeForm, setRangeForm] = useState({ from: "", to: "" });
   const [filterBranch, setFilterBranch] = useState("الكل");
 
   // Load display range from ReportSettings
@@ -42,8 +39,6 @@ export default function MedicineSalesTab() {
 
   const displayFrom = settings.find((s) => s.key === "medicine_display_from")?.value || "";
   const displayTo = settings.find((s) => s.key === "medicine_display_to")?.value || "";
-  const fromSettingId = settings.find((s) => s.key === "medicine_display_from")?.id;
-  const toSettingId = settings.find((s) => s.key === "medicine_display_to")?.id;
 
   const { data: items = [] } = useQuery({
     queryKey: ["medicine-items"],
@@ -67,30 +62,6 @@ export default function MedicineSalesTab() {
     mutationFn: (id) => base44.entities.MedicineSale.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["medicine-sales"] }),
   });
-
-  const saveRangeMutation = useMutation({
-    mutationFn: async ({ from, to }) => {
-      if (fromSettingId) {
-        await base44.entities.ReportSettings.update(fromSettingId, { key: "medicine_display_from", value: from });
-      } else {
-        await base44.entities.ReportSettings.create({ key: "medicine_display_from", value: from });
-      }
-      if (toSettingId) {
-        await base44.entities.ReportSettings.update(toSettingId, { key: "medicine_display_to", value: to });
-      } else {
-        await base44.entities.ReportSettings.create({ key: "medicine_display_to", value: to });
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["report-settings"] });
-      setRangeDialogOpen(false);
-    },
-  });
-
-  const openRangeDialog = () => {
-    setRangeForm({ from: displayFrom || TODAY, to: displayTo || TODAY });
-    setRangeDialogOpen(true);
-  };
 
   const openDialog = () => {
     setForm({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
@@ -126,23 +97,6 @@ export default function MedicineSalesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Display range bar */}
-      <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg px-4 py-2 gap-3">
-        <div className="flex items-center gap-2 text-sm text-teal-800">
-          <CalendarRange className="w-4 h-4" />
-          {displayFrom && displayTo ? (
-            <span>عرض الفترة: <strong>{formatDateAr(displayFrom)}</strong> — <strong>{formatDateAr(displayTo)}</strong></span>
-          ) : (
-            <span className="text-teal-600">لم يتم تحديد فترة عرض بعد</span>
-          )}
-        </div>
-        {canSetRange && (
-          <Button size="sm" variant="outline" onClick={openRangeDialog} className="text-teal-700 border-teal-300 hover:bg-teal-100 gap-1 h-7 text-xs">
-            <Pencil className="w-3 h-3" /> تغيير الفترة
-          </Button>
-        )}
-      </div>
-
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2 flex-wrap">
           {["الكل", ...BRANCHES].map((b) => (
@@ -202,36 +156,6 @@ export default function MedicineSalesTab() {
           ))}
         </div>
       )}
-
-      {/* Set display range dialog - manager only */}
-      <Dialog open={rangeDialogOpen} onOpenChange={setRangeDialogOpen}>
-        <DialogContent dir="rtl" className="max-w-sm">
-          <DialogHeader><DialogTitle>تحديد فترة العرض</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <p className="text-xs text-gray-500">تحديد هذه الفترة يؤثر على ما يراه جميع المستخدمين في خانة أصناف اللسته.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>من تاريخ</Label>
-                <Input type="date" value={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, from: e.target.value }))} />
-              </div>
-              <div className="space-y-1">
-                <Label>إلى تاريخ</Label>
-                <Input type="date" value={rangeForm.to} min={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, to: e.target.value }))} />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 flex-row-reverse">
-            <Button
-              className="bg-teal-600 hover:bg-teal-700"
-              disabled={!rangeForm.from || !rangeForm.to || saveRangeMutation.isPending}
-              onClick={() => saveRangeMutation.mutate({ from: rangeForm.from, to: rangeForm.to })}
-            >
-              {saveRangeMutation.isPending ? "جاري الحفظ..." : "حفظ"}
-            </Button>
-            <Button variant="outline" onClick={() => setRangeDialogOpen(false)}>إلغاء</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add sales dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

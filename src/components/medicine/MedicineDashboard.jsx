@@ -1,7 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { Award } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Award, CalendarRange, Pencil } from "lucide-react";
+import { useUserRole } from "@/lib/useUserRole";
+
+const TODAY = new Date().toISOString().split("T")[0];
+
+function formatDateAr(d) {
+  if (!d) return "";
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" });
+}
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const branchColor = {
@@ -11,6 +25,47 @@ const branchColor = {
 };
 
 export default function MedicineDashboard() {
+  const qc = useQueryClient();
+  const { isAdmin, isManager } = useUserRole();
+  const canSetRange = isAdmin || isManager;
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+  const [rangeForm, setRangeForm] = useState({ from: "", to: "" });
+
+  const { data: settings = [] } = useQuery({
+    queryKey: ["report-settings"],
+    queryFn: () => base44.entities.ReportSettings.list(),
+    staleTime: 30000,
+  });
+
+  const displayFrom = settings.find((s) => s.key === "medicine_display_from")?.value || "";
+  const displayTo = settings.find((s) => s.key === "medicine_display_to")?.value || "";
+  const fromSettingId = settings.find((s) => s.key === "medicine_display_from")?.id;
+  const toSettingId = settings.find((s) => s.key === "medicine_display_to")?.id;
+
+  const saveRangeMutation = useMutation({
+    mutationFn: async ({ from, to }) => {
+      if (fromSettingId) {
+        await base44.entities.ReportSettings.update(fromSettingId, { key: "medicine_display_from", value: from });
+      } else {
+        await base44.entities.ReportSettings.create({ key: "medicine_display_from", value: from });
+      }
+      if (toSettingId) {
+        await base44.entities.ReportSettings.update(toSettingId, { key: "medicine_display_to", value: to });
+      } else {
+        await base44.entities.ReportSettings.create({ key: "medicine_display_to", value: to });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["report-settings"] });
+      setRangeDialogOpen(false);
+    },
+  });
+
+  const openRangeDialog = () => {
+    setRangeForm({ from: displayFrom || TODAY, to: displayTo || TODAY });
+    setRangeDialogOpen(true);
+  };
+
   const { data: items = [] } = useQuery({
     queryKey: ["medicine-items"],
     queryFn: () => base44.entities.MedicineItem.list("name"),
@@ -53,6 +108,53 @@ export default function MedicineDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Display range bar */}
+      <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg px-4 py-2 gap-3">
+        <div className="flex items-center gap-2 text-sm text-teal-800">
+          <CalendarRange className="w-4 h-4" />
+          {displayFrom && displayTo ? (
+            <span>عرض الفترة: <strong>{formatDateAr(displayFrom)}</strong> — <strong>{formatDateAr(displayTo)}</strong></span>
+          ) : (
+            <span className="text-teal-600">لم يتم تحديد فترة عرض بعد</span>
+          )}
+        </div>
+        {canSetRange && (
+          <Button size="sm" variant="outline" onClick={openRangeDialog} className="text-teal-700 border-teal-300 hover:bg-teal-100 gap-1 h-7 text-xs">
+            <Pencil className="w-3 h-3" /> تغيير الفترة
+          </Button>
+        )}
+      </div>
+
+      {/* Set display range dialog */}
+      <Dialog open={rangeDialogOpen} onOpenChange={setRangeDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader><DialogTitle>تحديد فترة العرض</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">تحديد هذه الفترة يؤثر على ما يراه جميع المستخدمين في خانة أصناف اللسته.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>من تاريخ</Label>
+                <Input type="date" value={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, from: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>إلى تاريخ</Label>
+                <Input type="date" value={rangeForm.to} min={rangeForm.from} onChange={(e) => setRangeForm((p) => ({ ...p, to: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 flex-row-reverse">
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={!rangeForm.from || !rangeForm.to || saveRangeMutation.isPending}
+              onClick={() => saveRangeMutation.mutate({ from: rangeForm.from, to: rangeForm.to })}
+            >
+              {saveRangeMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+            <Button variant="outline" onClick={() => setRangeDialogOpen(false)}>إلغاء</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* وسام الفرع الأكثر مبيعاً */}
       {topBranch && (
         <Card className={`p-4 border-2 flex items-center gap-4 ${branchColor[topBranch]}`}>
