@@ -15,7 +15,7 @@ const STATUS_CONFIG = {
   Rejected: { label: "مرفوض", color: "bg-red-100 text-red-800 border-red-200" },
 };
 
-const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف", "لم يصل"];
+const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تغيير السعر", "تلف", "لم يصل"];
 
 const STATUS_TIMELINE = ["Pending", "Under Review", "Approved", "Returned"];
 
