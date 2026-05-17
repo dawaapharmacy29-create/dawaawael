@@ -18,6 +18,7 @@ import TeamMembers from './pages/TeamMembers';
 import PendingInvoices from './pages/PendingInvoices';
 import MedicineList from './pages/MedicineList';
 import Returns from './pages/Returns';
+import InventoryManagement from './pages/InventoryManagement';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -54,6 +55,7 @@ const AuthenticatedApp = () => {
         <Route path="/pending-invoices" element={<PendingInvoices />} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
+        <Route path="/inventory" element={<InventoryManagement />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
