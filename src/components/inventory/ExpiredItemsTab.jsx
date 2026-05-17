@@ -128,12 +128,10 @@ export default function ExpiredItemsTab() {
                         </Button>
                       </div>
                     )}
-                    {isAdmin && (
                       <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
                         onClick={() => deleteMutation.mutate(item.id)}>
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3 h-3" /> حذف
                       </Button>
-                    )}
                   </td>
                 )}
               </tr>

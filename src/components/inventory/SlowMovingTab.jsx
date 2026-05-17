@@ -154,12 +154,10 @@ export default function SlowMovingTab() {
                         onClick={() => setActionItem({ item, type: "return" })}>
                         <RotateCcw className="w-3 h-3" /> إرجاع
                       </Button>
-                      {isAdmin && (
-                        <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
-                          onClick={() => deleteMutation.mutate(item.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
+                      <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
+                        onClick={() => deleteMutation.mutate(item.id)}>
+                        <Trash2 className="w-3 h-3" /> حذف
+                      </Button>
                     </div>
                   </td>
                 )}
