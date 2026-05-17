@@ -8,7 +8,7 @@ import { Plus, Trash2, Upload, X, Image, Loader2, Camera } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تلف", "لم يصل"];
+const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تغيير السعر", "تلف", "لم يصل"];
 
 const emptyItem = () => ({
   product_name: "", quantity: 1, item_reason: ""
