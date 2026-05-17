@@ -136,7 +136,7 @@ export default function SlowMovingTab() {
                 <td className="px-3 py-2">{item.price} ج</td>
                 <td className="px-3 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${getExpiryColor(item.expiry_date)}`}>
-                    {format(new Date(item.expiry_date), "yyyy-MM-dd")}
+                    {format(new Date(item.expiry_date), "MM/yyyy")}
                   </span>
                 </td>
                 {canAct && (
@@ -181,7 +181,7 @@ export default function SlowMovingTab() {
             </Select>
             <Input type="number" placeholder="العدد" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
             <Input type="number" placeholder="السعر" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
-            <Input type="date" placeholder="تاريخ الصلاحية" value={form.expiry_date} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
+            <Input type="month" placeholder="تاريخ الصلاحية" value={form.expiry_date} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
             <Input placeholder="ملاحظات (اختياري)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </div>
           <DialogFooter className="flex-row-reverse gap-2">
