@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle, Search, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { format, differenceInDays } from "date-fns";
 
@@ -21,17 +21,25 @@ export default function SlowMovingTab() {
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm());
-  const [actionItem, setActionItem] = useState(null); // { item, type: 'transfer'|'return'|'expire' }
+  const [actionItem, setActionItem] = useState(null);
   const [transferBranch, setTransferBranch] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterBranch, setFilterBranch] = useState("الكل");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   const { data: items = [] } = useQuery({
     queryKey: ["slow-moving-items"],
     queryFn: () => base44.entities.SlowMovingItem.list(),
   });
 
-  // Sort by expiry_date ascending
+  // Filter + Sort by expiry_date ascending
   const sortedItems = [...items]
     .filter(i => i.status === "راكد")
+    .filter(i => !search || i.item_name.includes(search))
+    .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
+    .filter(i => !filterFrom || i.expiry_date >= filterFrom)
+    .filter(i => !filterTo || i.expiry_date <= filterTo)
     .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
 
   const createMutation = useMutation({
@@ -109,6 +117,29 @@ export default function SlowMovingTab() {
         <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
           <Plus className="w-4 h-4" /> إضافة صنف راكد
         </Button>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[160px]">
+          <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
+          <Input className="pr-7" placeholder="بحث باسم الصنف..." value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button className="absolute left-2 top-2" onClick={() => setSearch("")}><X className="w-4 h-4 text-gray-400" /></button>}
+        </div>
+        <Select value={filterBranch} onValueChange={setFilterBranch}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="الكل">كل الفروع</SelectItem>
+            {BRANCHES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Input type="month" className="w-36" placeholder="من" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+        <Input type="month" className="w-36" placeholder="إلى" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+        {(filterBranch !== "الكل" || filterFrom || filterTo) && (
+          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterBranch("الكل"); setFilterFrom(""); setFilterTo(""); }}>
+            <X className="w-3 h-3" /> مسح
+          </Button>
+        )}
       </div>
 
       {/* Table */}

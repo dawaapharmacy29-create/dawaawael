@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, RotateCcw, CheckCircle2, Search, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { format } from "date-fns";
 
@@ -27,15 +27,26 @@ export default function ExpiredItemsTab() {
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm());
-  const [actionItem, setActionItem] = useState(null); // { item, type: 'return'|'dispose' }
+  const [actionItem, setActionItem] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterBranch, setFilterBranch] = useState("الكل");
+  const [filterStatus, setFilterStatus] = useState("الكل");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   const { data: items = [] } = useQuery({
     queryKey: ["expired-items"],
     queryFn: () => base44.entities.ExpiredItem.list(),
   });
 
-  // Sort by expiry_date ascending
-  const sortedItems = [...items].sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+  // Filter + Sort by expiry_date ascending
+  const sortedItems = [...items]
+    .filter(i => !search || i.item_name.includes(search))
+    .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
+    .filter(i => filterStatus === "الكل" || i.status === filterStatus)
+    .filter(i => !filterFrom || i.expiry_date >= filterFrom)
+    .filter(i => !filterTo || i.expiry_date <= filterTo)
+    .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.ExpiredItem.create(data),
@@ -74,6 +85,38 @@ export default function ExpiredItemsTab() {
         <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1 bg-gray-900 hover:bg-black text-white">
           <Plus className="w-4 h-4" /> إضافة صنف منتهي
         </Button>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[160px]">
+          <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
+          <Input className="pr-7" placeholder="بحث باسم الصنف..." value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button className="absolute left-2 top-2" onClick={() => setSearch("")}><X className="w-4 h-4 text-gray-400" /></button>}
+        </div>
+        <Select value={filterBranch} onValueChange={setFilterBranch}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="الكل">كل الفروع</SelectItem>
+            {BRANCHES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="الكل">كل الحالات</SelectItem>
+            <SelectItem value="منتهي">منتهي</SelectItem>
+            <SelectItem value="تم الإرجاع للشركة">تم الإرجاع</SelectItem>
+            <SelectItem value="تم التبديل / التصريف">تم التصريف</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input type="month" className="w-36" placeholder="من" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+        <Input type="month" className="w-36" placeholder="إلى" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+        {(filterBranch !== "الكل" || filterStatus !== "الكل" || filterFrom || filterTo) && (
+          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterBranch("الكل"); setFilterStatus("الكل"); setFilterFrom(""); setFilterTo(""); }}>
+            <X className="w-3 h-3" /> مسح
+          </Button>
+        )}
       </div>
 
       {/* Table */}
