@@ -56,8 +56,14 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
     setNote("");
   };
 
-  const handleMoveToSearch = () => updateOrder(searchForm, "جاري البحث", "تم نقل الطلب لمرحلة البحث");
-  const handleSaveSearch = () => updateOrder(searchForm, null, "تم تحديث بيانات البحث");
+  const getSearchData = () => ({
+    ...searchForm,
+    purchase_price: searchForm.purchase_price !== "" ? Number(searchForm.purchase_price) : undefined,
+    selling_price: searchForm.selling_price !== "" ? Number(searchForm.selling_price) : undefined,
+  });
+
+  const handleMoveToSearch = () => updateOrder(getSearchData(), "جاري البحث", "تم نقل الطلب لمرحلة البحث");
+  const handleSaveSearch = () => updateOrder(getSearchData(), null, "تم تحديث بيانات البحث");
   const handleMoveToAvailable = () => updateOrder({ ...availableForm, product_available: true }, "تم توفير الصنف", "تم توفير الصنف");
   const handleDeliver = () => updateOrder({}, "تم التوصيل", "تم التسليم للعميل");
   const handleUnavailable = () => updateOrder({}, "الصنف غير متوفر حاليا", "الصنف غير متوفر حاليا");
