@@ -187,50 +187,7 @@ export default function MedicineDashboard() {
         </Card>
       )}
 
-      {/* جدول الرصيد الفعلي — لكل صنف رصيده في كل فرع */}
-      {activeItems.length > 0 && balanceRecords.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-gray-700 mb-3">الرصيد الفعلي لكل صنف (آخر تسجيل لكل فرع)</h2>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm" dir="rtl">
-              <thead className="bg-teal-700 text-white">
-                <tr>
-                  <th className="px-3 py-2.5 text-right font-semibold">الصنف</th>
-                  {BRANCHES.map((b) => (
-                    <th key={b} className="px-3 py-2.5 text-center font-semibold">{b}</th>
-                  ))}
-                  <th className="px-3 py-2.5 text-center font-semibold">الإجمالي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeItems.map((item, idx) => {
-                  const vals = BRANCHES.map((b) => latestBalanceByItem[item.id]?.[b]);
-                  const numericVals = vals.filter((v) => v !== null && v !== undefined);
-                  const rowTotal = numericVals.length > 0 ? numericVals.reduce((s, v) => s + v, 0) : null;
-                  return (
-                    <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="px-3 py-2.5 font-medium text-gray-800">{item.name}</td>
-                      {BRANCHES.map((b) => {
-                        const val = latestBalanceByItem[item.id]?.[b];
-                        return (
-                          <td key={b} className="px-3 py-2.5 text-center">
-                            <span className={`font-semibold ${val === null || val === undefined ? "text-gray-300" : "text-teal-700"}`}>
-                              {val !== null && val !== undefined ? val.toLocaleString("ar-EG") : "—"}
-                            </span>
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2.5 text-center font-bold text-gray-800">
-                        {rowTotal !== null ? rowTotal.toLocaleString("ar-EG") : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+
 
       {/* إجمالي مبيعات كل صنف */}
       <div>
