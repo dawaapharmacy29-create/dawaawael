@@ -132,19 +132,22 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                   <Search className="w-4 h-4" /> مرحلة البحث
                 </h4>
                 {isManager ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <FieldInput label="المورد / مكان التوفير" value={searchForm.supplier_found} onChange={(v) => setSearchForm(p => ({ ...p, supplier_found: v }))} />
-                    <FieldInput label="سعر الشراء" type="number" value={searchForm.purchase_price} onChange={(v) => setSearchForm(p => ({ ...p, purchase_price: v }))} />
-                    <FieldInput label="سعر البيع" type="number" value={searchForm.selling_price} onChange={(v) => setSearchForm(p => ({ ...p, selling_price: v }))} />
-                    <FieldInput label="تاريخ التوفر المتوقع" type="date" value={searchForm.expected_availability_date} onChange={(v) => setSearchForm(p => ({ ...p, expected_availability_date: v }))} />
-                    <FieldInput label="آخر متابعة" type="date" value={searchForm.last_followup_date} onChange={(v) => setSearchForm(p => ({ ...p, last_followup_date: v }))} />
-                    <FieldInput label="ملاحظات البحث" value={searchForm.search_notes} onChange={(v) => setSearchForm(p => ({ ...p, search_notes: v }))} />
+                    <FieldInput label="ملاحظات" value={searchForm.search_notes} onChange={(v) => setSearchForm(p => ({ ...p, search_notes: v }))} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FieldInput label="سعر الشراء" type="number" value={searchForm.purchase_price} onChange={(v) => setSearchForm(p => ({ ...p, purchase_price: v }))} />
+                      <FieldInput label="سعر البيع" type="number" value={searchForm.selling_price} onChange={(v) => setSearchForm(p => ({ ...p, selling_price: v }))} />
+                      <FieldInput label="تاريخ التوفر المتوقع" type="date" value={searchForm.expected_availability_date} onChange={(v) => setSearchForm(p => ({ ...p, expected_availability_date: v }))} />
+                      <FieldInput label="آخر متابعة" type="date" value={searchForm.last_followup_date} onChange={(v) => setSearchForm(p => ({ ...p, last_followup_date: v }))} />
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     {order.supplier_found && <Info label="المورد" value={order.supplier_found} />}
                     {order.purchase_price && <Info label="سعر الشراء" value={order.purchase_price} />}
                     {order.selling_price && <Info label="سعر البيع" value={order.selling_price} />}
+                    {order.search_notes && <Info label="ملاحظات" value={order.search_notes} />}
                   </div>
                 )}
               </div>

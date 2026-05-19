@@ -115,6 +115,25 @@ export default function CustomerOrders() {
         <OrderAnalytics orders={orders} />
       ) : (
         <>
+          {/* Branch Filter Buttons */}
+          {isManager && (
+            <div className="flex gap-2 flex-wrap">
+              {["all", ...BRANCHES].map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setFilterBranch(b)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    filterBranch === b
+                      ? "bg-teal-600 text-white border-teal-600"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"
+                  }`}
+                >
+                  {b === "all" ? "كل الفروع" : b}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Filters */}
           <div className="bg-white rounded-xl border p-3 flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[180px]">
@@ -135,17 +154,6 @@ export default function CustomerOrders() {
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            {isManager && (
-              <Select value={filterBranch} onValueChange={setFilterBranch}>
-                <SelectTrigger className="w-36 h-9 text-sm">
-                  <SelectValue placeholder="الفرع" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الفروع</SelectItem>
-                  {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
               <SelectTrigger className="w-36 h-9 text-sm">
                 <SelectValue placeholder="الموظف" />
