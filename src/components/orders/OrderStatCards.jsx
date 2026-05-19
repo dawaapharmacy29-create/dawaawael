@@ -1,6 +1,7 @@
 const STATS = [
   { status: "طلب جديد", label: "طلبات جديدة", color: "bg-blue-50 border-blue-200 text-blue-700", dot: "bg-blue-500" },
   { status: "جاري البحث", label: "جاري البحث", color: "bg-yellow-50 border-yellow-200 text-yellow-700", dot: "bg-yellow-500" },
+  { status: "النواقص", label: "النواقص", color: "bg-purple-50 border-purple-200 text-purple-700", dot: "bg-purple-500" },
   { status: "تم توفير الصنف", label: "تم التوفير", color: "bg-teal-50 border-teal-200 text-teal-700", dot: "bg-teal-500" },
   { status: "تم التوصيل", label: "تم التوصيل", color: "bg-green-50 border-green-200 text-green-700", dot: "bg-green-500" },
   { status: "تم الإلغاء", label: "ملغية", color: "bg-red-50 border-red-200 text-red-700", dot: "bg-red-500" },
@@ -8,7 +9,7 @@ const STATS = [
 
 export default function OrderStatCards({ orders, onFilterStatus, activeStatus }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
       {STATS.map((s) => {
         const count = orders.filter((o) => o.status === s.status).length;
         const isActive = activeStatus === s.status;

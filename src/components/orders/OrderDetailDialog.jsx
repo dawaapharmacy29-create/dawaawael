@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
-import { Loader2, Edit2, ZoomIn, CheckCircle, Phone, MessageCircle, Search, Package, Truck, XCircle, Ban, RotateCcw } from "lucide-react";
+import { Loader2, Edit2, ZoomIn, CheckCircle, Phone, MessageCircle, Search, Package, Truck, XCircle, Ban, RotateCcw, AlertTriangle } from "lucide-react";
 import OrderFormDialog from "./OrderFormDialog";
 
 const STATUS_STYLE = {
   "طلب جديد": "bg-blue-100 text-blue-700 border-blue-200",
   "جاري البحث": "bg-yellow-100 text-yellow-700 border-yellow-200",
+  "النواقص": "bg-purple-100 text-purple-700 border-purple-200",
   "تم توفير الصنف": "bg-teal-100 text-teal-700 border-teal-200",
   "تم التوصيل": "bg-green-100 text-green-700 border-green-200",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700 border-orange-200",
@@ -64,6 +65,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
 
   const handleMoveToSearch = () => updateOrder(getSearchData(), "جاري البحث", "تم نقل الطلب لمرحلة البحث");
   const handleSaveSearch = () => updateOrder(getSearchData(), null, "تم تحديث بيانات البحث");
+  const handleMoveToShortage = () => updateOrder(getSearchData(), "النواقص", "تم نقل الطلب لقائمة النواقص");
   const handleMoveToAvailable = () => updateOrder({ ...availableForm, product_available: true }, "تم توفير الصنف", "تم توفير الصنف");
   const handleDeliver = () => updateOrder({}, "تم التوصيل", "تم التسليم للعميل");
   const handleUnavailable = () => updateOrder({}, "الصنف غير متوفر حاليا", "الصنف غير متوفر حاليا");
@@ -148,6 +150,18 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
               </div>
             )}
 
+            {/* Stage: النواقص */}
+            {order.status === "النواقص" && (
+              <div className="border border-purple-200 bg-purple-50 rounded-xl p-4 space-y-2">
+                <h4 className="text-sm font-semibold text-purple-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> صنف في قائمة النواقص
+                </h4>
+                <p className="text-xs text-purple-600">هذا الصنف مُدرج في قائمة النواقص — في انتظار التوفير أو الترتيب مع المورد.</p>
+                {order.search_notes && <Info label="ملاحظات البحث" value={order.search_notes} />}
+                {order.supplier_found && <Info label="المورد" value={order.supplier_found} />}
+              </div>
+            )}
+
             {/* Stage: تم توفير الصنف */}
             {(order.status === "تم توفير الصنف" || order.product_available) && (
               <div className="border border-teal-200 bg-teal-50 rounded-xl p-4 space-y-3">
@@ -222,6 +236,25 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                       <Button size="sm" onClick={handleMoveToAvailable} disabled={saving} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
                         <Package className="w-3.5 h-3.5" /> تم توفير الصنف
                       </Button>
+                      <Button size="sm" onClick={handleDeliver} disabled={saving} className="gap-1.5 bg-green-600 hover:bg-green-700 text-white">
+                        <Truck className="w-3.5 h-3.5" /> تم التوصيل
+                      </Button>
+                      <Button size="sm" onClick={handleMoveToShortage} disabled={saving} variant="outline" className="gap-1.5 border-purple-300 text-purple-700 hover:bg-purple-50">
+                        <AlertTriangle className="w-3.5 h-3.5" /> نقل للنواقص
+                      </Button>
+                    </>
+                  )}
+                  {order.status === "النواقص" && (
+                    <>
+                      <Button size="sm" onClick={handleMoveToAvailable} disabled={saving} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+                        <Package className="w-3.5 h-3.5" /> تم توفير الصنف
+                      </Button>
+                      <Button size="sm" onClick={handleDeliver} disabled={saving} className="gap-1.5 bg-green-600 hover:bg-green-700 text-white">
+                        <Truck className="w-3.5 h-3.5" /> تم التوصيل
+                      </Button>
+                      <Button size="sm" onClick={handleMoveToSearch} disabled={saving} variant="outline" className="gap-1.5 border-yellow-300 text-yellow-700 hover:bg-yellow-50">
+                        <Search className="w-3.5 h-3.5" /> رجوع لجاري البحث
+                      </Button>
                     </>
                   )}
                   {order.status === "تم توفير الصنف" && (
@@ -234,7 +267,20 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                       </Button>
                     </>
                   )}
-                  {!["تم التوصيل", "تم الإلغاء"].includes(order.status) && (
+                  {!["تم التوصيل", "تم الإلغاء", "النواقص"].includes(order.status) && (
+                    <div className="flex items-center gap-2">
+                      <Select value={cancelReason} onValueChange={setCancelReason}>
+                        <SelectTrigger className="h-8 w-44 text-xs border-red-200 text-red-600"><SelectValue placeholder="سبب الإلغاء" /></SelectTrigger>
+                        <SelectContent>{CANCEL_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Button size="sm" onClick={handleCancel} disabled={saving || !cancelReason} variant="outline" className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50">
+                        <Ban className="w-3.5 h-3.5" /> إلغاء
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Cancel button for النواقص */}
+                  {order.status === "النواقص" && (
                     <div className="flex items-center gap-2">
                       <Select value={cancelReason} onValueChange={setCancelReason}>
                         <SelectTrigger className="h-8 w-44 text-xs border-red-200 text-red-600"><SelectValue placeholder="سبب الإلغاء" /></SelectTrigger>

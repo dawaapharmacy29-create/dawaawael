@@ -6,6 +6,7 @@ import { useState } from "react";
 const STATUS_STYLE = {
   "طلب جديد": "bg-blue-100 text-blue-700",
   "جاري البحث": "bg-yellow-100 text-yellow-700",
+  "النواقص": "bg-purple-100 text-purple-700",
   "تم توفير الصنف": "bg-teal-100 text-teal-700",
   "تم التوصيل": "bg-green-100 text-green-700",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700",

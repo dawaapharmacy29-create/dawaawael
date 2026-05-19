@@ -14,7 +14,7 @@ import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const STATUSES = ["طلب جديد", "جاري البحث", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+const STATUSES = ["طلب جديد", "جاري البحث", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
 export default function CustomerOrders() {
   const { isAdmin, isManager, user } = useUserRole();
