@@ -77,7 +77,19 @@ export default function MedicineSalesTab() {
 
   const openEdit = (record) => {
     setEditRecord(record);
-    setEditSales((record.sales || []).map(s => ({ ...s })));
+    // عند التعديل، نتأكد أن كل صنف فيه balance (للسجلات القديمة قبل إضافة الحقل)
+    const merged = activeItems.map((item) => {
+      const existing = (record.sales || []).find(
+        (s) => s.medicine_id === item.id || s.medicine_name === item.name
+      );
+      return {
+        medicine_id: item.id,
+        medicine_name: item.name,
+        quantity: existing?.quantity ?? 0,
+        balance: existing?.balance ?? "",
+      };
+    });
+    setEditSales(merged);
     setEditDialog(true);
   };
 
@@ -191,7 +203,12 @@ export default function MedicineSalesTab() {
                           {itemData?.item_code && <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>}
                         </td>
                         <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">{sale.quantity ?? 0}</td>
-                        <td className="px-2 py-1.5 text-center text-green-700 font-semibold">{sale.balance !== undefined && sale.balance !== null ? sale.balance : "—"}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          {sale.balance !== undefined && sale.balance !== null
+                            ? <span className="text-green-700 font-semibold">{sale.balance}</span>
+                            : <span className="text-orange-400 text-xs">لم يُدخل</span>
+                          }
+                        </td>
                       </tr>
                       );
                     })}
