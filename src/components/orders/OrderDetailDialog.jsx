@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
-import { Loader2, Edit2, ZoomIn, CheckCircle, Phone, MessageCircle, Search, Package, Truck, XCircle, Ban } from "lucide-react";
+import { Loader2, Edit2, ZoomIn, CheckCircle, Phone, MessageCircle, Search, Package, Truck, XCircle, Ban, RotateCcw } from "lucide-react";
 import OrderFormDialog from "./OrderFormDialog";
 
 const STATUS_STYLE = {
@@ -68,6 +68,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   const handleDeliver = () => updateOrder({}, "تم التوصيل", "تم التسليم للعميل");
   const handleUnavailable = () => updateOrder({}, "الصنف غير متوفر حاليا", "الصنف غير متوفر حاليا");
   const handleCancel = () => updateOrder({ cancellation_reason: cancelReason }, "تم الإلغاء", `إلغاء: ${cancelReason}`);
+  const handleRestore = (newStatus) => updateOrder({ cancellation_reason: "" }, newStatus, `استعادة الطلب إلى: ${newStatus}`);
 
   const cfg = STATUS_STYLE[order.status] || "";
 
@@ -242,6 +243,27 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                       <Button size="sm" onClick={handleCancel} disabled={saving || !cancelReason} variant="outline" className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50">
                         <Ban className="w-3.5 h-3.5" /> إلغاء
                       </Button>
+                    </div>
+                  )}
+
+                  {/* Restore from cancelled or unavailable */}
+                  {["تم الإلغاء", "الصنف غير متوفر حاليا"].includes(order.status) && (
+                    <div className="w-full border-t pt-3 mt-1">
+                      <p className="text-xs text-gray-500 mb-2 flex items-center gap-1"><RotateCcw className="w-3 h-3" /> استعادة الطلب إلى:</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => handleRestore("طلب جديد")} disabled={saving} variant="outline" className="gap-1.5 border-blue-300 text-blue-600 hover:bg-blue-50">
+                          طلب جديد
+                        </Button>
+                        <Button size="sm" onClick={() => handleRestore("جاري البحث")} disabled={saving} variant="outline" className="gap-1.5 border-yellow-300 text-yellow-700 hover:bg-yellow-50">
+                          جاري البحث
+                        </Button>
+                        <Button size="sm" onClick={() => handleRestore("تم التوصيل")} disabled={saving} variant="outline" className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50">
+                          تم التوصيل
+                        </Button>
+                        <Button size="sm" onClick={() => handleRestore("الصنف غير متوفر حاليا")} disabled={saving || order.status === "الصنف غير متوفر حاليا"} variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50">
+                          في انتظار التوافر
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
