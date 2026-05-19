@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
 import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare, Trash2, Edit2, PauseCircle, Save, Printer } from "lucide-react";
+import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 
 const STATUS_CONFIG = {
   Pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -29,13 +30,13 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
   const [editItems, setEditItems] = useState(returnData?.items || []);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { isManager, user } = useUserRole();
 
   if (!returnData) return null;
   const cfg = STATUS_CONFIG[returnData.status] || STATUS_CONFIG.Pending;
 
   const handleDelete = async () => {
-    if (!confirm("هل أنت متأكد من حذف هذا المرتجع؟")) return;
     setDeleting(true);
     await base44.entities.Return.delete(returnData.id);
     setDeleting(false);
@@ -349,7 +350,7 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
                   {updatingStatus === "Pending" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
                   إعادة تعليق
                 </Button>
-                <Button size="sm" onClick={handleDelete} disabled={deleting} variant="outline" className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50">
+                <Button size="sm" onClick={() => setConfirmDelete(true)} disabled={deleting} variant="outline" className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50">
                   {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   حذف المرتجع
                 </Button>
@@ -358,6 +359,15 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="تأكيد حذف المرتجع"
+        description={`هل أنت متأكد من حذف المرتجع رقم ${returnData.return_number}؟ لا يمكن التراجع عن هذا الإجراء.`}
+        onConfirm={handleDelete}
+        confirmLabel="حذف"
+      />
 
       {/* Lightbox */}
       {lightboxImg && (

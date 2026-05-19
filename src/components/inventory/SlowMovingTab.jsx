@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle, Search, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { format, differenceInDays } from "date-fns";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
@@ -23,6 +24,7 @@ export default function SlowMovingTab() {
   const [form, setForm] = useState(emptyForm());
   const [actionItem, setActionItem] = useState(null);
   const [transferBranch, setTransferBranch] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [search, setSearch] = useState("");
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [filterFrom, setFilterFrom] = useState("");
@@ -186,7 +188,7 @@ export default function SlowMovingTab() {
                         <RotateCcw className="w-3 h-3" /> إرجاع
                       </Button>
                       <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
-                        onClick={() => deleteMutation.mutate(item.id)}>
+                        onClick={() => setConfirmDeleteId(item.id)}>
                         <Trash2 className="w-3 h-3" /> حذف
                       </Button>
                     </div>
@@ -197,6 +199,15 @@ export default function SlowMovingTab() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
+        title="تأكيد الحذف"
+        description="هل أنت متأكد من حذف هذا الصنف؟ لا يمكن التراجع عن هذا الإجراء."
+        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        confirmLabel="حذف"
+      />
 
       {/* Add Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>

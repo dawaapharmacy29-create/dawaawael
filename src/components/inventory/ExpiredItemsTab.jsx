@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, RotateCcw, CheckCircle2, Search, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { format } from "date-fns";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
@@ -28,6 +29,7 @@ export default function ExpiredItemsTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [actionItem, setActionItem] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [search, setSearch] = useState("");
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [filterStatus, setFilterStatus] = useState("الكل");
@@ -172,7 +174,7 @@ export default function ExpiredItemsTab() {
                       </div>
                     )}
                       <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
-                        onClick={() => deleteMutation.mutate(item.id)}>
+                        onClick={() => setConfirmDeleteId(item.id)}>
                         <Trash2 className="w-3 h-3" /> حذف
                       </Button>
                   </td>
@@ -182,6 +184,15 @@ export default function ExpiredItemsTab() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
+        title="تأكيد الحذف"
+        description="هل أنت متأكد من حذف هذا الصنف المنتهي؟ لا يمكن التراجع عن هذا الإجراء."
+        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        confirmLabel="حذف"
+      />
 
       {/* Add Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>

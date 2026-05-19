@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -29,8 +30,9 @@ export default function MedicineSalesTab() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
-  const [editRecord, setEditRecord] = useState(null); // the full sale record being edited
-  const [editSales, setEditSales] = useState([]); // array of {medicine_id, medicine_name, quantity, balance}
+  const [editRecord, setEditRecord] = useState(null);
+  const [editSales, setEditSales] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [form, setForm] = useState({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -160,7 +162,7 @@ export default function MedicineSalesTab() {
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => setConfirmDeleteId(s.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -196,6 +198,15 @@ export default function MedicineSalesTab() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
+        title="تأكيد الحذف"
+        description="هل أنت متأكد من حذف هذا السجل؟ لا يمكن التراجع عن هذا الإجراء."
+        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        confirmLabel="حذف"
+      />
 
       {/* Edit sales dialog */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
