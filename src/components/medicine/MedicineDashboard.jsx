@@ -77,12 +77,8 @@ export default function MedicineDashboard() {
     staleTime: 15000,
   });
 
-  // سجلات الرصيد الفعلي فقط (من تبويب الرصيد الفعلي)
-  const { data: balanceRecords = [] } = useQuery({
-    queryKey: ["medicine-balance-records"],
-    queryFn: () => base44.entities.MedicineSale.filter({ record_type: "balance" }, "-week_start", 500),
-    staleTime: 15000,
-  });
+  // سجلات الرصيد الفعلي فقط — نفلتر محلياً
+  const balanceRecords = sales.filter((r) => r.record_type === "balance");
 
   const activeItems = items.filter((i) => i.is_active !== false);
 

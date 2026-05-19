@@ -30,8 +30,6 @@ export default function MedicineBalanceTab() {
   // Add dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [branch, setBranch] = useState("");
-  const [dateFrom, setDateFrom] = useState(TODAY);
-  const [dateTo, setDateTo] = useState(TODAY);
   const [balances, setBalances] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -49,12 +47,13 @@ export default function MedicineBalanceTab() {
     staleTime: 60000,
   });
 
-  // نجلب سجلات الرصيد فقط — سجلات من نوع balance_record
-  const { data: allRecords = [], isLoading } = useQuery({
+  // نجلب كل السجلات ونفلتر محلياً على record_type === "balance"
+  const { data: rawRecords = [], isLoading } = useQuery({
     queryKey: ["medicine-balance-records"],
-    queryFn: () => base44.entities.MedicineSale.filter({ record_type: "balance" }, "-week_start", 500),
+    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
     staleTime: 15000,
   });
+  const allRecords = rawRecords.filter((r) => r.record_type === "balance");
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
@@ -87,8 +86,6 @@ export default function MedicineBalanceTab() {
 
   const openAddDialog = () => {
     setBranch("");
-    setDateFrom(TODAY);
-    setDateTo(TODAY);
     const init = {};
     activeItems.forEach((item) => { init[item.id] = ""; });
     setBalances(init);
@@ -110,8 +107,8 @@ export default function MedicineBalanceTab() {
 
     createMutation.mutate({
       branch,
-      week_start: dateFrom,
-      week_label: `${dateFrom} → ${dateTo}`,
+      week_start: TODAY,
+      week_label: TODAY,
       record_type: "balance",
       sales: salesArr,
     });
@@ -292,17 +289,6 @@ export default function MedicineBalanceTab() {
                 </SelectContent>
               </Select>
               {submitAttempted && !branch && <p className="text-xs text-red-500">الفرع مطلوب</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>من تاريخ *</Label>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label>إلى تاريخ *</Label>
-                <Input type="date" value={dateTo} min={dateFrom} onChange={(e) => setDateTo(e.target.value)} required />
-              </div>
             </div>
 
             <div className="space-y-2">
