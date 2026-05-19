@@ -73,28 +73,33 @@ export default function MedicineDashboard() {
   });
   const { data: sales = [] } = useQuery({
     queryKey: ["medicine-sales"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 200),
+    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
+    staleTime: 15000,
+  });
+
+  // سجلات الرصيد الفعلي فقط (من تبويب الرصيد الفعلي)
+  const { data: balanceRecords = [] } = useQuery({
+    queryKey: ["medicine-balance-records"],
+    queryFn: () => base44.entities.MedicineSale.filter({ record_type: "balance" }, "-week_start", 500),
     staleTime: 15000,
   });
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
-  // أحدث رصيد فعلي لكل صنف في كل فرع (من آخر سجل مبيعات)
+  // أحدث رصيد فعلي لكل صنف في كل فرع — من سجلات الرصيد فقط
   const latestBalances = {};
-  // نرتب المبيعات من الأحدث للأقدم
-  const sortedSales = [...sales].sort((a, b) => new Date(b.week_start) - new Date(a.week_start));
+  const sortedBalanceRecords = [...balanceRecords].sort((a, b) => new Date(b.week_start) - new Date(a.week_start));
   BRANCHES.forEach((branch) => {
     activeItems.forEach((item) => {
-      const found = sortedSales.find(
+      if (!latestBalances[item.id]) latestBalances[item.id] = {};
+      const found = sortedBalanceRecords.find(
         (s) => s.branch === branch && (s.sales || []).some((x) => x.medicine_id === item.id || x.medicine_name === item.name)
       );
       if (found) {
         const saleEntry = (found.sales || []).find((x) => x.medicine_id === item.id || x.medicine_name === item.name);
-        if (!latestBalances[item.id]) latestBalances[item.id] = {};
         const bal = saleEntry?.balance;
         latestBalances[item.id][branch] = (bal !== undefined && bal !== null) ? bal : "—";
       } else {
-        if (!latestBalances[item.id]) latestBalances[item.id] = {};
         latestBalances[item.id][branch] = "—";
       }
     });

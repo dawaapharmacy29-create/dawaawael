@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MedicineDashboard from "@/components/medicine/MedicineDashboard";
 import MedicineSalesTab from "@/components/medicine/MedicineSalesTab";
 import MedicineItemsAdmin from "@/components/medicine/MedicineItemsAdmin";
+import MedicineBalanceTab from "@/components/medicine/MedicineBalanceTab";
 import { useUserRole } from "@/lib/useUserRole";
 
 export default function MedicineList() {
@@ -21,6 +22,7 @@ export default function MedicineList() {
         <TabsList className="mb-4">
           <TabsTrigger value="dashboard">أصناف اللسته</TabsTrigger>
           <TabsTrigger value="sales">تسجيل المبيعات</TabsTrigger>
+          <TabsTrigger value="balance">الرصيد الفعلي</TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="admin">إدارة الأصناف</TabsTrigger>}
         </TabsList>
 
@@ -29,6 +31,9 @@ export default function MedicineList() {
         </TabsContent>
         <TabsContent value="sales">
           <MedicineSalesTab />
+        </TabsContent>
+        <TabsContent value="balance">
+          <MedicineBalanceTab />
         </TabsContent>
         {(isAdmin || isManager) && (
           <TabsContent value="admin">
