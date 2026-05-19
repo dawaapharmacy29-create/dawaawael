@@ -19,6 +19,7 @@ import PendingInvoices from './pages/PendingInvoices';
 import MedicineList from './pages/MedicineList';
 import Returns from './pages/Returns';
 import InventoryManagement from './pages/InventoryManagement';
+import CustomerOrders from './pages/CustomerOrders';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -56,6 +57,7 @@ const AuthenticatedApp = () => {
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<InventoryManagement />} />
+        <Route path="/customer-orders" element={<CustomerOrders />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
