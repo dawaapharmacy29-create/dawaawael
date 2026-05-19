@@ -71,38 +71,35 @@ export default function MedicineDashboard() {
     queryFn: () => base44.entities.MedicineItem.list("name"),
     staleTime: 60000,
   });
-  const { data: sales = [] } = useQuery({
-    queryKey: ["medicine-sales"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
-    staleTime: 15000,
-  });
 
-  const { data: allMedicineSales = [] } = useQuery({
-    queryKey: ["medicine-all-sales"],
+  const { data: allRecords = [] } = useQuery({
+    queryKey: ["medicine-all-records"],
     queryFn: () => base44.entities.MedicineSale.list("-created_date", 1000),
     staleTime: 15000,
   });
 
-  // سجلات الرصيد الفعلي فقط — نفلتر محلياً
-  const balanceRecords = allMedicineSales.filter((r) => r.record_type === "balance");
+  const salesRecords = allRecords.filter((r) => !r.record_type || r.record_type === "sales");
+  const balanceRecords = allRecords.filter((r) => r.record_type === "balance");
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
-  // أحدث رصيد فعلي لكل صنف في كل فرع — من سجلات الرصيد فقط
-  const latestBalances = {};
-  const sortedBalanceRecords = [...balanceRecords].sort((a, b) => new Date(b.week_start) - new Date(a.week_start));
-  BRANCHES.forEach((branch) => {
-    activeItems.forEach((item) => {
-      if (!latestBalances[item.id]) latestBalances[item.id] = {};
-      const found = sortedBalanceRecords.find(
-        (s) => s.branch === branch && (s.sales || []).some((x) => x.medicine_id === item.id || x.medicine_name === item.name)
+  // أحدث رصيد فعلي لكل صنف في كل فرع
+  const sortedBalanceRecords = [...balanceRecords].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+
+  // لكل صنف: أحدث قيمة رصيد في كل فرع
+  const latestBalanceByItem = {};
+  activeItems.forEach((item) => {
+    latestBalanceByItem[item.id] = {};
+    BRANCHES.forEach((branch) => {
+      const record = sortedBalanceRecords.find(
+        (r) => r.branch === branch && (r.sales || []).some((x) => x.medicine_id === item.id || x.medicine_name === item.name)
       );
-      if (found) {
-        const saleEntry = (found.sales || []).find((x) => x.medicine_id === item.id || x.medicine_name === item.name);
-        const bal = saleEntry?.balance;
-        latestBalances[item.id][branch] = (bal !== undefined && bal !== null) ? bal : "—";
+      if (record) {
+        const entry = (record.sales || []).find((x) => x.medicine_id === item.id || x.medicine_name === item.name);
+        const val = entry?.balance;
+        latestBalanceByItem[item.id][branch] = (val !== undefined && val !== null) ? Number(val) : null;
       } else {
-        latestBalances[item.id][branch] = "—";
+        latestBalanceByItem[item.id][branch] = null;
       }
     });
   });
@@ -111,7 +108,7 @@ export default function MedicineDashboard() {
   const itemTotals = activeItems.map((item) => {
     let total = 0;
     let byBranch = {};
-    sales.forEach((s) => {
+    salesRecords.forEach((s) => {
       (s.sales || []).forEach((sale) => {
         if (sale.medicine_name === item.name || sale.medicine_id === item.id) {
           total += sale.quantity || 0;
@@ -119,15 +116,14 @@ export default function MedicineDashboard() {
         }
       });
     });
-    // أكثر فرع مبيعاً
     const topBranch = Object.entries(byBranch).sort((a, b) => b[1] - a[1])[0]?.[0];
     return { item, total, byBranch, topBranch };
   });
 
-  // إجمالي مبيعات كل فرع عبر جميع الأصناف
+  // إجمالي مبيعات كل فرع
   const branchTotals = BRANCHES.map((b) => ({
     branch: b,
-    total: sales.reduce((sum, s) => {
+    total: salesRecords.reduce((sum, s) => {
       if (s.branch !== b) return sum;
       return sum + (s.sales || []).reduce((ss, sale) => ss + (sale.quantity || 0), 0);
     }, 0),
@@ -153,12 +149,12 @@ export default function MedicineDashboard() {
         )}
       </div>
 
-      {/* Set display range dialog */}
+      {/* Range dialog */}
       <Dialog open={rangeDialogOpen} onOpenChange={setRangeDialogOpen}>
         <DialogContent dir="rtl" className="max-w-sm">
           <DialogHeader><DialogTitle>تحديد فترة العرض</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="text-xs text-gray-500">تحديد هذه الفترة يؤثر على ما يراه جميع المستخدمين في خانة أصناف اللسته.</p>
+            <p className="text-xs text-gray-500">تحديد هذه الفترة يؤثر على ما يراه جميع المستخدمين.</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>من تاريخ</Label>
@@ -171,11 +167,7 @@ export default function MedicineDashboard() {
             </div>
           </div>
           <DialogFooter className="gap-2 flex-row-reverse">
-            <Button
-              className="bg-teal-600 hover:bg-teal-700"
-              disabled={!rangeForm.from || !rangeForm.to || saveRangeMutation.isPending}
-              onClick={() => saveRangeMutation.mutate({ from: rangeForm.from, to: rangeForm.to })}
-            >
+            <Button className="bg-teal-600 hover:bg-teal-700" disabled={!rangeForm.from || !rangeForm.to || saveRangeMutation.isPending} onClick={() => saveRangeMutation.mutate({ from: rangeForm.from, to: rangeForm.to })}>
               {saveRangeMutation.isPending ? "جاري الحفظ..." : "حفظ"}
             </Button>
             <Button variant="outline" onClick={() => setRangeDialogOpen(false)}>إلغاء</Button>
@@ -195,39 +187,41 @@ export default function MedicineDashboard() {
         </Card>
       )}
 
-      {/* جدول الرصيد الفعلي الإجمالي */}
-      {activeItems.length > 0 && (
+      {/* جدول الرصيد الفعلي — لكل صنف رصيده في كل فرع */}
+      {activeItems.length > 0 && balanceRecords.length > 0 && (
         <div>
-          <h2 className="text-base font-semibold text-gray-700 mb-3">الرصيد الفعلي الإجمالي (آخر تسجيل)</h2>
+          <h2 className="text-base font-semibold text-gray-700 mb-3">الرصيد الفعلي لكل صنف (آخر تسجيل لكل فرع)</h2>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm" dir="rtl">
               <thead className="bg-teal-700 text-white">
                 <tr>
-                  <th className="px-3 py-2 text-right font-semibold">الصنف</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">الصنف</th>
                   {BRANCHES.map((b) => (
-                    <th key={b} className="px-3 py-2 text-center font-semibold">{b}</th>
+                    <th key={b} className="px-3 py-2.5 text-center font-semibold">{b}</th>
                   ))}
-                  <th className="px-3 py-2 text-center font-semibold">الإجمالي</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 {activeItems.map((item, idx) => {
-                  const branchVals = BRANCHES.map((b) => latestBalances[item.id]?.[b]);
-                  const numericVals = branchVals.filter((v) => v !== "—" && v !== undefined && v !== null);
-                  const total = numericVals.length > 0 ? numericVals.reduce((s, v) => s + Number(v), 0) : "—";
+                  const vals = BRANCHES.map((b) => latestBalanceByItem[item.id]?.[b]);
+                  const numericVals = vals.filter((v) => v !== null && v !== undefined);
+                  const rowTotal = numericVals.length > 0 ? numericVals.reduce((s, v) => s + v, 0) : null;
                   return (
                     <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                      <td className="px-3 py-2.5 font-medium text-gray-800">{item.name}</td>
                       {BRANCHES.map((b) => {
-                        const val = latestBalances[item.id]?.[b];
+                        const val = latestBalanceByItem[item.id]?.[b];
                         return (
-                          <td key={b} className="px-3 py-2 text-center">
-                            <span className={`font-semibold ${val === "—" ? "text-gray-300" : "text-teal-700"}`}>{val ?? "—"}</span>
+                          <td key={b} className="px-3 py-2.5 text-center">
+                            <span className={`font-semibold ${val === null || val === undefined ? "text-gray-300" : "text-teal-700"}`}>
+                              {val !== null && val !== undefined ? val.toLocaleString("ar-EG") : "—"}
+                            </span>
                           </td>
                         );
                       })}
-                      <td className="px-3 py-2 text-center font-bold text-gray-800">
-                        {total === "—" ? "—" : total.toLocaleString("ar-EG")}
+                      <td className="px-3 py-2.5 text-center font-bold text-gray-800">
+                        {rowTotal !== null ? rowTotal.toLocaleString("ar-EG") : "—"}
                       </td>
                     </tr>
                   );
