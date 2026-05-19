@@ -8,7 +8,7 @@ import MedicineItemsAdmin from "@/components/medicine/MedicineItemsAdmin";
 import { useUserRole } from "@/lib/useUserRole";
 
 export default function MedicineList() {
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isManager } = useUserRole();
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
@@ -21,7 +21,7 @@ export default function MedicineList() {
         <TabsList className="mb-4">
           <TabsTrigger value="dashboard">أصناف اللسته</TabsTrigger>
           <TabsTrigger value="sales">تسجيل المبيعات</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">إدارة الأصناف</TabsTrigger>}
+          {(isAdmin || isManager) && <TabsTrigger value="admin">إدارة الأصناف</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -30,7 +30,7 @@ export default function MedicineList() {
         <TabsContent value="sales">
           <MedicineSalesTab />
         </TabsContent>
-        {isAdmin && (
+        {(isAdmin || isManager) && (
           <TabsContent value="admin">
             <MedicineItemsAdmin />
           </TabsContent>

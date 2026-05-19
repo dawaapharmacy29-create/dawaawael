@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
@@ -25,8 +25,12 @@ export default function MedicineSalesTab() {
   const qc = useQueryClient();
   const { isAdmin, isManager } = useUserRole();
   const canAdd = isAdmin || isManager;
+  const canDelete = isAdmin || isManager;
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialog, setEditDialog] = useState(false);
+  const [editRecord, setEditRecord] = useState(null); // the full sale record being edited
+  const [editSales, setEditSales] = useState([]); // array of {medicine_id, medicine_name, quantity, balance}
   const [form, setForm] = useState({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -63,6 +67,21 @@ export default function MedicineSalesTab() {
     mutationFn: (id) => base44.entities.MedicineSale.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["medicine-sales"] }),
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.MedicineSale.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["medicine-sales"] }); setEditDialog(false); setEditRecord(null); },
+  });
+
+  const openEdit = (record) => {
+    setEditRecord(record);
+    setEditSales((record.sales || []).map(s => ({ ...s })));
+    setEditDialog(true);
+  };
+
+  const handleEditSubmit = () => {
+    updateMutation.mutate({ id: editRecord.id, data: { ...editRecord, sales: editSales } });
+  };
 
   const openDialog = () => {
     setForm({ branch: "", dateFrom: TODAY, dateTo: TODAY, quantities: {}, balances: {} });
@@ -136,10 +155,15 @@ export default function MedicineSalesTab() {
                   <Badge className="bg-teal-100 text-teal-700 border-0 mb-1">{s.branch}</Badge>
                   <p className="text-sm text-gray-500">الفترة: {s.week_label}</p>
                 </div>
-                {isAdmin && (
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                {canDelete && (
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
               <div className="overflow-x-auto">
@@ -172,6 +196,59 @@ export default function MedicineSalesTab() {
           ))}
         </div>
       )}
+
+      {/* Edit sales dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>تعديل سجل المبيعات</DialogTitle></DialogHeader>
+          {editRecord && (
+            <div className="space-y-4">
+              <div className="flex gap-4 text-sm text-gray-600">
+                <span className="font-medium">{editRecord.branch}</span>
+                <span>{editRecord.week_label}</span>
+              </div>
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
+                  <span>الصنف</span>
+                  <span className="text-center">وحدات البيع</span>
+                  <span className="text-center">الرصيد الفعلي</span>
+                </div>
+                {editSales.map((sale, idx) => (
+                  <div key={idx} className="grid grid-cols-3 gap-2 items-center">
+                    <span className="text-sm font-medium text-gray-700">{sale.medicine_name}</span>
+                    <Input
+                      type="number" min="0" step="1"
+                      value={sale.quantity ?? ""}
+                      onChange={(e) => {
+                        const updated = [...editSales];
+                        updated[idx] = { ...updated[idx], quantity: parseFloat(e.target.value) || 0 };
+                        setEditSales(updated);
+                      }}
+                      className="h-8 text-center text-sm"
+                    />
+                    <Input
+                      type="number" min="0" step="1"
+                      value={sale.balance ?? ""}
+                      onChange={(e) => {
+                        const updated = [...editSales];
+                        updated[idx] = { ...updated[idx], balance: parseFloat(e.target.value) || 0 };
+                        setEditSales(updated);
+                      }}
+                      className="h-8 text-center text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 flex-row-reverse">
+            <Button className="bg-teal-600 hover:bg-teal-700" onClick={handleEditSubmit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </Button>
+            <Button variant="outline" onClick={() => setEditDialog(false)}>إلغاء</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add sales dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

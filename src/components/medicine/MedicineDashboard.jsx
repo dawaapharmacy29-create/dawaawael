@@ -79,6 +79,26 @@ export default function MedicineDashboard() {
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
+  // أحدث رصيد فعلي لكل صنف في كل فرع (من آخر سجل مبيعات)
+  const latestBalances = {};
+  // نرتب المبيعات من الأحدث للأقدم
+  const sortedSales = [...sales].sort((a, b) => new Date(b.week_start) - new Date(a.week_start));
+  BRANCHES.forEach((branch) => {
+    activeItems.forEach((item) => {
+      const found = sortedSales.find(
+        (s) => s.branch === branch && (s.sales || []).some((x) => x.medicine_id === item.id || x.medicine_name === item.name)
+      );
+      if (found) {
+        const saleEntry = (found.sales || []).find((x) => x.medicine_id === item.id || x.medicine_name === item.name);
+        if (!latestBalances[item.id]) latestBalances[item.id] = {};
+        latestBalances[item.id][branch] = saleEntry?.balance ?? "—";
+      } else {
+        if (!latestBalances[item.id]) latestBalances[item.id] = {};
+        latestBalances[item.id][branch] = "—";
+      }
+    });
+  });
+
   // إجمالي مبيعات كل صنف
   const itemTotals = activeItems.map((item) => {
     let total = 0;
@@ -165,6 +185,49 @@ export default function MedicineDashboard() {
             <p className="text-sm">{branchTotals.find((b) => b.branch === topBranch)?.total?.toLocaleString("ar-EG")} وحدة إجمالي</p>
           </div>
         </Card>
+      )}
+
+      {/* جدول الرصيد الفعلي الإجمالي */}
+      {activeItems.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-gray-700 mb-3">الرصيد الفعلي الإجمالي (آخر تسجيل)</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm" dir="rtl">
+              <thead className="bg-teal-700 text-white">
+                <tr>
+                  <th className="px-3 py-2 text-right font-semibold">الصنف</th>
+                  {BRANCHES.map((b) => (
+                    <th key={b} className="px-3 py-2 text-center font-semibold">{b}</th>
+                  ))}
+                  <th className="px-3 py-2 text-center font-semibold">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeItems.map((item, idx) => {
+                  const branchVals = BRANCHES.map((b) => latestBalances[item.id]?.[b]);
+                  const numericVals = branchVals.filter((v) => v !== "—" && v !== undefined && v !== null);
+                  const total = numericVals.length > 0 ? numericVals.reduce((s, v) => s + Number(v), 0) : "—";
+                  return (
+                    <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                      {BRANCHES.map((b) => {
+                        const val = latestBalances[item.id]?.[b];
+                        return (
+                          <td key={b} className="px-3 py-2 text-center">
+                            <span className={`font-semibold ${val === "—" ? "text-gray-300" : "text-teal-700"}`}>{val ?? "—"}</span>
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-2 text-center font-bold text-gray-800">
+                        {total === "—" ? "—" : total.toLocaleString("ar-EG")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* إجمالي مبيعات كل صنف */}
