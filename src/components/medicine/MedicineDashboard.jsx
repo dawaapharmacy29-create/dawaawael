@@ -91,7 +91,8 @@ export default function MedicineDashboard() {
       if (found) {
         const saleEntry = (found.sales || []).find((x) => x.medicine_id === item.id || x.medicine_name === item.name);
         if (!latestBalances[item.id]) latestBalances[item.id] = {};
-        latestBalances[item.id][branch] = saleEntry?.balance ?? "—";
+        const bal = saleEntry?.balance;
+        latestBalances[item.id][branch] = (bal !== undefined && bal !== null) ? bal : "—";
       } else {
         if (!latestBalances[item.id]) latestBalances[item.id] = {};
         latestBalances[item.id][branch] = "—";

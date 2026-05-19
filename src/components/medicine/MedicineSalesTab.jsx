@@ -91,9 +91,13 @@ export default function MedicineSalesTab() {
     setDialogOpen(true);
   };
 
-  const allItemsFilled = activeItems.every(
-    (item) => form.quantities[item.id] !== "" && form.quantities[item.id] !== undefined &&
-              form.balances[item.id] !== "" && form.balances[item.id] !== undefined
+  const allItemsFilled = activeItems.length === 0 ? false : activeItems.every(
+    (item) => {
+      const q = form.quantities[item.id];
+      const b = form.balances[item.id];
+      return q !== "" && q !== undefined && q !== null &&
+             b !== "" && b !== undefined && b !== null;
+    }
   );
 
   const handleSubmit = (e) => {
@@ -104,8 +108,8 @@ export default function MedicineSalesTab() {
     const salesArr = activeItems.map((item) => ({
       medicine_id: item.id,
       medicine_name: item.name,
-      quantity: parseFloat(form.quantities[item.id] || 0),
-      balance: parseFloat(form.balances[item.id] || 0),
+      quantity: Number(form.quantities[item.id]),
+      balance: Number(form.balances[item.id]),
     }));
 
     createMutation.mutate({
@@ -187,7 +191,7 @@ export default function MedicineSalesTab() {
                           {itemData?.item_code && <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>}
                         </td>
                         <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">{sale.quantity ?? 0}</td>
-                        <td className="px-2 py-1.5 text-center text-green-700 font-semibold">{sale.balance ?? "—"}</td>
+                        <td className="px-2 py-1.5 text-center text-green-700 font-semibold">{sale.balance !== undefined && sale.balance !== null ? sale.balance : "—"}</td>
                       </tr>
                       );
                     })}
