@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, ClipboardList } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 
@@ -21,20 +21,26 @@ export default function MedicineSalesTab() {
   const canAdd = isAdmin || isManager;
   const canDelete = isAdmin || isManager;
 
+  // Add sales dialog
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editDialog, setEditDialog] = useState(false);
-  const [editRecord, setEditRecord] = useState(null);
-  const [editSales, setEditSales] = useState([]);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [filterBranch, setFilterBranch] = useState("الكل");
-
-  // form state — quantities and balances stored as strings keyed by item.id
   const [branch, setBranch] = useState("");
   const [dateFrom, setDateFrom] = useState(TODAY);
   const [dateTo, setDateTo] = useState(TODAY);
   const [quantities, setQuantities] = useState({});
-  const [balances, setBalances] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  // Edit sales dialog
+  const [editDialog, setEditDialog] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+  const [editSales, setEditSales] = useState([]);
+
+  // Balance dialog (مستقل)
+  const [balanceDialog, setBalanceDialog] = useState(false);
+  const [balanceRecord, setBalanceRecord] = useState(null);
+  const [balances, setBalances] = useState([]);
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [filterBranch, setFilterBranch] = useState("الكل");
 
   const { data: settings = [] } = useQuery({
     queryKey: ["report-settings"],
@@ -61,10 +67,7 @@ export default function MedicineSalesTab() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.MedicineSale.create(data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["medicine-sales"] });
-      setDialogOpen(false);
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["medicine-sales"] }); setDialogOpen(false); },
   });
 
   const deleteMutation = useMutation({
@@ -78,22 +81,19 @@ export default function MedicineSalesTab() {
       qc.invalidateQueries({ queryKey: ["medicine-sales"] });
       setEditDialog(false);
       setEditRecord(null);
+      setBalanceDialog(false);
+      setBalanceRecord(null);
     },
   });
 
+  // ── Add dialog ──
   const openAddDialog = () => {
     setBranch("");
     setDateFrom(TODAY);
     setDateTo(TODAY);
-    // initialise all items to empty string
     const initQ = {};
-    const initB = {};
-    activeItems.forEach((item) => {
-      initQ[item.id] = "";
-      initB[item.id] = "";
-    });
+    activeItems.forEach((item) => { initQ[item.id] = ""; });
     setQuantities(initQ);
-    setBalances(initB);
     setSubmitAttempted(false);
     setDialogOpen(true);
   };
@@ -102,24 +102,39 @@ export default function MedicineSalesTab() {
     e.preventDefault();
     setSubmitAttempted(true);
     if (!branch) return;
-
     const salesArr = activeItems.map((item) => ({
       medicine_id: item.id,
       medicine_name: item.name,
       quantity: quantities[item.id] === "" ? 0 : Number(quantities[item.id]),
-      balance: balances[item.id] === "" ? 0 : Number(balances[item.id]),
     }));
-
-    createMutation.mutate({
-      branch,
-      week_start: dateFrom,
-      week_label: `${dateFrom} → ${dateTo}`,
-      sales: salesArr,
-    });
+    createMutation.mutate({ branch, week_start: dateFrom, week_label: `${dateFrom} → ${dateTo}`, sales: salesArr });
   };
 
+  // ── Edit dialog ──
   const openEdit = (record) => {
     setEditRecord(record);
+    const merged = activeItems.map((item) => {
+      const existing = (record.sales || []).find(
+        (s) => s.medicine_id === item.id || s.medicine_name === item.name
+      );
+      return { medicine_id: item.id, medicine_name: item.name, quantity: existing?.quantity ?? 0, balance: existing?.balance ?? "" };
+    });
+    setEditSales(merged);
+    setEditDialog(true);
+  };
+
+  const handleEditSubmit = () => {
+    const cleaned = editSales.map((s) => ({
+      ...s,
+      quantity: s.quantity === "" ? 0 : Number(s.quantity),
+      balance: s.balance === "" ? "" : Number(s.balance),
+    }));
+    updateMutation.mutate({ id: editRecord.id, data: { ...editRecord, sales: cleaned } });
+  };
+
+  // ── Balance dialog ──
+  const openBalanceDialog = (record) => {
+    setBalanceRecord(record);
     const merged = activeItems.map((item) => {
       const existing = (record.sales || []).find(
         (s) => s.medicine_id === item.id || s.medicine_name === item.name
@@ -128,21 +143,19 @@ export default function MedicineSalesTab() {
         medicine_id: item.id,
         medicine_name: item.name,
         quantity: existing?.quantity ?? 0,
-        balance: existing?.balance ?? 0,
+        balance: existing?.balance !== undefined && existing?.balance !== null ? existing.balance : "",
       };
     });
-    setEditSales(merged);
-    setEditDialog(true);
+    setBalances(merged);
+    setBalanceDialog(true);
   };
 
-  const handleEditSubmit = () => {
-    // convert strings to numbers just in case
-    const cleaned = editSales.map((s) => ({
+  const handleBalanceSubmit = () => {
+    const cleaned = balances.map((s) => ({
       ...s,
-      quantity: s.quantity === "" ? 0 : Number(s.quantity),
-      balance:  s.balance  === "" ? 0 : Number(s.balance),
+      balance: s.balance === "" ? 0 : Number(s.balance),
     }));
-    updateMutation.mutate({ id: editRecord.id, data: { ...editRecord, sales: cleaned } });
+    updateMutation.mutate({ id: balanceRecord.id, data: { ...balanceRecord, sales: cleaned } });
   };
 
   const filtered = useMemo(() => {
@@ -161,15 +174,10 @@ export default function MedicineSalesTab() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2 flex-wrap">
           {["الكل", ...BRANCHES].map((b) => (
-            <button
-              key={b}
-              onClick={() => setFilterBranch(b)}
+            <button key={b} onClick={() => setFilterBranch(b)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                filterBranch === b
-                  ? "bg-teal-600 text-white border-teal-600"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"
-              }`}
-            >
+                filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"
+              }`}>
               {b}
             </button>
           ))}
@@ -195,16 +203,24 @@ export default function MedicineSalesTab() {
                   <Badge className="bg-teal-100 text-teal-700 border-0 mb-1">{s.branch}</Badge>
                   <p className="text-sm text-gray-500">الفترة: {s.week_label}</p>
                 </div>
-                {canDelete && (
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}>
-                      <Pencil className="w-3.5 h-3.5" />
+                <div className="flex gap-1 flex-wrap justify-end">
+                  {canAdd && (
+                    <Button size="sm" variant="outline" className="h-7 text-green-600 border-green-300 hover:bg-green-50 gap-1 text-xs"
+                      onClick={() => openBalanceDialog(s)}>
+                      <ClipboardList className="w-3.5 h-3.5" /> الرصيد الفعلي
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => setConfirmDeleteId(s.id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                )}
+                  )}
+                  {canDelete && (
+                    <>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => setConfirmDeleteId(s.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs" dir="rtl">
@@ -212,27 +228,18 @@ export default function MedicineSalesTab() {
                     <tr className="bg-gray-50 border-b">
                       <th className="text-right px-2 py-1.5 text-gray-500 font-semibold">الصنف</th>
                       <th className="text-center px-2 py-1.5 text-gray-500 font-semibold">وحدات البيع</th>
-                      <th className="text-center px-2 py-1.5 text-gray-500 font-semibold">الرصيد الفعلي</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(s.sales || []).map((sale, i) => {
                       const itemData = items.find((it) => it.id === sale.medicine_id);
-                      const hasBalance = sale.balance !== undefined && sale.balance !== null;
                       return (
                         <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="px-2 py-1.5">
                             <div className="font-medium text-gray-700">{sale.medicine_name}</div>
-                            {itemData?.item_code && (
-                              <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>
-                            )}
+                            {itemData?.item_code && <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>}
                           </td>
-                          <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">
-                            {sale.quantity ?? 0}
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-green-700 font-semibold">
-                            {hasBalance ? sale.balance : <span className="text-orange-400 text-xs">لم يُدخل</span>}
-                          </td>
+                          <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">{sale.quantity ?? 0}</td>
                         </tr>
                       );
                     })}
@@ -254,6 +261,49 @@ export default function MedicineSalesTab() {
         confirmLabel="حذف"
       />
 
+      {/* ── Balance dialog ── */}
+      <Dialog open={balanceDialog} onOpenChange={setBalanceDialog}>
+        <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>إدخال الرصيد الفعلي</DialogTitle></DialogHeader>
+          {balanceRecord && (
+            <div className="space-y-4">
+              <div className="flex gap-3 text-sm text-gray-600">
+                <Badge className="bg-teal-100 text-teal-700 border-0">{balanceRecord.branch}</Badge>
+                <span>{balanceRecord.week_label}</span>
+              </div>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
+                  <span>الصنف</span>
+                  <span className="text-center">الرصيد الفعلي</span>
+                </div>
+                {balances.map((sale, idx) => (
+                  <div key={idx} className="grid grid-cols-2 gap-2 items-center">
+                    <span className="text-sm font-medium text-gray-700">{sale.medicine_name}</span>
+                    <Input
+                      type="number" min="0" step="any"
+                      value={sale.balance}
+                      onChange={(e) => {
+                        const updated = [...balances];
+                        updated[idx] = { ...updated[idx], balance: e.target.value };
+                        setBalances(updated);
+                      }}
+                      className="h-8 text-center text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 flex-row-reverse">
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleBalanceSubmit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "جاري الحفظ..." : "حفظ الرصيد"}
+            </Button>
+            <Button variant="outline" onClick={() => setBalanceDialog(false)}>إلغاء</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Edit dialog ── */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
         <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -265,34 +315,19 @@ export default function MedicineSalesTab() {
                 <span>{editRecord.week_label}</span>
               </div>
               <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
                   <span>الصنف</span>
                   <span className="text-center">وحدات البيع</span>
-                  <span className="text-center">الرصيد الفعلي</span>
                 </div>
                 {editSales.map((sale, idx) => (
-                  <div key={idx} className="grid grid-cols-3 gap-2 items-center">
+                  <div key={idx} className="grid grid-cols-2 gap-2 items-center">
                     <span className="text-sm font-medium text-gray-700">{sale.medicine_name}</span>
                     <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                      type="number" min="0" step="any"
                       value={sale.quantity}
                       onChange={(e) => {
                         const updated = [...editSales];
                         updated[idx] = { ...updated[idx], quantity: e.target.value };
-                        setEditSales(updated);
-                      }}
-                      className="h-8 text-center text-sm"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={sale.balance}
-                      onChange={(e) => {
-                        const updated = [...editSales];
-                        updated[idx] = { ...updated[idx], balance: e.target.value };
                         setEditSales(updated);
                       }}
                       className="h-8 text-center text-sm"
@@ -303,11 +338,7 @@ export default function MedicineSalesTab() {
             </div>
           )}
           <DialogFooter className="gap-2 flex-row-reverse">
-            <Button
-              className="bg-teal-600 hover:bg-teal-700"
-              onClick={handleEditSubmit}
-              disabled={updateMutation.isPending}
-            >
+            <Button className="bg-teal-600 hover:bg-teal-700" onClick={handleEditSubmit} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
             </Button>
             <Button variant="outline" onClick={() => setEditDialog(false)}>إلغاء</Button>
@@ -320,7 +351,6 @@ export default function MedicineSalesTab() {
         <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>إضافة مبيعات اللسته</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Branch */}
             <div className="space-y-1">
               <Label>الفرع *</Label>
               <Select value={branch} onValueChange={setBranch}>
@@ -334,7 +364,6 @@ export default function MedicineSalesTab() {
               {submitAttempted && !branch && <p className="text-xs text-red-500">الفرع مطلوب</p>}
             </div>
 
-            {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>من تاريخ *</Label>
@@ -346,41 +375,24 @@ export default function MedicineSalesTab() {
               </div>
             </div>
 
-            {/* Items table */}
             <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
+              <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-500 border-b pb-1">
                 <span>الصنف</span>
                 <span className="text-center">وحدات البيع</span>
-                <span className="text-center">الرصيد الفعلي</span>
               </div>
               {activeItems.length === 0 ? (
                 <p className="text-sm text-gray-400">لا توجد أصناف — أضفها من تبويب إدارة الأصناف</p>
               ) : (
                 activeItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-3 gap-2 items-center">
+                  <div key={item.id} className="grid grid-cols-2 gap-2 items-center">
                     <div>
                       <span className="text-sm font-medium text-gray-700">{item.name}</span>
                       {item.item_code && <p className="text-xs text-teal-600 font-mono">{item.item_code}</p>}
                     </div>
                     <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                      type="number" min="0" step="any"
                       value={quantities[item.id] ?? ""}
-                      onChange={(e) =>
-                        setQuantities((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                      className="h-8 text-center text-sm"
-                      placeholder="0"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={balances[item.id] ?? ""}
-                      onChange={(e) =>
-                        setBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
+                      onChange={(e) => setQuantities((prev) => ({ ...prev, [item.id]: e.target.value }))}
                       className="h-8 text-center text-sm"
                       placeholder="0"
                     />
