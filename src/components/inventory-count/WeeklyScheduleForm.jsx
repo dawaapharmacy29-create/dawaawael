@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Users } from "lucide-react";
 
 const DAY_FIELDS = [
@@ -37,6 +38,18 @@ export default function WeeklyScheduleForm({ branch, onClose }) {
     queryFn: () => base44.entities.WeeklySchedule.filter({ branch }),
   });
 
+  // Fetch team members for this branch
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members"],
+    queryFn: () => base44.entities.TeamMember.list(),
+    staleTime: 60000,
+  });
+
+  // Filter members that belong to this branch
+  const branchMembers = teamMembers.filter(m =>
+    m.branches && m.branches.includes(branch)
+  );
+
   const existing = schedules[0];
 
   useEffect(() => {
@@ -61,6 +74,12 @@ export default function WeeklyScheduleForm({ branch, onClose }) {
         <h3 className="font-bold text-base">جدول الموظفين الأسبوعي — {branch}</h3>
       </div>
 
+      {branchMembers.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+          لا يوجد أعضاء فريق عمل مسجلون لهذا الفرع. يمكنك إضافتهم من صفحة فريق العمل.
+        </div>
+      )}
+
       <div className="space-y-1">
         <Label>عدد الأصناف اليومي</Label>
         <Input
@@ -73,16 +92,24 @@ export default function WeeklyScheduleForm({ branch, onClose }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 gap-3">
         {DAY_FIELDS.map(({ key, label }) => (
           <div key={key} className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-600 w-20 shrink-0">{label}</span>
-            <Input
-              placeholder={`موظف ${label}`}
-              value={form[key] || ""}
-              onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-              className="flex-1 h-8 text-sm"
-            />
+            <Select
+              value={form[key] || "none"}
+              onValueChange={val => setForm(p => ({ ...p, [key]: val === "none" ? "" : val }))}
+            >
+              <SelectTrigger className="flex-1 h-9 text-sm">
+                <SelectValue placeholder="اختر موظفاً" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— بدون —</SelectItem>
+                {branchMembers.map(m => (
+                  <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         ))}
       </div>
