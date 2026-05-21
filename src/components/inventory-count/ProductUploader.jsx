@@ -70,15 +70,16 @@ export default function ProductUploader({ onClose }) {
     setImporting(true);
     setProgress(0);
 
-    // Step 1: Delete all existing products for this branch (parallel batches, no delay)
+    // Step 1: Delete all existing products for this branch sequentially in small batches
     const existing = await base44.entities.InventoryProduct.filter({ branch }, null, 500);
-    const DEL_BATCH = 50;
+    const DEL_BATCH = 10;
     for (let i = 0; i < existing.length; i += DEL_BATCH) {
       await Promise.all(existing.slice(i, i + DEL_BATCH).map(p => base44.entities.InventoryProduct.delete(p.id)));
+      if (i + DEL_BATCH < existing.length) await new Promise(r => setTimeout(r, 500));
     }
 
-    // Step 2: Import new products in larger batches without unnecessary delays
-    const BATCH = 50;
+    // Step 2: Import new products in batches of 20 with small delay
+    const BATCH = 20;
     const chunks = [];
     for (let i = 0; i < preview.length; i += BATCH) chunks.push(preview.slice(i, i + BATCH));
 
@@ -95,6 +96,7 @@ export default function ProductUploader({ onClose }) {
         }))
       );
       setProgress(Math.round(((ci + 1) / chunks.length) * 100));
+      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 400));
     }
 
     qc.invalidateQueries(["inventory-products"]);
