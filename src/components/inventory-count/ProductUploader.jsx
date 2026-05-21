@@ -69,24 +69,36 @@ export default function ProductUploader({ onClose }) {
     if (!branch || !preview) return;
     setImporting(true);
     setProgress(0);
-    const BATCH = 25;
+    const BATCH = 10;
+    const DELAY = 1500;
+    const MAX_RETRIES = 3;
     const chunks = [];
     for (let i = 0; i < preview.length; i += BATCH) chunks.push(preview.slice(i, i + BATCH));
 
     for (let ci = 0; ci < chunks.length; ci++) {
-      await base44.entities.InventoryProduct.bulkCreate(
-        chunks[ci].map(item => ({
-          product_name: item.product_name,
-          stock_quantity: item.stock_quantity,
-          product_code: item.product_code || "",
-          branch,
-          is_active: true,
-          priority_score: 0,
-          discrepancy_count: 0,
-        }))
-      );
+      let attempt = 0;
+      while (attempt < MAX_RETRIES) {
+        try {
+          await base44.entities.InventoryProduct.bulkCreate(
+            chunks[ci].map(item => ({
+              product_name: item.product_name,
+              stock_quantity: item.stock_quantity,
+              product_code: item.product_code || "",
+              branch,
+              is_active: true,
+              priority_score: 0,
+              discrepancy_count: 0,
+            }))
+          );
+          break;
+        } catch (err) {
+          attempt++;
+          if (attempt >= MAX_RETRIES) throw err;
+          await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
+      }
       setProgress(Math.round(((ci + 1) / chunks.length) * 100));
-      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
+      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, DELAY));
     }
     qc.invalidateQueries(["inventory-products"]);
     setImporting(false);
