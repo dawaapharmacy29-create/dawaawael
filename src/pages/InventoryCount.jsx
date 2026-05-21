@@ -5,21 +5,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Settings2, Zap, ClipboardList, BarChart2, PackageSearch } from "lucide-react";
+import { Upload, Users, Zap, LayoutDashboard, ClipboardList, PackageSearch } from "lucide-react";
 import ProductUploader from "@/components/inventory-count/ProductUploader";
-import CountSettings from "@/components/inventory-count/CountSettings";
+import WeeklyScheduleForm from "@/components/inventory-count/WeeklyScheduleForm";
 import TaskGenerator from "@/components/inventory-count/TaskGenerator";
+import SessionStarter from "@/components/inventory-count/SessionStarter";
 import DailyCountScreen from "@/components/inventory-count/DailyCountScreen";
+import AdminDashboard from "@/components/inventory-count/AdminDashboard";
 import AccuracyReport from "@/components/inventory-count/AccuracyReport";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const TODAY = new Date().toISOString().split("T")[0];
 
 export default function InventoryCount() {
+  const { isAdmin, isManager } = useUserRole();
+  const isPrivileged = isAdmin || isManager;
+
   const [branch, setBranch] = useState("فرع زكريا");
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [tab, setTab] = useState("count");
+  const [tab, setTab] = useState(isPrivileged ? "dashboard" : "count");
+  const [countingStarted, setCountingStarted] = useState(false);
 
   const { data: products = [] } = useQuery({
     queryKey: ["inventory-products"],
@@ -27,14 +35,20 @@ export default function InventoryCount() {
     staleTime: 60000,
   });
 
-  const { data: allSettings = [] } = useQuery({
-    queryKey: ["inventory-settings"],
-    queryFn: () => base44.entities.InventorySettings.list(),
-    staleTime: 60000,
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["inventory-tasks", branch],
+    queryFn: () => base44.entities.InventoryCountTask.filter({ branch }),
+    staleTime: 15000,
   });
 
-  const branchSettings = allSettings.find(s => s.branch === branch);
+  const todayTask = tasks.find(t => t.task_date === TODAY);
   const branchProducts = products.filter(p => p.branch === branch && p.is_active !== false);
+
+  // When session starts, switch to count tab
+  const handleSessionStarted = () => {
+    setCountingStarted(true);
+    setTab("count");
+  };
 
   return (
     <div className="p-4 md:p-6" dir="rtl">
@@ -45,14 +59,13 @@ export default function InventoryCount() {
             <PackageSearch className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">الجرد الدوري الذكي</h1>
-            <p className="text-xs text-gray-500">{branchProducts.length} صنف في الفرع المحدد</p>
+            <h1 className="text-xl font-bold text-gray-800">الجرد الدوري</h1>
+            <p className="text-xs text-gray-500">{branchProducts.length} صنف — {branch}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Branch selector */}
-          <Select value={branch} onValueChange={setBranch}>
+          <Select value={branch} onValueChange={v => { setBranch(v); setCountingStarted(false); }}>
             <SelectTrigger className="w-40 border-teal-300 text-teal-700 font-semibold">
               <SelectValue />
             </SelectTrigger>
@@ -61,76 +74,69 @@ export default function InventoryCount() {
             </SelectContent>
           </Select>
 
-          <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setUploadOpen(true)}>
-            <Upload className="w-3.5 h-3.5" /> رفع أصناف
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setSettingsOpen(true)}>
-            <Settings2 className="w-3.5 h-3.5" /> الإعدادات
-          </Button>
-          <Button size="sm" className="gap-1 text-xs bg-teal-600 hover:bg-teal-700" onClick={() => setGenerateOpen(true)}>
-            <Zap className="w-3.5 h-3.5" /> توليد مهمة
-          </Button>
+          {isPrivileged && (
+            <>
+              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setUploadOpen(true)}>
+                <Upload className="w-3.5 h-3.5" /> رفع أصناف
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setScheduleOpen(true)}>
+                <Users className="w-3.5 h-3.5" /> الجدول الأسبوعي
+              </Button>
+              <Button size="sm" className="gap-1 text-xs bg-teal-600 hover:bg-teal-700" onClick={() => setGenerateOpen(true)}>
+                <Zap className="w-3.5 h-3.5" /> توليد مهمة
+              </Button>
+            </>
+          )}
         </div>
       </div>
-
-      {/* Status bar */}
-      {!branchSettings && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800 flex items-center gap-2">
-          <Settings2 className="w-4 h-4 shrink-0" />
-          لم تُضبط إعدادات الجرد لهذا الفرع بعد —
-          <button className="underline font-medium" onClick={() => setSettingsOpen(true)}>اضبطها الآن</button>
-        </div>
-      )}
-
-      {branchProducts.length === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm text-blue-800 flex items-center gap-2">
-          <Upload className="w-4 h-4 shrink-0" />
-          لم يتم رفع أصناف لهذا الفرع بعد —
-          <button className="underline font-medium" onClick={() => setUploadOpen(true)}>ارفع ملف الأصناف</button>
-        </div>
-      )}
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-5 gap-2 bg-transparent p-0 flex flex-wrap">
+          {isPrivileged && (
+            <TabsTrigger value="dashboard" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:border-gray-800 border-gray-300 text-gray-600 bg-white gap-1.5">
+              <LayoutDashboard className="w-4 h-4" /> لوحة المدير
+            </TabsTrigger>
+          )}
           <TabsTrigger value="count" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-teal-600 data-[state=active]:text-white data-[state=active]:border-teal-600 border-gray-300 text-gray-600 bg-white gap-1.5">
             <ClipboardList className="w-4 h-4" /> جرد اليوم
           </TabsTrigger>
-          <TabsTrigger value="report" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:border-gray-800 border-gray-300 text-gray-600 bg-white gap-1.5">
-            <BarChart2 className="w-4 h-4" /> تقرير الدقة
-          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="count">
-          <DailyCountScreen branch={branch} />
-        </TabsContent>
+        {isPrivileged && (
+          <TabsContent value="dashboard">
+            <AdminDashboard branch={branch} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="report">
-          <AccuracyReport branch={branch} />
+        <TabsContent value="count">
+          {/* Show session starter first, then counting screen once started */}
+          {!countingStarted && todayTask?.status !== "جاري" ? (
+            <SessionStarter task={todayTask} onStarted={handleSessionStarted} />
+          ) : (
+            <DailyCountScreen task={todayTask} />
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* Upload Dialog */}
+      {/* Dialogs */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <ProductUploader onClose={() => setUploadOpen(false)} />
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
-          <CountSettings branch={branch} onClose={() => setSettingsOpen(false)} />
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+          <WeeklyScheduleForm branch={branch} onClose={() => setScheduleOpen(false)} />
         </DialogContent>
       </Dialog>
 
-      {/* Generate Task Dialog */}
       <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
         <DialogContent className="max-w-md" dir="rtl">
           <TaskGenerator
             branch={branch}
             products={products}
-            settings={branchSettings}
             onDone={() => setGenerateOpen(false)}
           />
         </DialogContent>
