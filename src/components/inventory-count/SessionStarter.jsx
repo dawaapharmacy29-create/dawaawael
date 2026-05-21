@@ -15,12 +15,13 @@ const STATUS_BADGE = {
 };
 
 function isExpired(taskDate) {
-  // Block if more than 24h past END of scheduled date (i.e. after taskDate 23:59 + 24h)
+  // Block only if more than 24h PAST the end of scheduled date
+  // Future dates are never expired
   if (!taskDate) return false;
   const endOfDay = new Date(taskDate + "T23:59:59");
   const now = new Date();
   const hoursPassed = (now - endOfDay) / (1000 * 60 * 60);
-  return hoursPassed > 24;
+  return hoursPassed > 24; // negative means future date → not expired
 }
 
 export default function SessionStarter({ task, onStarted }) {
@@ -60,6 +61,11 @@ export default function SessionStarter({ task, onStarted }) {
       <div className="text-center space-y-1">
         <h2 className="text-xl font-bold text-gray-800">مهمة الجرد</h2>
         <p className="text-gray-500 text-sm">{task.task_date}</p>
+        {task.task_date > TODAY && (
+          <p className="text-yellow-600 text-xs font-medium bg-yellow-50 px-3 py-1 rounded-full inline-block">
+            ⚠️ الموعد المجدول في المستقبل — يمكنك البدء الآن
+          </p>
+        )}
       </div>
 
       <div className="bg-white border rounded-xl p-4 w-full max-w-sm space-y-3">
