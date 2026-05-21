@@ -95,8 +95,8 @@ export default function SessionStarter({ task, onStarted }) {
         </div>
       )}
 
-      {/* Can start — مجدول (any date up to +24h) */}
-      {task.status === "مجدول" && !expired && (
+      {/* Can start — مجدول at any time before expiry */}
+      {task.status === "مجدول" && !isOverdue && (
         <Button
           className="w-full max-w-sm gap-2 bg-teal-600 hover:bg-teal-700 h-12 text-base"
           onClick={() => startMutation.mutate()}
