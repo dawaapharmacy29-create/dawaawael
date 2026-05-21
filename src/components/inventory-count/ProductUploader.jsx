@@ -70,12 +70,11 @@ export default function ProductUploader({ onClose }) {
     setImporting(true);
     setProgress(0);
 
-    // Step 1: Delete all existing products for this branch sequentially in small batches
+    // Step 1: Delete all existing products for this branch one by one with delay
     const existing = await base44.entities.InventoryProduct.filter({ branch }, null, 500);
-    const DEL_BATCH = 10;
-    for (let i = 0; i < existing.length; i += DEL_BATCH) {
-      await Promise.all(existing.slice(i, i + DEL_BATCH).map(p => base44.entities.InventoryProduct.delete(p.id)));
-      if (i + DEL_BATCH < existing.length) await new Promise(r => setTimeout(r, 500));
+    for (let i = 0; i < existing.length; i++) {
+      await base44.entities.InventoryProduct.delete(existing[i].id);
+      if (i % 5 === 4) await new Promise(r => setTimeout(r, 800));
     }
 
     // Step 2: Import new products in batches of 20 with small delay
