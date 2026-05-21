@@ -8,17 +8,6 @@ import { Zap, Calendar, CheckCircle2 } from "lucide-react";
 
 const TODAY = new Date().toISOString().split("T")[0];
 
-// Map JS day (0=Sun) to schedule field
-const DAY_KEY_MAP = {
-  0: "sunday_employee",
-  1: "monday_employee",
-  2: "tuesday_employee",
-  3: "wednesday_employee",
-  4: "thursday_employee",
-  5: "friday_employee",
-  6: "saturday_employee",
-};
-
 export default function TaskGenerator({ branch, products, onDone }) {
   const qc = useQueryClient();
   const [date, setDate] = useState(TODAY);
@@ -32,8 +21,9 @@ export default function TaskGenerator({ branch, products, onDone }) {
   });
 
   const schedule = schedules[0];
-  const dayOfWeek = new Date(date + "T12:00:00").getDay();
-  const employeeForDay = schedule?.[DAY_KEY_MAP[dayOfWeek]] || "";
+  // Find employee assigned to selected date from assignments array
+  const assignment = (schedule?.assignments || []).find(a => a.scheduled_date === date);
+  const employeeForDay = assignment?.employee_name || "";
   const itemsPerDay = schedule?.items_per_day || 20;
 
   const handleGenerate = async () => {
@@ -109,13 +99,33 @@ export default function TaskGenerator({ branch, products, onDone }) {
 
       {schedule ? (
         <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-800 space-y-1">
-          <p>الموظف المكلف: <strong>{employeeForDay || "لم يُحدد لهذا اليوم"}</strong></p>
+          <p>الموظف المكلف: <strong>{employeeForDay || "لم يُحدد لهذا التاريخ"}</strong></p>
           <p>عدد الأصناف: <strong>{itemsPerDay}</strong></p>
           <p>الأصناف المتاحة: <strong>{products.filter(p => p.branch === branch && p.is_active !== false).length}</strong></p>
         </div>
       ) : (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
           يرجى إعداد جدول الموظفين الأسبوعي أولاً
+        </div>
+      )}
+
+      {schedule?.assignments?.length > 0 && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500">المواعيد المجدولة للفرع</div>
+          <div className="divide-y max-h-36 overflow-y-auto">
+            {[...schedule.assignments]
+              .sort((a, b) => a.scheduled_date?.localeCompare(b.scheduled_date))
+              .map((a, i) => (
+                <button
+                  key={i}
+                  onClick={() => setDate(a.scheduled_date)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-teal-50 transition-colors ${date === a.scheduled_date ? "bg-teal-50 font-semibold text-teal-700" : "text-gray-700"}`}
+                >
+                  <span>{a.scheduled_date}</span>
+                  <span className="text-gray-500">{a.employee_name}</span>
+                </button>
+              ))}
+          </div>
         </div>
       )}
 
