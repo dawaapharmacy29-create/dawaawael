@@ -29,7 +29,11 @@ export default function ProductsManager() {
 
     const toDelete = allProducts.filter(p => p.branch === branch);
     for (let i = 0; i < toDelete.length; i++) {
-      await base44.entities.InventoryProduct.delete(toDelete[i].id);
+      try {
+        await base44.entities.InventoryProduct.delete(toDelete[i].id);
+      } catch (e) {
+        // already deleted or not found — skip
+      }
       setProgress(Math.round(((i + 1) / toDelete.length) * 100));
       if (i % 5 === 4) await new Promise(r => setTimeout(r, 600));
     }
