@@ -22,6 +22,7 @@ export default function ProductUploader({ onClose }) {
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
 
   const handleFile = (e) => {
@@ -67,12 +68,14 @@ export default function ProductUploader({ onClose }) {
   const handleImport = async () => {
     if (!branch || !preview) return;
     setImporting(true);
+    setProgress(0);
+    const BATCH = 25;
     const chunks = [];
-    for (let i = 0; i < preview.length; i += 10) chunks.push(preview.slice(i, i + 10));
-    for (const chunk of chunks) {
-      await new Promise(r => setTimeout(r, 1200));
+    for (let i = 0; i < preview.length; i += BATCH) chunks.push(preview.slice(i, i + BATCH));
+
+    for (let ci = 0; ci < chunks.length; ci++) {
       await base44.entities.InventoryProduct.bulkCreate(
-        chunk.map(item => ({
+        chunks[ci].map(item => ({
           product_name: item.product_name,
           stock_quantity: item.stock_quantity,
           product_code: item.product_code || "",
@@ -82,6 +85,8 @@ export default function ProductUploader({ onClose }) {
           discrepancy_count: 0,
         }))
       );
+      setProgress(Math.round(((ci + 1) / chunks.length) * 100));
+      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
     }
     qc.invalidateQueries(["inventory-products"]);
     setImporting(false);
@@ -155,13 +160,28 @@ export default function ProductUploader({ onClose }) {
         </div>
       )}
 
+      {importing && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>جاري الاستيراد...</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div
+              className="bg-teal-500 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <Button
         className="w-full gap-2 bg-teal-600 hover:bg-teal-700"
         disabled={!branch || !preview || importing}
         onClick={handleImport}
       >
         <Upload className="w-4 h-4" />
-        {importing ? "جاري الاستيراد..." : `استيراد ${preview?.length || 0} صنف`}
+        {importing ? `${progress}% — جاري الاستيراد` : `استيراد ${preview?.length || 0} صنف`}
       </Button>
     </div>
   );
