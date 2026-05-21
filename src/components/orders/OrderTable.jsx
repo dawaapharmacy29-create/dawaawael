@@ -19,7 +19,16 @@ const PRIORITY_STYLE = {
   "عادي": "bg-gray-100 text-gray-600",
 };
 
-const SOURCE_ICONS = { "واتساب": "💬", "مكالمة هاتفية": "📞", "داخل الصيدلية": "🏪" };
+const WHATSAPP_ICON = "https://media.base44.com/images/public/6a00735e63f2bcce7f4bb37e/174725006_WhatsApp_icon.png";
+
+const SOURCE_ICONS = { "واتساب": null, "مكالمة هاتفية": "📞", "داخل الصيدلية": "🏪" };
+
+const SourceIcon = ({ source }) => {
+  if (source === "واتساب") {
+    return <img src={WHATSAPP_ICON} alt="واتساب" className="w-6 h-6 inline-block" />;
+  }
+  return <span>{SOURCE_ICONS[source] || "—"}</span>;
+};
 
 export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager }) {
   const [confirmId, setConfirmId] = useState(null);
@@ -65,7 +74,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                   <div className="text-xs text-gray-400">{o.phone}</div>
                 </td>
                 <td className="px-4 py-3 font-medium text-gray-700">{o.product_name}</td>
-                <td className="px-4 py-3 text-lg">{SOURCE_ICONS[o.request_source] || "—"}</td>
+                <td className="px-4 py-3 text-lg"><SourceIcon source={o.request_source} /></td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLE[o.priority] || ""}`}>{o.priority}</span>
                 </td>
@@ -101,7 +110,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
             </div>
             <div className="text-sm font-medium text-teal-700 mb-2">🔹 {o.product_name}</div>
             <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-              <span>{SOURCE_ICONS[o.request_source]} {o.request_source}</span>
+              <span className="flex items-center gap-1"><SourceIcon source={o.request_source} /> {o.request_source}</span>
               {o.branch && <span>📍 {o.branch}</span>}
               <span className={`px-1.5 py-0.5 rounded ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
             </div>
