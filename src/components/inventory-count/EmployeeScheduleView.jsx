@@ -134,7 +134,6 @@ export default function EmployeeScheduleView() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
-                      {status && <Badge className={`text-xs ${status.color}`}>{status.label}</Badge>}
                       {relatedTask && (
                         <Badge className={
                           relatedTask.status === "مكتمل" ? "bg-green-100 text-green-700 text-xs" :
