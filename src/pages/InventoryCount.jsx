@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Users, Zap, LayoutDashboard, ClipboardList, PackageSearch } from "lucide-react";
+import { Upload, Users, Zap, LayoutDashboard, ClipboardList, PackageSearch, BarChart2 } from "lucide-react";
 import ProductUploader from "@/components/inventory-count/ProductUploader";
 import WeeklyScheduleForm from "@/components/inventory-count/WeeklyScheduleForm";
 import TaskGenerator from "@/components/inventory-count/TaskGenerator";
@@ -26,7 +26,7 @@ export default function InventoryCount() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [tab, setTab] = useState(isPrivileged ? "dashboard" : "count");
+  const [tab, setTab] = useState("count");
   const [countingStarted, setCountingStarted] = useState(false);
 
   const { data: products = [] } = useQuery({
@@ -44,7 +44,6 @@ export default function InventoryCount() {
   const todayTask = tasks.find(t => t.task_date === TODAY);
   const branchProducts = products.filter(p => p.branch === branch && p.is_active !== false);
 
-  // When session starts, switch to count tab
   const handleSessionStarted = () => {
     setCountingStarted(true);
     setTab("count");
@@ -101,6 +100,11 @@ export default function InventoryCount() {
           <TabsTrigger value="count" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-teal-600 data-[state=active]:text-white data-[state=active]:border-teal-600 border-gray-300 text-gray-600 bg-white gap-1.5">
             <ClipboardList className="w-4 h-4" /> جرد اليوم
           </TabsTrigger>
+          {isPrivileged && (
+            <TabsTrigger value="report" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:border-gray-800 border-gray-300 text-gray-600 bg-white gap-1.5">
+              <BarChart2 className="w-4 h-4" /> تقرير الدقة
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {isPrivileged && (
@@ -110,13 +114,18 @@ export default function InventoryCount() {
         )}
 
         <TabsContent value="count">
-          {/* Show session starter first, then counting screen once started */}
           {!countingStarted && todayTask?.status !== "جاري" ? (
             <SessionStarter task={todayTask} onStarted={handleSessionStarted} />
           ) : (
             <DailyCountScreen task={todayTask} />
           )}
         </TabsContent>
+
+        {isPrivileged && (
+          <TabsContent value="report">
+            <AccuracyReport branch={branch} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Dialogs */}
