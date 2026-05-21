@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X } from "lucide-react";
-import * as XLSX from "xlsx";
+
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 
@@ -28,6 +28,18 @@ export default function ProductUploader({ onClose }) {
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState(false);
 
+  const parseCSV = (text) => {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+    return lines.slice(1).map(line => {
+      const values = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+      const row = {};
+      headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
+      return row;
+    });
+  };
+
   const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -38,12 +50,9 @@ export default function ProductUploader({ onClose }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const wb = XLSX.read(ev.target.result, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        const rows = parseCSV(ev.target.result);
         if (rows.length === 0) { setError("الملف فارغ أو لا يحتوي على بيانات"); return; }
 
-        // Map columns
         const mapped = rows.map(row => {
           const item = {};
           Object.entries(row).forEach(([k, v]) => {
@@ -59,7 +68,7 @@ export default function ProductUploader({ onClose }) {
         setError("تعذّر قراءة الملف: " + err.message);
       }
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsText(file, "UTF-8");
   };
 
   const handleImport = async () => {
@@ -116,9 +125,9 @@ export default function ProductUploader({ onClose }) {
         onClick={() => fileRef.current?.click()}
       >
         <FileSpreadsheet className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف CSV أو XLSX"}</p>
+        <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف CSV"}</p>
         <p className="text-xs text-gray-400 mt-1">أعمدة مدعومة: كود الصنف، اسم الصنف، الكمية، الشركة، التصنيف، السعر</p>
-        <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} />
+        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
       </div>
 
       {error && (
