@@ -27,7 +27,9 @@ export default function ProductsManager() {
     setConfirm(null);
     setProgress(0);
 
-    const toDelete = allProducts.filter(p => p.branch === branch);
+    // Fetch fresh from server to avoid stale cache
+    const fresh = await base44.entities.InventoryProduct.filter({ branch }, null, 2000);
+    const toDelete = fresh;
     for (let i = 0; i < toDelete.length; i++) {
       try {
         await base44.entities.InventoryProduct.delete(toDelete[i].id);
@@ -38,8 +40,8 @@ export default function ProductsManager() {
       if (i % 5 === 4) await new Promise(r => setTimeout(r, 600));
     }
 
-    qc.invalidateQueries(["inventory-products-all"]);
-    qc.invalidateQueries(["inventory-products"]);
+    qc.removeQueries(["inventory-products-all"]);
+    qc.removeQueries(["inventory-products"]);
     await refetch();
     setDeleting(null);
     setDone(branch);
