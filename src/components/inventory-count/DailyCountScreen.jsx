@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, Search, Save, Flag } from "lucide-react";
+import { CheckCircle2, Clock, Search, Save, Flag, Info } from "lucide-react";
 
 const TODAY = new Date().toISOString().split("T")[0];
 
@@ -68,14 +68,23 @@ export default function DailyCountScreen({ task }) {
     });
   };
 
+  const handleSalesAdjustedChange = (id, checked) => {
+    setLocalEntries(prev => ({
+      ...prev,
+      [id]: { ...prev[id], sales_adjusted: checked }
+    }));
+  };
+
   const handleSaveEntry = async (id) => {
     const entry = localEntries[id];
     if (entry.actual_quantity === null || entry.actual_quantity === undefined) return;
     setSaving(p => ({ ...p, [id]: true }));
     const diff = entry.actual_quantity - (entry.expected_quantity || 0);
+    // If sales_adjusted: treat as no real discrepancy for stats
+    const effectiveDiff = entry.sales_adjusted ? 0 : diff;
     await updateMutation.mutateAsync({
       id,
-      data: { actual_quantity: entry.actual_quantity, difference: diff, status: "مكتمل" }
+      data: { actual_quantity: entry.actual_quantity, difference: effectiveDiff, status: "مكتمل", sales_adjusted: entry.sales_adjusted || false }
     });
     if (entry.product_id) {
       await base44.entities.InventoryProduct.update(entry.product_id, {
@@ -186,6 +195,19 @@ export default function DailyCountScreen({ task }) {
                 </div>
               )}
             </div>
+
+            {entry.status !== "مكتمل" && !isCompleted && entry.actual_quantity !== null && entry.actual_quantity !== undefined && entry.actual_quantity !== "" && entry.difference !== 0 && (
+              <label className="flex items-center gap-2 mt-2 cursor-pointer select-none bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={!!entry.sales_adjusted}
+                  onChange={e => handleSalesAdjustedChange(entry.id, e.target.checked)}
+                  className="w-4 h-4 accent-orange-500"
+                />
+                <span className="text-xs text-orange-700 font-medium">الفارق ناتج عن حركة البيع — يُعد مطابقاً</span>
+                <Info className="w-3.5 h-3.5 text-orange-400 mr-auto" />
+              </label>
+            )}
 
             {entry.status !== "مكتمل" && !isCompleted && (
               <Button

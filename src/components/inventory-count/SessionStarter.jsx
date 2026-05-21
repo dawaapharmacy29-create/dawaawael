@@ -15,11 +15,11 @@ const STATUS_BADGE = {
 };
 
 function isExpired(taskDate) {
-  // Block if more than 24h past the scheduled date
+  // Block if more than 24h past END of scheduled date (i.e. after taskDate 23:59 + 24h)
   if (!taskDate) return false;
-  const scheduled = new Date(taskDate + "T00:00:00");
+  const endOfDay = new Date(taskDate + "T23:59:59");
   const now = new Date();
-  const hoursPassed = (now - scheduled) / (1000 * 60 * 60);
+  const hoursPassed = (now - endOfDay) / (1000 * 60 * 60);
   return hoursPassed > 24;
 }
 

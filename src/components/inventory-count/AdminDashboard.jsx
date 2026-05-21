@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertTriangle, Clock, User, Package, TrendingUp, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, User, Package, TrendingUp, RefreshCw, XCircle } from "lucide-react";
 
 const TODAY = new Date().toISOString().split("T")[0];
 
@@ -26,6 +26,12 @@ export default function AdminDashboard({ branch }) {
   const markOverdueMutation = useMutation({
     mutationFn: (id) =>
       base44.entities.InventoryCountTask.update(id, { status: "متأخر" }),
+    onSuccess: () => qc.invalidateQueries(["inventory-tasks", branch]),
+  });
+
+  const closeSessionMutation = useMutation({
+    mutationFn: (id) =>
+      base44.entities.InventoryCountTask.update(id, { status: "مجدول" }),
     onSuccess: () => qc.invalidateQueries(["inventory-tasks", branch]),
   });
 
@@ -80,6 +86,17 @@ export default function AdminDashboard({ branch }) {
                   <span className="text-sm text-green-600">✓ {todayTask.matched_count || 0} مطابق</span>
                   <span className="text-sm text-red-500">⚠ {todayTask.diff_count || 0} فارق</span>
                 </>
+              )}
+              {todayTask.status === "جاري" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                  onClick={() => closeSessionMutation.mutate(todayTask.id)}
+                  disabled={closeSessionMutation.isPending}
+                >
+                  <XCircle className="w-3 h-3" /> إغلاق الجلسة
+                </Button>
               )}
             </div>
           </div>
@@ -137,6 +154,17 @@ export default function AdminDashboard({ branch }) {
                     <span className="text-green-600">✓ {t.matched_count || 0}</span>
                     <span className="text-red-500">⚠ {t.diff_count || 0}</span>
                   </div>
+                )}
+                {t.status === "جاري" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                    onClick={() => closeSessionMutation.mutate(t.id)}
+                    disabled={closeSessionMutation.isPending}
+                  >
+                    <XCircle className="w-3 h-3" /> إغلاق الجلسة
+                  </Button>
                 )}
               </div>
             ))}
