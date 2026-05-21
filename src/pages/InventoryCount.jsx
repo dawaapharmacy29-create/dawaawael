@@ -42,12 +42,14 @@ export default function InventoryCount() {
     staleTime: 15000,
   });
 
-  // Find the most relevant task: in-progress first, then scheduled (not expired), then today
+  // Find the most relevant task: in-progress first, then any scheduled (not expired)
+  const isNotExpired = (t) => {
+    const end = new Date(t.task_date + "T23:59:59");
+    return (new Date() - end) / (1000 * 60 * 60) <= 24;
+  };
   const todayTask = tasks.find(t => t.status === "جاري") ||
-    tasks.find(t => t.status === "مجدول" && (() => {
-      const end = new Date(t.task_date + "T23:59:59");
-      return (new Date() - end) / (1000 * 60 * 60) <= 24;
-    })()) ||
+    tasks.filter(t => t.status === "مجدول" && isNotExpired(t))
+      .sort((a, b) => a.task_date.localeCompare(b.task_date))[0] ||
     tasks.find(t => t.task_date === TODAY);
   const branchProducts = products.filter(p => p.branch === branch && p.is_active !== false);
 
