@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Users, Zap, LayoutDashboard, PackageSearch, BarChart2, CalendarDays } from "lucide-react";
+import { Upload, Users, Zap, LayoutDashboard, PackageSearch, BarChart2, CalendarDays, Boxes } from "lucide-react";
 import ProductUploader from "@/components/inventory-count/ProductUploader";
 import WeeklyScheduleForm from "@/components/inventory-count/WeeklyScheduleForm";
 import TaskGenerator from "@/components/inventory-count/TaskGenerator";
@@ -13,6 +13,7 @@ import AdminDashboard from "@/components/inventory-count/AdminDashboard";
 import AccuracyReport from "@/components/inventory-count/AccuracyReport";
 import EmployeeScheduleView from "@/components/inventory-count/EmployeeScheduleView";
 import { useUserRole } from "@/lib/useUserRole";
+import ProductsManager from "@/components/inventory-count/ProductsManager";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const TODAY = new Date().toISOString().split("T")[0];
@@ -108,6 +109,11 @@ export default function InventoryCount() {
               <BarChart2 className="w-4 h-4" /> تقرير الدقة
             </TabsTrigger>
           )}
+          {isPrivileged && (
+            <TabsTrigger value="products" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:border-gray-800 border-gray-300 text-gray-600 bg-white gap-1.5">
+              <Boxes className="w-4 h-4" /> إدارة الأصناف
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {isPrivileged && (
@@ -123,6 +129,11 @@ export default function InventoryCount() {
         {isPrivileged && (
           <TabsContent value="report">
             <AccuracyReport branch={branch} />
+          </TabsContent>
+        )}
+        {isPrivileged && (
+          <TabsContent value="products">
+            <ProductsManager />
           </TabsContent>
         )}
       </Tabs>
