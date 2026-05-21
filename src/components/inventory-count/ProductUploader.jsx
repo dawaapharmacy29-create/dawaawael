@@ -70,45 +70,33 @@ export default function ProductUploader({ onClose }) {
     setImporting(true);
     setProgress(0);
 
-    // Step 1: Delete all existing products for this branch
-    const existing = await base44.entities.InventoryProduct.filter({ branch });
-    const DEL_BATCH = 20;
+    // Step 1: Delete all existing products for this branch (parallel batches, no delay)
+    const existing = await base44.entities.InventoryProduct.filter({ branch }, null, 500);
+    const DEL_BATCH = 50;
     for (let i = 0; i < existing.length; i += DEL_BATCH) {
       await Promise.all(existing.slice(i, i + DEL_BATCH).map(p => base44.entities.InventoryProduct.delete(p.id)));
     }
 
-    // Step 2: Import new products
-    const BATCH = 10;
-    const DELAY = 1500;
-    const MAX_RETRIES = 3;
+    // Step 2: Import new products in larger batches without unnecessary delays
+    const BATCH = 50;
     const chunks = [];
     for (let i = 0; i < preview.length; i += BATCH) chunks.push(preview.slice(i, i + BATCH));
 
     for (let ci = 0; ci < chunks.length; ci++) {
-      let attempt = 0;
-      while (attempt < MAX_RETRIES) {
-        try {
-          await base44.entities.InventoryProduct.bulkCreate(
-            chunks[ci].map(item => ({
-              product_name: item.product_name,
-              stock_quantity: item.stock_quantity,
-              product_code: item.product_code || "",
-              branch,
-              is_active: true,
-              priority_score: 0,
-              discrepancy_count: 0,
-            }))
-          );
-          break;
-        } catch (err) {
-          attempt++;
-          if (attempt >= MAX_RETRIES) throw err;
-          await new Promise(r => setTimeout(r, 2000 * attempt));
-        }
-      }
+      await base44.entities.InventoryProduct.bulkCreate(
+        chunks[ci].map(item => ({
+          product_name: item.product_name,
+          stock_quantity: item.stock_quantity,
+          product_code: item.product_code || "",
+          branch,
+          is_active: true,
+          priority_score: 0,
+          discrepancy_count: 0,
+        }))
+      );
       setProgress(Math.round(((ci + 1) / chunks.length) * 100));
-      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, DELAY));
     }
+
     qc.invalidateQueries(["inventory-products"]);
     qc.invalidateQueries(["inventory-products-all"]);
     setImporting(false);
