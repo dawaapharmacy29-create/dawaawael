@@ -10,6 +10,7 @@ const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشي
 
 const NAME_KEYS = ["اسم الصنف", "اسم", "product_name", "name", "الاسم", "الصنف"];
 const QTY_KEYS  = ["الرصيد", "رصيد", "الكمية", "كمية", "stock_quantity", "quantity", "qty", "الكميه"];
+const CODE_KEYS = ["كود", "كود الصنف", "product_code", "code", "الكود", "رقم الصنف"];
 
 const findCol = (headers, keys) => headers.find(h => keys.includes(h?.trim()));
 
@@ -42,6 +43,7 @@ export default function ProductUploader({ onClose }) {
         const headers = Object.keys(rows[0]);
         const nameCol = findCol(headers, NAME_KEYS);
         const qtyCol  = findCol(headers, QTY_KEYS);
+        const codeCol = findCol(headers, CODE_KEYS);
 
         if (!nameCol) { setError("لم يتم العثور على عمود اسم الصنف. تأكد من وجود عمود باسم 'اسم الصنف' أو 'الاسم'"); return; }
 
@@ -49,6 +51,7 @@ export default function ProductUploader({ onClose }) {
           .map(row => ({
             product_name: String(row[nameCol] || "").trim(),
             stock_quantity: qtyCol ? (Number(row[qtyCol]) || 0) : 0,
+            product_code: codeCol ? String(row[codeCol] || "").trim() : "",
           }))
           .filter(i => i.product_name);
 
@@ -72,6 +75,7 @@ export default function ProductUploader({ onClose }) {
         chunk.map(item => ({
           product_name: item.product_name,
           stock_quantity: item.stock_quantity,
+          product_code: item.product_code || "",
           branch,
           is_active: true,
           priority_score: 0,
@@ -112,7 +116,7 @@ export default function ProductUploader({ onClose }) {
       >
         <FileSpreadsheet className="w-10 h-10 text-gray-400 mx-auto mb-2" />
         <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف Excel"}</p>
-        <p className="text-xs text-gray-400 mt-1">صيغة xlsx — أعمدة مطلوبة: اسم الصنف، الرصيد</p>
+        <p className="text-xs text-gray-400 mt-1">صيغة xlsx — أعمدة مطلوبة: اسم الصنف، الرصيد، الكود</p>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
       </div>
 
@@ -129,6 +133,7 @@ export default function ProductUploader({ onClose }) {
             <table className="w-full">
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
+                  <th className="px-2 py-1 text-right text-gray-600">الكود</th>
                   <th className="px-2 py-1 text-right text-gray-600">اسم الصنف</th>
                   <th className="px-2 py-1 text-right text-gray-600">الرصيد</th>
                 </tr>
@@ -136,12 +141,13 @@ export default function ProductUploader({ onClose }) {
               <tbody>
                 {preview.slice(0, 10).map((r, i) => (
                   <tr key={i} className="border-t">
+                    <td className="px-2 py-1 text-gray-500">{r.product_code}</td>
                     <td className="px-2 py-1 font-medium">{r.product_name}</td>
                     <td className="px-2 py-1">{r.stock_quantity}</td>
                   </tr>
                 ))}
                 {preview.length > 10 && (
-                  <tr><td colSpan={2} className="px-2 py-1 text-gray-400 text-center">... و {preview.length - 10} صنف آخر</td></tr>
+                  <tr><td colSpan={3} className="px-2 py-1 text-gray-400 text-center">... و {preview.length - 10} صنف آخر</td></tr>
                 )}
               </tbody>
             </table>
