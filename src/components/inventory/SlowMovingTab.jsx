@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle, Search, X } from "lucide-react";
+import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle, Search, X, CheckSquare } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { format, differenceInDays } from "date-fns";
@@ -17,8 +17,13 @@ const emptyForm = () => ({
   item_name: "", quantity: "", price: "", expiry_date: "", branch: "", notes: ""
 });
 
+const TRANSFER_STATUS_COLORS = {
+  "منتظر التحويل": "bg-yellow-100 text-yellow-800",
+  "تم النقل": "bg-green-100 text-green-800",
+};
+
 export default function SlowMovingTab() {
-  const { isAdmin, isManager, user } = useUserRole();
+  const { isAdmin, isManager } = useUserRole();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -30,14 +35,18 @@ export default function SlowMovingTab() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkAction, setBulkAction] = useState(null); // "delete" | "expire"
+  const [bulkTransferBranch, setBulkTransferBranch] = useState("");
+
   const { data: items = [] } = useQuery({
     queryKey: ["slow-moving-items"],
     queryFn: () => base44.entities.SlowMovingItem.list(),
   });
 
-  // Filter + Sort by expiry_date ascending
   const sortedItems = [...items]
-    .filter(i => i.status === "راكد")
+    .filter(i => i.status === "راكد" || i.status === "منتظر التحويل")
     .filter(i => !search || i.item_name.includes(search))
     .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
     .filter(i => !filterFrom || i.expiry_date >= filterFrom)
@@ -71,7 +80,8 @@ export default function SlowMovingTab() {
 
   const handleTransfer = () => {
     if (!transferBranch || transferBranch === actionItem.item.branch) return;
-    updateMutation.mutate({ id: actionItem.item.id, data: { branch: transferBranch, status: "تم النقل" } });
+    // Mark original as "منتظر التحويل"
+    updateMutation.mutate({ id: actionItem.item.id, data: { status: "منتظر التحويل", notes: (actionItem.item.notes || "") + ` | في انتظار التحويل إلى ${transferBranch}` } });
     // Create new record in new branch
     base44.entities.SlowMovingItem.create({
       item_name: actionItem.item.item_name,
@@ -81,7 +91,11 @@ export default function SlowMovingTab() {
       branch: transferBranch,
       status: "راكد",
       notes: `منقول من ${actionItem.item.branch}`
-    }).then(() => queryClient.invalidateQueries(["slow-moving-items"]));
+    }).then(() => {
+      // Mark original as "تم النقل"
+      base44.entities.SlowMovingItem.update(actionItem.item.id, { status: "تم النقل" })
+        .then(() => queryClient.invalidateQueries(["slow-moving-items"]));
+    });
   };
 
   const handleReturn = () => {
@@ -102,6 +116,50 @@ export default function SlowMovingTab() {
     updateMutation.mutate({ id: actionItem.item.id, data: { status: "تم التحويل لمنتهي" } });
   };
 
+  // Bulk actions
+  const handleBulkDelete = async () => {
+    for (const id of selectedIds) {
+      await base44.entities.SlowMovingItem.delete(id);
+    }
+    queryClient.invalidateQueries(["slow-moving-items"]);
+    setSelectedIds([]);
+    setBulkAction(null);
+  };
+
+  const handleBulkToExpired = async () => {
+    const selected = sortedItems.filter(i => selectedIds.includes(i.id));
+    for (const item of selected) {
+      await base44.entities.ExpiredItem.create({
+        item_name: item.item_name,
+        quantity: item.quantity,
+        price: item.price,
+        expiry_date: item.expiry_date,
+        branch: item.branch,
+        status: "منتهي",
+        source: "محول من الراكد",
+        notes: item.notes || ""
+      });
+      await base44.entities.SlowMovingItem.update(item.id, { status: "تم التحويل لمنتهي" });
+    }
+    queryClient.invalidateQueries(["slow-moving-items"]);
+    queryClient.invalidateQueries(["expired-items"]);
+    setSelectedIds([]);
+    setBulkAction(null);
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    const activeIds = sortedItems.map(i => i.id);
+    if (selectedIds.length === activeIds.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(activeIds);
+    }
+  };
+
   const getExpiryColor = (expiry_date) => {
     const days = differenceInDays(new Date(expiry_date), new Date());
     if (days < 0) return "bg-red-100 text-red-800";
@@ -111,59 +169,104 @@ export default function SlowMovingTab() {
   };
 
   const canAct = isAdmin || isManager;
+  const allSelected = sortedItems.length > 0 && selectedIds.length === sortedItems.length;
 
   return (
     <div dir="rtl" className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold text-gray-700">الأصناف الراكدة</h3>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
-          <Plus className="w-4 h-4" /> إضافة صنف راكد
-        </Button>
+        {canAct && (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1">
+            <Plus className="w-4 h-4" /> إضافة صنف راكد
+          </Button>
+        )}
       </div>
 
-      {/* Search & Filters */}
+      {/* Branch filter buttons */}
+      <div className="flex flex-wrap gap-2">
+        {["الكل", ...BRANCHES].map(b => (
+          <Button
+            key={b}
+            size="sm"
+            variant={filterBranch === b ? "default" : "outline"}
+            onClick={() => setFilterBranch(b)}
+            className="text-xs"
+          >
+            {b === "الكل" ? "كل الفروع" : b}
+          </Button>
+        ))}
+      </div>
+
+      {/* Search & date Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
           <Input className="pr-7" placeholder="بحث باسم الصنف..." value={search} onChange={e => setSearch(e.target.value)} />
           {search && <button className="absolute left-2 top-2" onClick={() => setSearch("")}><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
-        <Select value={filterBranch} onValueChange={setFilterBranch}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="الكل">كل الفروع</SelectItem>
-            {BRANCHES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Input type="month" className="w-36" placeholder="من" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
         <Input type="month" className="w-36" placeholder="إلى" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
-        {(filterBranch !== "الكل" || filterFrom || filterTo) && (
-          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterBranch("الكل"); setFilterFrom(""); setFilterTo(""); }}>
+        {(filterFrom || filterTo) && (
+          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterFrom(""); setFilterTo(""); }}>
             <X className="w-3 h-3" /> مسح
           </Button>
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      {canAct && selectedIds.length > 0 && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          <span className="text-sm font-medium text-blue-700">تم تحديد {selectedIds.length} صنف</span>
+          <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-red-600 border-red-300"
+            onClick={() => setBulkAction("delete")}>
+            <Trash2 className="w-3 h-3" /> حذف المحدد
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-orange-600 border-orange-300"
+            onClick={() => setBulkAction("expire")}>
+            <AlertTriangle className="w-3 h-3" /> تحويل لأكسبير
+          </Button>
+          <Button size="sm" variant="ghost" className="text-xs h-7 text-gray-500 mr-auto"
+            onClick={() => setSelectedIds([])}>
+            إلغاء التحديد
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
+              {canAct && (
+                <th className="px-3 py-2 text-center w-10">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+                </th>
+              )}
               <th className="px-3 py-2 text-right">اسم الصنف</th>
               <th className="px-3 py-2 text-right">الفرع</th>
               <th className="px-3 py-2 text-right">العدد</th>
               <th className="px-3 py-2 text-right">السعر</th>
               <th className="px-3 py-2 text-right">تاريخ الصلاحية</th>
+              <th className="px-3 py-2 text-right">الحالة</th>
               {canAct && <th className="px-3 py-2 text-right">إجراءات</th>}
             </tr>
           </thead>
           <tbody>
             {sortedItems.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-400">لا توجد أصناف راكدة</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-400">لا توجد أصناف راكدة</td></tr>
             )}
             {sortedItems.map(item => (
-              <tr key={item.id} className="border-t hover:bg-gray-50">
-                <td className="px-3 py-2 font-medium">{item.item_name}</td>
+              <tr key={item.id} className={`border-t hover:bg-gray-50 ${selectedIds.includes(item.id) ? "bg-blue-50" : ""}`}>
+                {canAct && (
+                  <td className="px-3 py-2 text-center">
+                    <Checkbox checked={selectedIds.includes(item.id)} onCheckedChange={() => toggleSelect(item.id)} />
+                  </td>
+                )}
+                <td className="px-3 py-2 font-medium">
+                  {item.item_name}
+                  {item.notes && <div className="text-xs text-gray-400 mt-0.5">{item.notes}</div>}
+                </td>
                 <td className="px-3 py-2">{item.branch}</td>
                 <td className="px-3 py-2">{item.quantity}</td>
                 <td className="px-3 py-2">{item.price} ج</td>
@@ -171,6 +274,15 @@ export default function SlowMovingTab() {
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${getExpiryColor(item.expiry_date)}`}>
                     {format(new Date(item.expiry_date), "MM/yyyy")}
                   </span>
+                </td>
+                <td className="px-3 py-2">
+                  {item.status === "منتظر التحويل" || item.status === "تم النقل" ? (
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${TRANSFER_STATUS_COLORS[item.status] || "bg-gray-100 text-gray-600"}`}>
+                      {item.status}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{item.status}</span>
+                  )}
                 </td>
                 {canAct && (
                   <td className="px-3 py-2">
@@ -189,7 +301,7 @@ export default function SlowMovingTab() {
                       </Button>
                       <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
                         onClick={() => setConfirmDeleteId(item.id)}>
-                        <Trash2 className="w-3 h-3" /> حذف
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </td>
@@ -200,6 +312,27 @@ export default function SlowMovingTab() {
         </table>
       </div>
 
+      {/* Bulk Delete Confirm */}
+      <ConfirmDialog
+        open={bulkAction === "delete"}
+        onOpenChange={(o) => { if (!o) setBulkAction(null); }}
+        title="تأكيد الحذف الجماعي"
+        description={`هل أنت متأكد من حذف ${selectedIds.length} صنف؟ لا يمكن التراجع.`}
+        onConfirm={handleBulkDelete}
+        confirmLabel="حذف الكل"
+      />
+
+      {/* Bulk Expire Confirm */}
+      <ConfirmDialog
+        open={bulkAction === "expire"}
+        onOpenChange={(o) => { if (!o) setBulkAction(null); }}
+        title="تحويل للأكسبير"
+        description={`هل تريد تحويل ${selectedIds.length} صنف إلى تبويب الأكسبير (المنتهي)؟`}
+        onConfirm={handleBulkToExpired}
+        confirmLabel="تحويل"
+      />
+
+      {/* Single Delete Confirm */}
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
@@ -256,6 +389,9 @@ export default function SlowMovingTab() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
+                  سيظهر الصنف الأصلي بحالة "منتظر التحويل" ثم "تم النقل" بعد إنشاء السجل الجديد.
+                </p>
               </>
             )}
             {actionItem?.type === "return" && (

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, RotateCcw, CheckCircle2, Search, X } from "lucide-react";
@@ -36,12 +36,15 @@ export default function ExpiredItemsTab() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
   const { data: items = [] } = useQuery({
     queryKey: ["expired-items"],
     queryFn: () => base44.entities.ExpiredItem.list(),
   });
 
-  // Filter + Sort by expiry_date ascending
   const sortedItems = [...items]
     .filter(i => !search || i.item_name.includes(search))
     .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
@@ -78,15 +81,57 @@ export default function ExpiredItemsTab() {
     updateMutation.mutate({ id: actionItem.item.id, data: { status: "تم التبديل / التصريف" } });
   };
 
+  // Bulk delete
+  const handleBulkDelete = async () => {
+    for (const id of selectedIds) {
+      await base44.entities.ExpiredItem.delete(id);
+    }
+    queryClient.invalidateQueries(["expired-items"]);
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    const allIds = sortedItems.map(i => i.id);
+    if (selectedIds.length === allIds.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(allIds);
+    }
+  };
+
   const canAct = isAdmin || isManager;
+  const allSelected = sortedItems.length > 0 && selectedIds.length === sortedItems.length;
 
   return (
     <div dir="rtl" className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold text-gray-800">الأصناف المنتهية (أكسبير)</h3>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1 bg-gray-900 hover:bg-black text-white">
-          <Plus className="w-4 h-4" /> إضافة صنف منتهي
-        </Button>
+        {canAct && (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1 bg-gray-900 hover:bg-black text-white">
+            <Plus className="w-4 h-4" /> إضافة صنف منتهي
+          </Button>
+        )}
+      </div>
+
+      {/* Branch filter buttons */}
+      <div className="flex flex-wrap gap-2">
+        {["الكل", ...BRANCHES].map(b => (
+          <Button
+            key={b}
+            size="sm"
+            variant={filterBranch === b ? "default" : "outline"}
+            onClick={() => setFilterBranch(b)}
+            className="text-xs"
+          >
+            {b === "الكل" ? "كل الفروع" : b}
+          </Button>
+        ))}
       </div>
 
       {/* Search & Filters */}
@@ -96,13 +141,6 @@ export default function ExpiredItemsTab() {
           <Input className="pr-7" placeholder="بحث باسم الصنف..." value={search} onChange={e => setSearch(e.target.value)} />
           {search && <button className="absolute left-2 top-2" onClick={() => setSearch("")}><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
-        <Select value={filterBranch} onValueChange={setFilterBranch}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="الكل">كل الفروع</SelectItem>
-            {BRANCHES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -114,18 +152,42 @@ export default function ExpiredItemsTab() {
         </Select>
         <Input type="month" className="w-36" placeholder="من" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
         <Input type="month" className="w-36" placeholder="إلى" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
-        {(filterBranch !== "الكل" || filterStatus !== "الكل" || filterFrom || filterTo) && (
-          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterBranch("الكل"); setFilterStatus("الكل"); setFilterFrom(""); setFilterTo(""); }}>
+        {(filterStatus !== "الكل" || filterFrom || filterTo) && (
+          <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterStatus("الكل"); setFilterFrom(""); setFilterTo(""); }}>
             <X className="w-3 h-3" /> مسح
           </Button>
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      {canAct && selectedIds.length > 0 && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <span className="text-sm font-medium text-red-700">تم تحديد {selectedIds.length} صنف</span>
+          <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-red-600 border-red-300"
+            onClick={() => setBulkDeleteOpen(true)}>
+            <Trash2 className="w-3 h-3" /> حذف المحدد
+          </Button>
+          <Button size="sm" variant="ghost" className="text-xs h-7 text-gray-500 mr-auto"
+            onClick={() => setSelectedIds([])}>
+            إلغاء التحديد
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-gray-900 text-white">
             <tr>
+              {canAct && (
+                <th className="px-3 py-2 text-center w-10">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900"
+                  />
+                </th>
+              )}
               <th className="px-3 py-2 text-right">اسم الصنف</th>
               <th className="px-3 py-2 text-right">الفرع</th>
               <th className="px-3 py-2 text-right">العدد</th>
@@ -138,10 +200,15 @@ export default function ExpiredItemsTab() {
           </thead>
           <tbody>
             {sortedItems.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-8 text-gray-400">لا توجد أصناف منتهية</td></tr>
+              <tr><td colSpan={9} className="text-center py-8 text-gray-400">لا توجد أصناف منتهية</td></tr>
             )}
             {sortedItems.map(item => (
-              <tr key={item.id} className="border-t hover:bg-gray-50">
+              <tr key={item.id} className={`border-t hover:bg-gray-50 ${selectedIds.includes(item.id) ? "bg-red-50" : ""}`}>
+                {canAct && (
+                  <td className="px-3 py-2 text-center">
+                    <Checkbox checked={selectedIds.includes(item.id)} onCheckedChange={() => toggleSelect(item.id)} />
+                  </td>
+                )}
                 <td className="px-3 py-2 font-medium">{item.item_name}</td>
                 <td className="px-3 py-2">{item.branch}</td>
                 <td className="px-3 py-2">{item.quantity}</td>
@@ -161,22 +228,24 @@ export default function ExpiredItemsTab() {
                 </td>
                 {canAct && (
                   <td className="px-3 py-2">
-                    {item.status === "منتهي" && (
-                      <div className="flex gap-1 flex-wrap">
-                        <Button size="sm" variant="outline" className="text-xs h-7 px-2 gap-1 text-blue-600 border-blue-300"
-                          onClick={() => setActionItem({ item, type: "return" })}>
-                          <RotateCcw className="w-3 h-3" /> إرجاع للشركة
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-xs h-7 px-2 gap-1 text-green-600 border-green-300"
-                          onClick={() => setActionItem({ item, type: "dispose" })}>
-                          <CheckCircle2 className="w-3 h-3" /> تبديل/تصريف
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1 flex-wrap">
+                      {item.status === "منتهي" && (
+                        <>
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2 gap-1 text-blue-600 border-blue-300"
+                            onClick={() => setActionItem({ item, type: "return" })}>
+                            <RotateCcw className="w-3 h-3" /> إرجاع
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2 gap-1 text-green-600 border-green-300"
+                            onClick={() => setActionItem({ item, type: "dispose" })}>
+                            <CheckCircle2 className="w-3 h-3" /> تصريف
+                          </Button>
+                        </>
+                      )}
                       <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-red-500"
                         onClick={() => setConfirmDeleteId(item.id)}>
-                        <Trash2 className="w-3 h-3" /> حذف
+                        <Trash2 className="w-3 h-3" />
                       </Button>
+                    </div>
                   </td>
                 )}
               </tr>
@@ -185,6 +254,17 @@ export default function ExpiredItemsTab() {
         </table>
       </div>
 
+      {/* Bulk Delete Confirm */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(o) => { if (!o) setBulkDeleteOpen(false); }}
+        title="تأكيد الحذف الجماعي"
+        description={`هل أنت متأكد من حذف ${selectedIds.length} صنف؟ لا يمكن التراجع.`}
+        onConfirm={handleBulkDelete}
+        confirmLabel="حذف الكل"
+      />
+
+      {/* Single Delete Confirm */}
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
