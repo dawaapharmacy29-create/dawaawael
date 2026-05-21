@@ -5,12 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Users, Zap, LayoutDashboard, ClipboardList, PackageSearch, BarChart2, CalendarDays } from "lucide-react";
+import { Upload, Users, Zap, LayoutDashboard, PackageSearch, BarChart2, CalendarDays } from "lucide-react";
 import ProductUploader from "@/components/inventory-count/ProductUploader";
 import WeeklyScheduleForm from "@/components/inventory-count/WeeklyScheduleForm";
 import TaskGenerator from "@/components/inventory-count/TaskGenerator";
-import SessionStarter from "@/components/inventory-count/SessionStarter";
-import DailyCountScreen from "@/components/inventory-count/DailyCountScreen";
 import AdminDashboard from "@/components/inventory-count/AdminDashboard";
 import AccuracyReport from "@/components/inventory-count/AccuracyReport";
 import EmployeeScheduleView from "@/components/inventory-count/EmployeeScheduleView";
@@ -27,7 +25,7 @@ export default function InventoryCount() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [tab, setTab] = useState("count");
+  const [tab, setTab] = useState("schedule");
   const [countingStarted, setCountingStarted] = useState(false);
 
   const { data: products = [] } = useQuery({
@@ -52,11 +50,6 @@ export default function InventoryCount() {
       .sort((a, b) => a.task_date.localeCompare(b.task_date))[0] ||
     tasks.find(t => t.task_date === TODAY);
   const branchProducts = products.filter(p => p.branch === branch && p.is_active !== false);
-
-  const handleSessionStarted = () => {
-    setCountingStarted(true);
-    setTab("count");
-  };
 
   return (
     <div className="p-4 md:p-6" dir="rtl">
@@ -106,9 +99,7 @@ export default function InventoryCount() {
               <LayoutDashboard className="w-4 h-4" /> لوحة المدير
             </TabsTrigger>
           )}
-          <TabsTrigger value="count" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-teal-600 data-[state=active]:text-white data-[state=active]:border-teal-600 border-gray-300 text-gray-600 bg-white gap-1.5">
-            <ClipboardList className="w-4 h-4" /> جرد اليوم
-          </TabsTrigger>
+
           <TabsTrigger value="schedule" className="rounded-lg px-4 py-2 text-sm font-semibold border data-[state=active]:bg-teal-700 data-[state=active]:text-white data-[state=active]:border-teal-700 border-gray-300 text-gray-600 bg-white gap-1.5">
             <CalendarDays className="w-4 h-4" /> مواعيد الجرد
           </TabsTrigger>
@@ -124,14 +115,6 @@ export default function InventoryCount() {
             <AdminDashboard branch={branch} />
           </TabsContent>
         )}
-
-        <TabsContent value="count">
-          {!countingStarted && todayTask?.status !== "جاري" ? (
-            <SessionStarter task={todayTask} onStarted={handleSessionStarted} />
-          ) : (
-            <DailyCountScreen task={todayTask} />
-          )}
-        </TabsContent>
 
         <TabsContent value="schedule">
           <EmployeeScheduleView />

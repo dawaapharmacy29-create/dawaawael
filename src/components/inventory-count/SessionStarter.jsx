@@ -14,14 +14,8 @@ const STATUS_BADGE = {
   "متأخر": "bg-red-100 text-red-800",
 };
 
-function isExpired(taskDate) {
-  // Block only if more than 24h PAST the end of scheduled date
-  // Future dates are never expired
-  if (!taskDate) return false;
-  const endOfDay = new Date(taskDate + "T23:59:59");
-  const now = new Date();
-  const hoursPassed = (now - endOfDay) / (1000 * 60 * 60);
-  return hoursPassed > 24; // negative means future date → not expired
+function isExpired() {
+  return false; // No expiry — sessions can be started at any time
 }
 
 export default function SessionStarter({ task, onStarted }) {
@@ -49,7 +43,7 @@ export default function SessionStarter({ task, onStarted }) {
     );
   }
 
-  const expired = isExpired(task.task_date);
+  const expired = isExpired();
   const isOverdue = task.status === "متأخر" || expired;
 
   return (

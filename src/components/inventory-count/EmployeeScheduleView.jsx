@@ -1,10 +1,11 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, User, Package, PlayCircle, ArrowRight } from "lucide-react";
+import DailyCountScreen from "./DailyCountScreen";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
 const TODAY = new Date().toISOString().split("T")[0];
 
 function getStatusForDate(date) {
@@ -23,6 +24,9 @@ function formatDate(dateStr) {
 }
 
 export default function EmployeeScheduleView() {
+  const qc = useQueryClient();
+  const [activeTask, setActiveTask] = useState(null); // task to count
+
   const { data: allSchedules = [], isLoading } = useQuery({
     queryKey: ["weekly-schedule-all"],
     queryFn: () => base44.entities.WeeklySchedule.list(),
@@ -32,13 +36,43 @@ export default function EmployeeScheduleView() {
   const { data: tasks = [] } = useQuery({
     queryKey: ["inventory-tasks-all"],
     queryFn: () => base44.entities.InventoryCountTask.list("-task_date", 200),
-    staleTime: 30000,
+    staleTime: 15000,
   });
+
+  const startMutation = useMutation({
+    mutationFn: (taskId) =>
+      base44.entities.InventoryCountTask.update(taskId, {
+        status: "جاري",
+        started_at: new Date().toISOString(),
+      }),
+    onSuccess: (_, taskId) => {
+      qc.invalidateQueries(["inventory-tasks-all"]);
+      const task = tasks.find(t => t.id === taskId);
+      if (task) setActiveTask({ ...task, status: "جاري" });
+    },
+  });
+
+  // If a session is active, show the counting screen
+  if (activeTask) {
+    return (
+      <div dir="rtl">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-4 gap-1 text-gray-500"
+          onClick={() => setActiveTask(null)}
+        >
+          <ArrowRight className="w-4 h-4" /> العودة للمواعيد
+        </Button>
+        <DailyCountScreen task={activeTask} />
+      </div>
+    );
+  }
 
   // Flatten all assignments across all branches, sorted by date
   const allAssignments = allSchedules.flatMap(s =>
     (s.assignments || []).map(a => ({ ...a, branch: s.branch }))
-  ).filter(a => a.scheduled_date && a.scheduled_date >= TODAY)
+  ).filter(a => a.scheduled_date)
     .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
 
   // Group by employee
@@ -56,10 +90,18 @@ export default function EmployeeScheduleView() {
     return (
       <div className="text-center py-12 text-gray-400">
         <Calendar className="w-10 h-10 mx-auto mb-2 opacity-40" />
-        <p>لا توجد مواعيد جرد مجدولة قادمة</p>
+        <p>لا توجد مواعيد جرد مجدولة</p>
       </div>
     );
   }
+
+  const handleStart = (task) => {
+    if (task.status === "جاري") {
+      setActiveTask(task);
+    } else {
+      startMutation.mutate(task.id);
+    }
+  };
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -79,8 +121,10 @@ export default function EmployeeScheduleView() {
             <div className="divide-y">
               {byEmployee[emp].map((a, i) => {
                 const status = getStatusForDate(a.scheduled_date);
-                // Check if task was created for this date+branch
-                const relatedTask = tasks.find(t => t.task_date === a.scheduled_date && t.branch === a.branch);
+                const relatedTask = tasks.find(t => t.task_date === a.scheduled_date && t.branch === a.branch && t.assigned_employee === emp);
+                const canStart = relatedTask && relatedTask.status !== "مكتمل" && relatedTask.status !== "متأخر";
+                const isStarting = startMutation.isPending && startMutation.variables === relatedTask?.id;
+
                 return (
                   <div key={i} className="px-4 py-3 flex items-center gap-3">
                     <div className="flex-1">
@@ -89,7 +133,7 @@ export default function EmployeeScheduleView() {
                         <Package className="w-3 h-3" />{a.branch}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1.5">
                       {status && <Badge className={`text-xs ${status.color}`}>{status.label}</Badge>}
                       {relatedTask && (
                         <Badge className={
@@ -98,6 +142,17 @@ export default function EmployeeScheduleView() {
                           relatedTask.status === "متأخر" ? "bg-red-100 text-red-700 text-xs" :
                           "bg-gray-100 text-gray-600 text-xs"
                         }>{relatedTask.status}</Badge>
+                      )}
+                      {canStart && (
+                        <Button
+                          size="sm"
+                          className={`text-xs h-7 gap-1 ${relatedTask.status === "جاري" ? "bg-blue-600 hover:bg-blue-700" : "bg-teal-600 hover:bg-teal-700"}`}
+                          onClick={() => handleStart(relatedTask)}
+                          disabled={isStarting}
+                        >
+                          <PlayCircle className="w-3.5 h-3.5" />
+                          {isStarting ? "..." : relatedTask.status === "جاري" ? "متابعة" : "بدء الجرد"}
+                        </Button>
                       )}
                     </div>
                   </div>
