@@ -18,8 +18,8 @@ const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشي
 const TODAY = new Date().toISOString().split("T")[0];
 
 export default function InventoryCount() {
-  const { isAdmin, isManager } = useUserRole();
-  const isPrivileged = isAdmin || isManager;
+  const { isAdmin } = useUserRole();
+  const isPrivileged = isAdmin;
 
   const [branch, setBranch] = useState("فرع زكريا");
   const [uploadOpen, setUploadOpen] = useState(false);
