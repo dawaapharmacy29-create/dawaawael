@@ -69,6 +69,15 @@ export default function ProductUploader({ onClose }) {
     if (!branch || !preview) return;
     setImporting(true);
     setProgress(0);
+
+    // Step 1: Delete all existing products for this branch
+    const existing = await base44.entities.InventoryProduct.filter({ branch });
+    const DEL_BATCH = 20;
+    for (let i = 0; i < existing.length; i += DEL_BATCH) {
+      await Promise.all(existing.slice(i, i + DEL_BATCH).map(p => base44.entities.InventoryProduct.delete(p.id)));
+    }
+
+    // Step 2: Import new products
     const BATCH = 10;
     const DELAY = 1500;
     const MAX_RETRIES = 3;
@@ -101,6 +110,7 @@ export default function ProductUploader({ onClose }) {
       if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, DELAY));
     }
     qc.invalidateQueries(["inventory-products"]);
+    qc.invalidateQueries(["inventory-products-all"]);
     setImporting(false);
     setDone(true);
   };
@@ -175,7 +185,7 @@ export default function ProductUploader({ onClose }) {
       {importing && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-gray-500">
-            <span>جاري الاستيراد...</span>
+            <span>{progress === 0 ? "جاري حذف الأصناف القديمة..." : "جاري الاستيراد..."}</span>
             <span>{progress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
