@@ -75,9 +75,9 @@ export default function ProductUploader({ onClose }) {
     if (!branch || !preview) return;
     setImporting(true);
     const chunks = [];
-    for (let i = 0; i < preview.length; i += 20) chunks.push(preview.slice(i, i + 20));
+    for (let i = 0; i < preview.length; i += 10) chunks.push(preview.slice(i, i + 10));
     for (const chunk of chunks) {
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 1200));
       await base44.entities.InventoryProduct.bulkCreate(
         chunk.map(item => ({
           product_code: String(item.product_code || ""),
