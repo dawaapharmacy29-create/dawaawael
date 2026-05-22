@@ -2,81 +2,54 @@ import React, { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Package, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Trash2, Package, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet, ChevronDown, ChevronUp, Search, XCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
-const CONCURRENCY = 10;
-
 const NAME_KEYS = ["اسم الصنف", "اسم", "product_name", "name", "الاسم", "الصنف"];
 const QTY_KEYS  = ["الرصيد", "رصيد", "الكمية", "كمية", "stock_quantity", "quantity", "qty", "الكميه"];
 const CODE_KEYS = ["كود", "كود الصنف", "product_code", "code", "الكود", "رقم الصنف"];
 const findCol = (headers, keys) => headers.find(h => keys.some(k => k === h?.trim()));
 
-async function deleteInParallel(ids, onProgress) {
-  let done = 0;
-  for (let i = 0; i < ids.length; i += CONCURRENCY) {
-    const chunk = ids.slice(i, i + CONCURRENCY);
-    await Promise.all(chunk.map(id =>
-      base44.entities.InventoryProduct.delete(id).catch(() => {})
-    ));
-    done += chunk.length;
-    onProgress(Math.round((done / ids.length) * 100));
-  }
-}
-
-// Branch card extracted as its own component so each has its own file input ref
 function BranchCard({ branch, allProducts, onRefetch, qc }) {
-  const fileInputRef = React.useRef(null);
-
-  const [deleting, setDeleting] = useState(false);
+  const fileInputRef = useRef(null);
   const [confirm, setConfirm] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState("");
-
+  const [busy, setBusy] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
+  const [isError, setIsError] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [uploadError, setUploadError] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  const [successMsg, setSuccessMsg] = useState("");
   const [viewing, setViewing] = useState(false);
   const [search, setSearch] = useState("");
 
   const count = allProducts.filter(p => p.branch === branch).length;
 
-  const showSuccess = (msg) => {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(""), 3000);
+  const showMsg = (msg, error = false) => {
+    setStatusMsg(msg);
+    setIsError(error);
+    if (!error) setTimeout(() => setStatusMsg(""), 4000);
   };
 
-  // ── DELETE ──
-  const handleDelete = async () => {
-    setDeleting(true);
-    setConfirm(false);
-    setProgress(0);
-    setProgressLabel("جاري جلب الأصناف...");
-
-    let fresh = [];
-    let page = 0;
-    const PAGE_SIZE = 100;
-    while (true) {
-      const batch = await base44.entities.InventoryProduct.filter({ branch }, "-created_date", PAGE_SIZE, page * PAGE_SIZE);
-      fresh = fresh.concat(batch);
-      if (batch.length < PAGE_SIZE) break;
-      page++;
-    }
-    setProgressLabel(`جاري حذف ${fresh.length} صنف...`);
-    if (fresh.length > 0) {
-      await deleteInParallel(fresh.map(p => p.id), setProgress);
-    }
-
+  const invalidate = async () => {
     qc.removeQueries({ queryKey: ["inventory-products-all"] });
     qc.removeQueries({ queryKey: ["inventory-products"] });
     await onRefetch();
-    setDeleting(false);
-    showSuccess("تم الحذف بنجاح");
+  };
+
+  // ── DELETE via backend function ──
+  const handleDelete = async () => {
+    setBusy(true);
+    setConfirm(false);
+    showMsg("جاري الحذف...");
+    try {
+      const res = await base44.functions.invoke("deleteInventoryProducts", { branch });
+      await invalidate();
+      showMsg(`تم حذف ${res.data.deleted} صنف بنجاح ✓`);
+    } catch (e) {
+      showMsg("فشل الحذف: " + e.message, true);
+    }
+    setBusy(false);
   };
 
   // ── FILE PARSE ──
@@ -96,7 +69,7 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
         const nameCol = findCol(headers, NAME_KEYS);
         const qtyCol  = findCol(headers, QTY_KEYS);
         const codeCol = findCol(headers, CODE_KEYS);
-        if (!nameCol) { setUploadError("لم يُعثر على عمود اسم الصنف"); return; }
+        if (!nameCol) { setUploadError(`لم يُعثر على عمود الاسم. الأعمدة: ${headers.join(", ")}`); return; }
         const mapped = rows
           .map(r => ({
             product_name: String(r[nameCol] || "").trim(),
@@ -104,78 +77,45 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
             product_code: codeCol ? String(r[codeCol] || "").trim() : "",
           }))
           .filter(i => i.product_name);
-        if (!mapped.length) { setUploadError("لا أصناف صالحة"); return; }
+        if (!mapped.length) { setUploadError("لا أصناف صالحة في الملف"); return; }
         setUploadPreview(mapped);
       } catch (err) {
         setUploadError("تعذّر قراءة الملف: " + err.message);
       }
     };
     reader.readAsArrayBuffer(file);
-    // reset so same file can be re-selected
     e.target.value = "";
   };
 
-  // ── UPLOAD ──
+  // ── UPLOAD via backend function ──
   const handleUpload = async () => {
     if (!uploadPreview) return;
-    setUploading(true);
-    setUploadProgress(0);
-
-    // Delete old — paginate to get all records
-    let old = [];
-    let page = 0;
-    const PAGE_SIZE = 100;
-    while (true) {
-      const batch = await base44.entities.InventoryProduct.filter({ branch }, "-created_date", PAGE_SIZE, page * PAGE_SIZE);
-      old = old.concat(batch);
-      if (batch.length < PAGE_SIZE) break;
-      page++;
-    }
-    if (old.length > 0) {
-      await deleteInParallel(old.map(p => p.id), () => {});
-    }
-
-    // Insert new in batches
-    const BATCH = 20;
-    const chunks = [];
-    for (let i = 0; i < uploadPreview.length; i += BATCH)
-      chunks.push(uploadPreview.slice(i, i + BATCH));
-
-    for (let ci = 0; ci < chunks.length; ci++) {
-      await base44.entities.InventoryProduct.bulkCreate(
-        chunks[ci].map(item => ({
-          product_name: item.product_name,
-          stock_quantity: item.stock_quantity,
-          product_code: item.product_code || "",
-          branch,
-          is_active: true,
-          priority_score: 0,
-          discrepancy_count: 0,
-        }))
-      );
-      setUploadProgress(Math.round(((ci + 1) / chunks.length) * 100));
-      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
-    }
-
-    qc.removeQueries({ queryKey: ["inventory-products-all"] });
-    qc.removeQueries({ queryKey: ["inventory-products"] });
-    await onRefetch();
-    setUploading(false);
+    setBusy(true);
     setUploadOpen(false);
-    setUploadPreview(null);
-    showSuccess(`تم رفع ${uploadPreview.length} صنف بنجاح`);
+    showMsg(`جاري رفع ${uploadPreview.length} صنف...`);
+    try {
+      const res = await base44.functions.invoke("uploadInventoryProducts", {
+        branch,
+        products: uploadPreview,
+      });
+      await invalidate();
+      setUploadPreview(null);
+      showMsg(`تم رفع ${res.data.inserted} صنف بنجاح ✓`);
+    } catch (e) {
+      showMsg("فشل الرفع: " + e.message, true);
+    }
+    setBusy(false);
   };
 
-  const viewedProducts = allProducts
-    .filter(p => p.branch === branch &&
-      (!search || p.product_name?.includes(search) || p.product_code?.includes(search)));
-
-  const busy = deleting || uploading;
+  const viewedProducts = allProducts.filter(p =>
+    p.branch === branch &&
+    (!search || p.product_name?.includes(search) || p.product_code?.includes(search))
+  );
 
   return (
     <div className="bg-white border rounded-xl overflow-hidden">
       <div className="p-4 space-y-3">
-        {/* Title row */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-teal-600" />
@@ -198,31 +138,21 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
           <p className="text-xs text-gray-400 mt-1">صنف مسجّل</p>
         </div>
 
-        {/* Success */}
-        {successMsg && (
-          <div className="flex items-center gap-1.5 justify-center text-green-600 text-sm">
-            <CheckCircle2 className="w-4 h-4" /> {successMsg}
+        {/* Status message */}
+        {statusMsg && (
+          <div className={`flex items-center gap-1.5 justify-center text-sm ${isError ? "text-red-600" : "text-green-600"}`}>
+            {isError ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+            {statusMsg}
           </div>
         )}
 
-        {/* Progress */}
-        {busy && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>{deleting ? (progressLabel || "جاري الحذف...") : "جاري الرفع..."}</span>
-              <span>{deleting ? progress : uploadProgress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-teal-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${deleting ? progress : uploadProgress}%` }}
-              />
-            </div>
-          </div>
+        {/* Confirm message */}
+        {confirm && (
+          <p className="text-xs text-center text-red-600 font-medium">هل أنت متأكد من حذف {count} صنف؟</p>
         )}
 
         {/* Action buttons */}
-        {!busy && !successMsg && (
+        {!busy && (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -257,9 +187,10 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
           </div>
         )}
 
-        {/* Confirm message */}
-        {!busy && confirm && (
-          <p className="text-xs text-center text-red-600 font-medium">هل أنت متأكد من حذف {count} صنف؟</p>
+        {busy && (
+          <div className="text-center text-sm text-gray-400 animate-pulse">
+            {statusMsg || "جاري التنفيذ..."}
+          </div>
         )}
 
         {/* Inline Upload Form */}
@@ -319,12 +250,8 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
                 </div>
               </div>
             ))}
-            {viewedProducts.length === 0 && (
-              <p className="text-center text-gray-400 py-4">لا نتائج</p>
-            )}
-            {viewedProducts.length > 200 && (
-              <p className="text-center text-gray-400 py-2">يُعرض أول 200 صنف</p>
-            )}
+            {viewedProducts.length === 0 && <p className="text-center text-gray-400 py-4">لا نتائج</p>}
+            {viewedProducts.length > 200 && <p className="text-center text-gray-400 py-2">يُعرض أول 200 صنف</p>}
           </div>
         </div>
       )}
@@ -334,7 +261,6 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
 
 export default function ProductsManager() {
   const qc = useQueryClient();
-
   const { data: allProducts = [], isLoading, refetch } = useQuery({
     queryKey: ["inventory-products-all"],
     queryFn: () => base44.entities.InventoryProduct.list(),
@@ -349,16 +275,9 @@ export default function ProductsManager() {
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
         <span>يمكنك حذف أصناف الفرع أو رفع ملف جديد مباشرة. الحذف نهائي.</span>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BRANCHES.map(branch => (
-          <BranchCard
-            key={branch}
-            branch={branch}
-            allProducts={allProducts}
-            onRefetch={refetch}
-            qc={qc}
-          />
+          <BranchCard key={branch} branch={branch} allProducts={allProducts} onRefetch={refetch} qc={qc} />
         ))}
       </div>
     </div>
