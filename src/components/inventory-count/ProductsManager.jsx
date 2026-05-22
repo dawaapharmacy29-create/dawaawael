@@ -58,8 +58,16 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
     setProgress(0);
     setProgressLabel("جاري جلب الأصناف...");
 
-    const fresh = await base44.entities.InventoryProduct.filter({ branch }, null, 5000);
-    setProgressLabel("جاري الحذف...");
+    let fresh = [];
+    let page = 0;
+    const PAGE_SIZE = 100;
+    while (true) {
+      const batch = await base44.entities.InventoryProduct.filter({ branch }, "-created_date", PAGE_SIZE, page * PAGE_SIZE);
+      fresh = fresh.concat(batch);
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
+    setProgressLabel(`جاري حذف ${fresh.length} صنف...`);
     if (fresh.length > 0) {
       await deleteInParallel(fresh.map(p => p.id), setProgress);
     }
@@ -113,8 +121,16 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
     setUploading(true);
     setUploadProgress(0);
 
-    // Delete old
-    const old = await base44.entities.InventoryProduct.filter({ branch }, null, 5000);
+    // Delete old — paginate to get all records
+    let old = [];
+    let page = 0;
+    const PAGE_SIZE = 100;
+    while (true) {
+      const batch = await base44.entities.InventoryProduct.filter({ branch }, "-created_date", PAGE_SIZE, page * PAGE_SIZE);
+      old = old.concat(batch);
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
     if (old.length > 0) {
       await deleteInParallel(old.map(p => p.id), () => {});
     }
