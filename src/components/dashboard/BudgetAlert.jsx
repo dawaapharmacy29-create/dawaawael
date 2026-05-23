@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, Bell } from "lucide-react";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 export default function BudgetAlert({ invoices, expenses, budgets }) {
   const alerts = BRANCHES.map((branch) => {

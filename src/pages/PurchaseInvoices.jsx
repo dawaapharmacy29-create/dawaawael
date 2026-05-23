@@ -13,7 +13,7 @@ import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 export default function PurchaseInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);

@@ -8,12 +8,11 @@ import { useUserRole } from "@/lib/useUserRole";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 const branchColor = {
-  "فرع زكريا": { bar: "bg-blue-500", light: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
-  "فرع بسيسة": { bar: "bg-purple-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
-  "فرع المنشية": { bar: "bg-orange-500", light: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" },
+  "دواء شكري": { bar: "bg-blue-500", light: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+  "دواء الشامي": { bar: "bg-purple-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
 };
 
 export default function BranchBudgetCard({ invoices, budgets }) {
