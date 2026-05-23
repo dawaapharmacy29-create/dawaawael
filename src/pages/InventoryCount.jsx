@@ -15,14 +15,14 @@ import EmployeeScheduleView from "@/components/inventory-count/EmployeeScheduleV
 import { useUserRole } from "@/lib/useUserRole";
 import ProductsManager from "@/components/inventory-count/ProductsManager";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const TODAY = new Date().toISOString().split("T")[0];
 
 export default function InventoryCount() {
   const { isAdmin } = useUserRole();
   const isPrivileged = isAdmin;
 
-  const [branch, setBranch] = useState("فرع زكريا");
+  const [branch, setBranch] = useState("دواء شكري");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
