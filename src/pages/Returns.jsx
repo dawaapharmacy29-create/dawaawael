@@ -10,7 +10,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import ReturnFormDialog from "@/components/returns/ReturnFormDialog";
 import ReturnDetailDialog from "@/components/returns/ReturnDetailDialog";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 const STATUS_CONFIG = {
   Pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },

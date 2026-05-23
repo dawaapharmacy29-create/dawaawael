@@ -17,8 +17,6 @@ import { Lock, Settings2, Save } from "lucide-react";
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-const SETTING_KEY_FROM = "report_date_from";
-const SETTING_KEY_TO = "report_date_to";
 
 function getMonthKey(dateStr) {
   if (!dateStr) return null;
@@ -39,27 +37,43 @@ const thisYear = new Date().getFullYear();
 const DEFAULT_FROM = `${thisYear}-01-01`;
 const DEFAULT_TO = `${thisYear}-12-31`;
 
-export default function Reports() {
+// Get branch from URL param
+function getBranchFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const b = params.get("branch");
+  return BRANCHES.includes(b) ? b : BRANCHES[0];
+}
+
+export default function ReportsBranch() {
   const { isManager } = useUserRole();
   const queryClient = useQueryClient();
+  const [branch, setBranch] = useState(getBranchFromUrl);
   const [saving, setSaving] = useState(false);
   const [pendingFrom, setPendingFrom] = useState(DEFAULT_FROM);
   const [pendingTo, setPendingTo] = useState(DEFAULT_TO);
 
-  const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
-  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
+  const SETTING_KEY_FROM = `report_date_from_${branch}`;
+  const SETTING_KEY_TO = `report_date_to_${branch}`;
+
+  const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
+  const { data: allExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
   const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
+
+  // Filter to this branch only
+  const invoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
+  const expenses = useMemo(() => allExpenses.filter(e => e.branch === branch), [allExpenses, branch]);
 
   const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
   const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
   const activeFrom = settingFrom?.value || DEFAULT_FROM;
   const activeTo = settingTo?.value || DEFAULT_TO;
 
-  // Sync pending when settings load
   useEffect(() => {
     if (settingFrom) setPendingFrom(settingFrom.value);
+    else setPendingFrom(DEFAULT_FROM);
     if (settingTo) setPendingTo(settingTo.value);
-  }, [settingFrom?.value, settingTo?.value]);
+    else setPendingTo(DEFAULT_TO);
+  }, [settingFrom?.value, settingTo?.value, branch]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -80,7 +94,6 @@ export default function Reports() {
   const filteredInvoices = useMemo(() => invoices.filter(i => inRange(i.created_date, activeFrom, activeTo)), [invoices, activeFrom, activeTo]);
   const filteredExpenses = useMemo(() => expenses.filter(e => inRange(e.date, activeFrom, activeTo)), [expenses, activeFrom, activeTo]);
 
-  // Monthly data
   const monthlyData = useMemo(() => {
     const map = {};
     filteredInvoices.forEach((i) => {
@@ -98,43 +111,35 @@ export default function Reports() {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
   }, [filteredInvoices, filteredExpenses]);
 
-  // Branch comparison
-  const branchData = useMemo(() => {
-    return BRANCHES.map((branch) => ({
-      branch: branch,
-      مشتريات: filteredInvoices.filter(i => i.branch === branch).reduce((s, i) => s + (i.total_value || 0), 0),
-      مصروفات: filteredExpenses.filter(e => e.branch === branch).reduce((s, e) => s + (e.amount || 0), 0),
-    }));
-  }, [filteredInvoices, filteredExpenses]);
-
-  // Monthly per branch
-  const branchMonthlyData = useMemo(() => {
-    const map = {};
-    filteredInvoices.forEach((i) => {
-      const k = getMonthKey(i.created_date);
-      const bKey = i.branch;
-      if (!k || !bKey) return;
-      if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}` }; BRANCHES.forEach(b => { map[k][b] = 0; }); }
-      map[k][bKey] = (map[k][bKey] || 0) + (i.total_value || 0);
-    });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [filteredInvoices]);
-
   const totalInvoices = filteredInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
   const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const fmt = (n) => n.toLocaleString("ar-EG");
-
   const changed = pendingFrom !== activeFrom || pendingTo !== activeTo;
-
   const formatDateAr = (d) => d ? new Date(d).toLocaleDateString("ar-EG") : "";
+
+  const branchColor = branch === "دواء شكري" ? "text-blue-700" : "text-purple-700";
+  const branchBg = branch === "دواء شكري" ? "bg-blue-600" : "bg-purple-600";
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
+      {/* Branch Tabs */}
+      <div className="flex gap-2">
+        {BRANCHES.map(b => (
+          <button
+            key={b}
+            onClick={() => setBranch(b)}
+            className={`px-5 py-2 rounded-lg text-sm font-bold border-2 transition-all ${branch === b ? (b === "دواء شكري" ? "bg-blue-600 text-white border-blue-600" : "bg-purple-600 text-white border-purple-600") : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
+          >
+            {b}
+          </button>
+        ))}
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">التقارير — إجمالي الفرعين</h1>
-          <p className="text-gray-500 text-sm mt-0.5">مقارنة الفروع والنفقات للفترة المحددة</p>
+          <h1 className={`text-2xl font-bold ${branchColor}`}>تقارير — {branch}</h1>
+          <p className="text-gray-500 text-sm mt-0.5">نظام مالي مستقل — للفترة المحددة</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {isManager ? (
@@ -170,7 +175,7 @@ export default function Reports() {
             invoices={filteredInvoices}
             expenses={filteredExpenses}
             year={new Date(activeFrom).getFullYear()}
-            branchData={branchData}
+            branchData={[{ branch, مشتريات: totalInvoices, مصروفات: totalExpenses }]}
             monthlyData={monthlyData}
           />
         </div>
@@ -191,22 +196,6 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Branch Comparison */}
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">مقارنة المشتريات والمصروفات بين الفروع</h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={branchData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="branch" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
-            <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
-            <Legend />
-            <Bar dataKey="مشتريات" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="مصروفات" fill="#f97316" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
-
       {/* Monthly Trend */}
       {monthlyData.length > 0 && (
         <Card className="p-4">
@@ -225,33 +214,14 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* Monthly Branch Report */}
-      <MonthlyBranchReport invoices={invoices} expenses={expenses} />
+      {/* Monthly Branch Report — filtered to this branch */}
+      <MonthlyBranchReport invoices={invoices} expenses={expenses} singleBranch={branch} />
 
-      {/* Aging Report */}
+      {/* Aging Report — filtered to this branch */}
       <AgingReport invoices={invoices} />
 
-      {/* All Suppliers Table */}
+      {/* Top Suppliers — filtered to this branch */}
       <TopSuppliers invoices={invoices} dateFrom={activeFrom} dateTo={activeTo} />
-
-      {/* Monthly per Branch */}
-      {branchMonthlyData.length > 0 && (
-        <Card className="p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">المشتريات الشهرية لكل فرع</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={branchMonthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
-              <Tooltip formatter={(v) => v.toLocaleString("ar-EG") + " ج"} />
-              <Legend />
-              {BRANCHES.map((b) => (
-                <Bar key={b} dataKey={b} fill={BRANCH_COLORS[b]} radius={[3, 3, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      )}
     </div>
   );
 }

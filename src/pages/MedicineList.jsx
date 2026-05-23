@@ -6,7 +6,7 @@ import MedicineSalesTab from "@/components/medicine/MedicineSalesTab";
 import MedicineItemsAdmin from "@/components/medicine/MedicineItemsAdmin";
 import { useUserRole } from "@/lib/useUserRole";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 function BranchBalanceTable() {
   const { data: items = [] } = useQuery({
@@ -52,7 +52,6 @@ function BranchBalanceTable() {
           const colors = [
             { header: "bg-blue-700", row: "bg-blue-50", val: "text-blue-700", border: "border-blue-200" },
             { header: "bg-purple-700", row: "bg-purple-50", val: "text-purple-700", border: "border-purple-200" },
-            { header: "bg-orange-700", row: "bg-orange-50", val: "text-orange-700", border: "border-orange-200" },
           ][bi];
           const total = activeItems.reduce((s, item) => {
             const v = branchItemBalances[branch][item.id];

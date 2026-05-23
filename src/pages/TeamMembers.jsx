@@ -9,16 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const branchColor = {
-  "فرع زكريا": "bg-blue-50 border-blue-200",
-  "فرع بسيسة": "bg-purple-50 border-purple-200",
-  "فرع المنشية": "bg-orange-50 border-orange-200",
+  "دواء شكري": "bg-blue-50 border-blue-200",
+  "دواء الشامي": "bg-purple-50 border-purple-200",
 };
 const branchBadgeColor = {
-  "فرع زكريا": "bg-blue-100 text-blue-700",
-  "فرع بسيسة": "bg-purple-100 text-purple-700",
-  "فرع المنشية": "bg-orange-100 text-orange-700",
+  "دواء شكري": "bg-blue-100 text-blue-700",
+  "دواء الشامي": "bg-purple-100 text-purple-700",
 };
 
 const emptyForm = { name: "", branches: [], role: "", phone: "" };

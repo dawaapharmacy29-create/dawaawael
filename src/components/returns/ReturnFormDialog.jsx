@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { Plus, Trash2, Upload, X, Image, Loader2, Camera } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const REASONS = ["عدم الحاجة", "انتهاء الصلاحية", "تغيير السعر", "تلف", "لم يصل"];
 
 const emptyItem = () => ({

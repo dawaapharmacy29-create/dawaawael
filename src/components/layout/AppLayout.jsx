@@ -18,8 +18,12 @@ const navItems = [
   { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true },
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
-  { path: "/reports", label: "التقارير", icon: BarChart2 },
-  { path: "/supplier-balances", label: "أرصدة الموردين", icon: HandCoins },
+  { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2 },
+  { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true },
+  { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي", icon: BarChart2, indent: true },
+  { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins },
+  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true },
+  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: ShieldCheck },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck },
@@ -47,12 +51,16 @@ export default function AppLayout() {
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {visibleNavItems.map((item) => (
+          {visibleNavItems.map((item) => {
+            const pathOnly = item.path.split("?")[0];
+            const isActive = location.pathname === pathOnly && (item.path === pathOnly || location.search === `?${item.path.split("?")[1] || ""}`);
+            return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                item.indent ? "px-2 py-2 mr-3" : "px-3 py-2.5",
                 item.gold
                   ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
                   : item.pink
@@ -63,18 +71,21 @@ export default function AppLayout() {
                   ? "bg-teal-600 text-white border border-teal-700"
                   : item.cyan
                   ? "bg-cyan-600 text-white border border-cyan-700"
-                  : location.pathname === item.path
+                  : isActive
                   ? "bg-teal-50 text-teal-700"
+                  : item.indent
+                  ? "text-gray-500 hover:bg-gray-100 text-xs"
                   : "text-gray-600 hover:bg-gray-100"
               )}
             >
-              <item.icon className={cn("w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
+              <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && pendingCount > 0 && (
                 <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
               )}
             </Link>
-          ))}
+            );
+          })}
         </nav>
       </aside>
 
@@ -92,13 +103,17 @@ export default function AppLayout() {
         <div className="md:hidden fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)}>
           <div className="absolute top-12 right-0 w-56 bg-white h-full shadow-xl p-3" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1 mt-2">
-              {visibleNavItems.map((item) => (
+              {visibleNavItems.map((item) => {
+                const pathOnly = item.path.split("?")[0];
+                const isActive = location.pathname === pathOnly && (item.path === pathOnly || location.search === `?${item.path.split("?")[1] || ""}`);
+                return (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                    item.indent ? "px-2 py-2 mr-3" : "px-3 py-2.5",
                     item.gold
                       ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
                       : item.pink
@@ -109,18 +124,21 @@ export default function AppLayout() {
                         ? "bg-teal-600 text-white border border-teal-700"
                         : item.cyan
                         ? "bg-cyan-600 text-white border border-cyan-700"
-                        : location.pathname === item.path
+                        : isActive
                         ? "bg-teal-50 text-teal-700"
+                        : item.indent
+                        ? "text-gray-500 hover:bg-gray-100 text-xs"
                         : "text-gray-600 hover:bg-gray-100"
                       )}
                       >
-                      <item.icon className={cn("w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
+                      <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
                   <span className="flex-1">{item.label}</span>
                   {item.badge && pendingCount > 0 && (
                     <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
                   )}
                 </Link>
-              ))}
+                );
+              })}
             </nav>
           </div>
         </div>
