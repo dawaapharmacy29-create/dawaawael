@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2 } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, FileText } from "lucide-react";
+import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -32,6 +33,7 @@ export default function SupplierBalancesBranch() {
   const [savingDebt, setSavingDebt] = useState(false);
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
   const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [statementOpen, setStatementOpen] = useState(false);
 
   const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000) });
   const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date") });
@@ -187,7 +189,7 @@ export default function SupplierBalancesBranch() {
         {BRANCHES.map(b => (
           <button
             key={b}
-            onClick={() => { setBranch(b); setExpanded(null); }}
+            onClick={() => { setBranch(b); setExpanded(null); setPayDialog(null); setStatementOpen(false); }}
             className={`px-5 py-2 rounded-lg text-sm font-bold border-2 transition-all ${branch === b ? (b === "دواء شكري" ? "bg-blue-600 text-white border-blue-600" : "bg-purple-600 text-white border-purple-600") : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
           >
             {b}
@@ -202,6 +204,9 @@ export default function SupplierBalancesBranch() {
           <p className="text-gray-500 text-sm mt-0.5">نظام مالي مستقل — تتبع الحسابات الدائنة</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={() => setStatementOpen(true)} variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+            <FileText className="w-4 h-4" /> كشف حساب
+          </Button>
           <Button onClick={() => setGeneralPayDialog(true)} className="bg-green-600 hover:bg-green-700 gap-2">
             <PlusCircle className="w-4 h-4" /> تسديد دفعة
           </Button>
@@ -427,6 +432,13 @@ export default function SupplierBalancesBranch() {
               {addGeneralPayment.isPending ? "جاري الحفظ..." : "تأكيد الدفعة"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Statement Dialog */}
+      <Dialog open={statementOpen} onOpenChange={setStatementOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <SupplierStatement branch={branch} onClose={() => setStatementOpen(false)} />
         </DialogContent>
       </Dialog>
 
