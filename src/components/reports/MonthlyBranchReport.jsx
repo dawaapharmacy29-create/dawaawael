@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { FileDown } from "lucide-react";
 import jsPDF from "jspdf";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
 function getMonthKey(dateStr) {
