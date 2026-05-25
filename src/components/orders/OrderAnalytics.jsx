@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
 const STATUS_COLORS = {

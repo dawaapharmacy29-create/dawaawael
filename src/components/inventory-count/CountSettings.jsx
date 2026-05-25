@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings2, Save } from "lucide-react";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 const defaultSettings = (branch) => ({

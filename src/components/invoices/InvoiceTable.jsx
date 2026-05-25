@@ -19,9 +19,8 @@ const paymentColor = {
   "فودافون": "bg-red-100 text-red-800",
 };
 const branchColor = {
-  "فرع زكريا": "bg-blue-100 text-blue-800",
-  "فرع بسيسة": "bg-purple-100 text-purple-800",
-  "فرع المنشية": "bg-orange-100 text-orange-800",
+  "دواء شكري": "bg-blue-100 text-blue-800",
+  "دواء الشامي": "bg-purple-100 text-purple-800",
 };
 
 export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, onView, selectedIds, onToggleSelect, onToggleAll }) {

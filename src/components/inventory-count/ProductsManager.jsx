@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Package, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet, ChevronDown, ChevronUp, Search, XCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const NAME_KEYS = ["اسم الصنف", "اسم", "product_name", "name", "الاسم", "الصنف"];
 const QTY_KEYS  = ["الرصيد", "رصيد", "الكمية", "كمية", "stock_quantity", "quantity", "qty", "الكميه"];
 const CODE_KEYS = ["كود", "كود الصنف", "product_code", "code", "الكود", "رقم الصنف"];

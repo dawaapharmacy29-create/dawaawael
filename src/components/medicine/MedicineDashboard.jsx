@@ -17,11 +17,10 @@ function formatDateAr(d) {
   return date.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" });
 }
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const branchColor = {
-  "فرع زكريا": "bg-blue-50 border-blue-200 text-blue-700",
-  "فرع بسيسة": "bg-purple-50 border-purple-200 text-purple-700",
-  "فرع المنشية": "bg-orange-50 border-orange-200 text-orange-700",
+  "دواء شكري": "bg-blue-50 border-blue-200 text-blue-700",
+  "دواء الشامي": "bg-purple-50 border-purple-200 text-purple-700",
 };
 
 export default function MedicineDashboard() {

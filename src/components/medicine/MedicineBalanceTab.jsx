@@ -12,7 +12,7 @@ import { Plus, Trash2, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const TODAY = new Date().toISOString().split("T")[0];
 
 /**
