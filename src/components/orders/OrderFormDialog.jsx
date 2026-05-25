@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, Upload, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SOURCES = ["واتساب", "مكالمة هاتفية", "داخل الصيدلية"];
 const PRIORITIES = ["عاجل", "متوسط", "عادي"];
 

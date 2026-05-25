@@ -11,7 +11,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { format } from "date-fns";
 
-const BRANCHES = ["فرع زكريا", "فرع بسيسة", "فرع المنشية"];
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
 const emptyForm = () => ({
   item_name: "", quantity: "", price: "", expiry_date: "", branch: "", notes: ""
