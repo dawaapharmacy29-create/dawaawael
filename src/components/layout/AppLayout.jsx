@@ -17,6 +17,7 @@ const navItems = [
   { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true },
   { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true },
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true },
+  { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2 },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true },
@@ -71,6 +72,8 @@ export default function AppLayout() {
                   ? "bg-teal-600 text-white border border-teal-700"
                   : item.cyan
                   ? "bg-cyan-600 text-white border border-cyan-700"
+                  : item.violet
+                  ? "bg-violet-600 text-white border border-violet-700"
                   : isActive
                   ? "bg-teal-50 text-teal-700"
                   : item.indent
@@ -78,7 +81,7 @@ export default function AppLayout() {
                   : "text-gray-600 hover:bg-gray-100"
               )}
             >
-              <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
+              <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && pendingCount > 0 && (
                 <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
@@ -124,6 +127,8 @@ export default function AppLayout() {
                         ? "bg-teal-600 text-white border border-teal-700"
                         : item.cyan
                         ? "bg-cyan-600 text-white border border-cyan-700"
+                        : item.violet
+                        ? "bg-violet-600 text-white border border-violet-700"
                         : isActive
                         ? "bg-teal-50 text-teal-700"
                         : item.indent
@@ -131,7 +136,7 @@ export default function AppLayout() {
                         : "text-gray-600 hover:bg-gray-100"
                       )}
                       >
-                      <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white")} />
+                      <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white")} />
                   <span className="flex-1">{item.label}</span>
                   {item.badge && pendingCount > 0 && (
                     <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>

@@ -20,6 +20,7 @@ import MedicineList from './pages/MedicineList';
 import Returns from './pages/Returns';
 import InventoryManagement from './pages/InventoryManagement';
 import CustomerOrders from './pages/CustomerOrders';
+import PharmacyOrders from './pages/PharmacyOrders';
 import InventoryCount from './pages/InventoryCount';
 import ReportsBranch from './pages/ReportsBranch';
 import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<InventoryManagement />} />
         <Route path="/customer-orders" element={<CustomerOrders />} />
+        <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<ReportsBranch />} />
         <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
