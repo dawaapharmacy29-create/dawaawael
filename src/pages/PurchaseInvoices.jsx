@@ -25,6 +25,7 @@ export default function PurchaseInvoices() {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState("created_date");
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
@@ -136,6 +137,10 @@ export default function PurchaseInvoices() {
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
     return branchMatch && supplierMatch && searchMatch && fromMatch && toMatch;
+  }).sort((a, b) => {
+    if (sortBy === "total_value") return (b.total_value || 0) - (a.total_value || 0);
+    if (sortBy === "system_invoice_number") return (b.system_invoice_number || "").localeCompare(a.system_invoice_number || "", "ar");
+    return new Date(b.created_date) - new Date(a.created_date);
   });
 
   const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || search || dateFrom || dateTo;
@@ -174,6 +179,14 @@ export default function PurchaseInvoices() {
             <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-32 h-9" />
             <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-32 h-9" />
           </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_date">الأحدث أولاً</SelectItem>
+              <SelectItem value="system_invoice_number">رقم البرنامج</SelectItem>
+              <SelectItem value="total_value">أعلى قيمة</SelectItem>
+            </SelectContent>
+          </Select>
           {hasFilters && (
             <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); }} className="text-xs text-red-500 hover:underline whitespace-nowrap">
               مسح الكل
