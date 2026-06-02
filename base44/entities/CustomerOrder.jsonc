@@ -71,6 +71,7 @@
       "enum": [
         "\u0637\u0644\u0628 \u062c\u062f\u064a\u062f",
         "\u062c\u0627\u0631\u064a \u0627\u0644\u0628\u062d\u062b",
+        "\u062a\u0645 \u0627\u0644\u0637\u0644\u0628",
         "\u0627\u0644\u0646\u0648\u0627\u0642\u0635",
         "\u062a\u0645 \u062a\u0648\u0641\u064a\u0631 \u0627\u0644\u0635\u0646\u0641",
         "\u062a\u0645 \u0627\u0644\u062a\u0648\u0635\u064a\u0644",
@@ -95,6 +96,14 @@
     "search_notes": {
       "type": "string",
       "description": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a \u0627\u0644\u0628\u062d\u062b"
+    },
+    "ordered_supplier": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0631\u062f \u0627\u0644\u0630\u064a \u062a\u0645 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646\u0647"
+    },
+    "arrival_notes": {
+      "type": "string",
+      "description": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a \u0645\u0648\u0639\u062f \u0627\u0644\u0648\u0635\u0648\u0644"
     },
     "expected_availability_date": {
       "type": "string",

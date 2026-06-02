@@ -2,16 +2,17 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
-const STATUSES = ["طلب جديد", "جاري البحث", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
 const STATUS_COLORS = {
-  "طلب جديد": "bg-blue-100 text-blue-700",
-  "جاري البحث": "bg-yellow-100 text-yellow-700",
-  "النواقص": "bg-purple-100 text-purple-700",
-  "تم توفير الصنف": "bg-teal-100 text-teal-700",
-  "تم التوصيل": "bg-green-100 text-green-700",
+  "طلب جديد":              "bg-blue-100 text-blue-700",
+  "جاري البحث":            "bg-yellow-100 text-yellow-700",
+  "تم الطلب":              "bg-indigo-100 text-indigo-700",
+  "النواقص":               "bg-purple-100 text-purple-700",
+  "تم توفير الصنف":        "bg-teal-100 text-teal-700",
+  "تم التوصيل":            "bg-green-100 text-green-700",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700",
-  "تم الإلغاء": "bg-red-100 text-red-700",
+  "تم الإلغاء":            "bg-red-100 text-red-700",
 };
 
 export default function OrderAnalytics({ orders }) {

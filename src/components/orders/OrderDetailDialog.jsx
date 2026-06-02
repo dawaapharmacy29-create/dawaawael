@@ -5,31 +5,38 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 import {
-  Loader2, Edit2, ZoomIn, CheckCircle, Search, Package, Truck,
-  Ban, RotateCcw, AlertTriangle, User, Phone, MapPin, Calendar,
-  ChevronRight, CheckCircle2
+  Loader2, Edit2, Ban, RotateCcw, AlertTriangle, User, Phone,
+  MapPin, Calendar, CheckCircle2, Package, Truck, Search, ShoppingCart, ZoomIn
 } from "lucide-react";
 import OrderFormDialog from "./OrderFormDialog";
 
 const STATUS_STYLE = {
-  "طلب جديد": "bg-blue-100 text-blue-700 border-blue-200",
-  "جاري البحث": "bg-yellow-100 text-yellow-700 border-yellow-200",
-  "النواقص": "bg-purple-100 text-purple-700 border-purple-200",
-  "تم توفير الصنف": "bg-teal-100 text-teal-700 border-teal-200",
-  "تم التوصيل": "bg-green-100 text-green-700 border-green-200",
+  "طلب جديد":              "bg-blue-100 text-blue-700 border-blue-200",
+  "جاري البحث":            "bg-yellow-100 text-yellow-700 border-yellow-200",
+  "تم الطلب":              "bg-indigo-100 text-indigo-700 border-indigo-200",
+  "النواقص":               "bg-purple-100 text-purple-700 border-purple-200",
+  "تم توفير الصنف":        "bg-teal-100 text-teal-700 border-teal-200",
+  "تم التوصيل":            "bg-green-100 text-green-700 border-green-200",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700 border-orange-200",
-  "تم الإلغاء": "bg-red-100 text-red-700 border-red-200",
+  "تم الإلغاء":            "bg-red-100 text-red-700 border-red-200",
 };
 
-const CANCEL_REASONS = ["السعر غير مناسب", "العميل كان يسأل فقط", "التأخر في الرد"];
+const CANCEL_REASONS = ["السعر غير مناسب", "تأخر الرد", "العميل كان يسأل فقط", "وجده في مكان آخر", "أخرى"];
 
-// Determine numeric stage from status
-function getStage(status) {
-  if (status === "طلب جديد") return 1;
-  if (status === "جاري البحث" || status === "النواقص") return 2;
-  if (status === "تم توفير الصنف") return 3;
-  if (status === "تم التوصيل") return 4;
-  return 1;
+// مراحل التقدم المرئية
+const PROGRESS_STAGES = [
+  { key: "طلب جديد",       label: "طلب جديد",    icon: "📋" },
+  { key: "جاري البحث",     label: "جاري البحث",  icon: "🔍" },
+  { key: "تم الطلب",       label: "تم الطلب",    icon: "🛒" },
+  { key: "تم توفير الصنف", label: "تم التوفير",  icon: "📦" },
+  { key: "تم التوصيل",     label: "تم التوصيل",  icon: "✅" },
+];
+
+function getProgressIndex(status) {
+  const idx = PROGRESS_STAGES.findIndex(s => s.key === status);
+  if (idx !== -1) return idx;
+  if (status === "النواقص") return 2; // بين البحث والطلب
+  return 0;
 }
 
 export default function OrderDetailDialog({ open, onOpenChange, order, teamMembers = [], isManager, onUpdated }) {
@@ -37,12 +44,16 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   const [showEdit, setShowEdit] = useState(false);
   const [lightbox, setLightbox] = useState(null);
 
-  // Stage 2 fields
-  const [supplierName, setSupplierName] = useState(order.supplier_found || "");
+  // Stage 2: جاري البحث
+  const [supplierSearch, setSupplierSearch] = useState(order.supplier_found || "");
   const [purchasePrice, setPurchasePrice] = useState(order.purchase_price || "");
-  const [orderDone, setOrderDone] = useState(false);
+  const [searchNotes, setSearchNotes] = useState(order.search_notes || "");
 
-  // Stage 3 fields
+  // Stage 3: تم الطلب
+  const [orderedSupplier, setOrderedSupplier] = useState(order.ordered_supplier || "");
+  const [arrivalNotes, setArrivalNotes] = useState(order.arrival_notes || "");
+
+  // Stage 4: توفير الصنف
   const [customerContacted, setCustomerContacted] = useState(order.customer_contacted || false);
   const [contactNote, setContactNote] = useState(order.followup_notes || "");
 
@@ -51,8 +62,8 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   const [cancelReason, setCancelReason] = useState(order.cancellation_reason || "");
 
   const isCancelled = order.status === "تم الإلغاء";
-  const isDelivered = order.status === "تم التوصيل";
-  const currentStage = getStage(order.status);
+  const isDelivered  = order.status === "تم التوصيل";
+  const progressIdx  = getProgressIndex(order.status);
 
   const updateOrder = async (updates, newStatus, timelineNote) => {
     setSaving(true);
@@ -71,22 +82,31 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
     onUpdated?.({ ...order, ...updated });
   };
 
-  // Stage 2 actions
+  // ── Actions ──
   const handleStartSearch = () =>
-    updateOrder({ supplier_found: supplierName, purchase_price: purchasePrice ? Number(purchasePrice) : undefined }, "جاري البحث", "بدء البحث");
+    updateOrder({ supplier_found: supplierSearch, purchase_price: purchasePrice ? Number(purchasePrice) : undefined, search_notes: searchNotes }, "جاري البحث", "بدء البحث");
+
+  const handleSaveSearch = () =>
+    updateOrder({ supplier_found: supplierSearch, purchase_price: purchasePrice ? Number(purchasePrice) : undefined, search_notes: searchNotes }, null, "تحديث بيانات البحث");
+
+  const handleMoveToOrdered = () =>
+    updateOrder({ ordered_supplier: orderedSupplier, arrival_notes: arrivalNotes }, "تم الطلب", `تم الطلب من: ${orderedSupplier}`);
+
+  const handleSaveOrdered = () =>
+    updateOrder({ ordered_supplier: orderedSupplier, arrival_notes: arrivalNotes }, null, "تحديث بيانات الطلب");
 
   const handleMoveToShortage = () =>
-    updateOrder({ supplier_found: supplierName, purchase_price: purchasePrice ? Number(purchasePrice) : undefined }, "النواقص", "نقل للنواقص");
+    updateOrder({ supplier_found: supplierSearch, search_notes: searchNotes }, "النواقص", "نقل للنواقص");
 
-  // Stage 3 action
   const handleMoveToAvailable = () =>
     updateOrder({ customer_contacted: customerContacted, followup_notes: contactNote, product_available: true }, "تم توفير الصنف", "تم توفير الصنف");
 
-  // Stage 4 action
+  const handleSaveAvailable = () =>
+    updateOrder({ customer_contacted: customerContacted, followup_notes: contactNote }, null, "تحديث متابعة العميل");
+
   const handleDeliver = () =>
     updateOrder({}, "تم التوصيل", "تم التسليم للعميل");
 
-  // Cancel
   const handleCancel = () =>
     updateOrder({ cancellation_reason: cancelReason }, "تم الإلغاء", `إلغاء: ${cancelReason}`);
 
@@ -98,15 +118,15 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <DialogTitle className="text-gray-800">
+              <DialogTitle className="text-gray-800 text-base">
                 طلب #{order.order_number || order.id?.slice(-6)}
               </DialogTitle>
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg}`}>{order.status}</span>
-                {isManager && (
+                {isManager && !isCancelled && !isDelivered && (
                   <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} className="gap-1 h-7 text-xs">
                     <Edit2 className="w-3 h-3" /> تعديل
                   </Button>
@@ -115,17 +135,45 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
             </div>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
 
-            {/* ── Cancel Button (top) ── */}
+            {/* ── Progress Bar ── */}
+            {!isCancelled && (
+              <div className="bg-gray-50 rounded-xl p-3 border">
+                <div className="flex items-center justify-between relative">
+                  {/* Connecting line */}
+                  <div className="absolute top-4 right-4 left-4 h-0.5 bg-gray-200 z-0" />
+                  <div
+                    className="absolute top-4 right-4 h-0.5 bg-teal-500 z-0 transition-all duration-500"
+                    style={{ width: `${(progressIdx / (PROGRESS_STAGES.length - 1)) * calc100}%` }}
+                  />
+                  {PROGRESS_STAGES.map((s, i) => {
+                    const done = i < progressIdx || isDelivered;
+                    const active = i === progressIdx && !isDelivered;
+                    return (
+                      <div key={s.key} className="flex flex-col items-center gap-1 z-10 flex-1">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all
+                          ${done ? "bg-teal-500 border-teal-500 text-white" :
+                            active ? "bg-white border-teal-500 text-teal-600 shadow-md" :
+                            "bg-white border-gray-200 text-gray-400"}`}>
+                          {done ? <CheckCircle2 className="w-4 h-4" /> : <span>{s.icon}</span>}
+                        </div>
+                        <span className={`text-xs text-center leading-tight ${active ? "text-teal-700 font-bold" : done ? "text-teal-600" : "text-gray-400"}`}>
+                          {s.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Cancel button ── */}
             {isManager && !isCancelled && !isDelivered && (
               <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  variant="outline"
+                <Button size="sm" variant="outline"
                   className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8"
-                  onClick={() => setShowCancelPanel(p => !p)}
-                >
+                  onClick={() => setShowCancelPanel(p => !p)}>
                   <Ban className="w-3.5 h-3.5" /> إلغاء الطلب
                 </Button>
               </div>
@@ -134,9 +182,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
             {/* Cancel Panel */}
             {showCancelPanel && isManager && (
               <div className="border border-red-200 bg-red-50 rounded-xl p-3 space-y-2">
-                <p className="text-sm font-semibold text-red-700 flex items-center gap-1">
-                  <Ban className="w-4 h-4" /> إلغاء الطلب
-                </p>
+                <p className="text-sm font-semibold text-red-700 flex items-center gap-1"><Ban className="w-4 h-4" /> إلغاء الطلب</p>
                 <Select value={cancelReason} onValueChange={setCancelReason}>
                   <SelectTrigger className="h-8 text-sm border-red-200 text-red-700 bg-white">
                     <SelectValue placeholder="اختر سبب الإلغاء" />
@@ -146,12 +192,8 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                   </SelectContent>
                 </Select>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs h-8"
-                    disabled={!cancelReason || saving}
-                    onClick={handleCancel}
-                  >
+                  <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs h-8"
+                    disabled={!cancelReason || saving} onClick={handleCancel}>
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "تأكيد الإلغاء"}
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setShowCancelPanel(false)}>إغلاق</Button>
@@ -159,14 +201,11 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
               </div>
             )}
 
-            {/* ── STAGE 1: بيانات الطلب ── */}
-            <StageCard
-              number={1}
-              title="بيانات الطلب"
-              active={true}
-              done={currentStage > 1 || isDelivered || isCancelled}
-              color="blue"
-            >
+            {/* ══════════════════════════════════════ */}
+            {/* STAGE 1: بيانات الطلب */}
+            {/* ══════════════════════════════════════ */}
+            <StageCard number={1} title="بيانات الطلب" icon={<span>📋</span>}
+              active done={progressIdx > 0 || isDelivered} color="blue">
               <div className="grid grid-cols-2 gap-2">
                 <InfoItem icon={<User className="w-3.5 h-3.5" />} label="العميل" value={order.customer_name} bold />
                 <InfoItem icon={<Phone className="w-3.5 h-3.5" />} label="الهاتف" value={order.phone} />
@@ -190,84 +229,53 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
               )}
             </StageCard>
 
-            {/* ── STAGE 2: البحث ── */}
-            <StageCard
-              number={2}
-              title="مرحلة البحث"
-              active={currentStage >= 1 && !isCancelled && !isDelivered}
-              done={currentStage > 2 || isDelivered}
-              color="yellow"
-            >
+            {/* ══════════════════════════════════════ */}
+            {/* STAGE 2: جاري البحث */}
+            {/* ══════════════════════════════════════ */}
+            <StageCard number={2} title="مرحلة البحث" icon={<Search className="w-3.5 h-3.5" />}
+              active={!isCancelled && !isDelivered}
+              done={progressIdx > 1 || isDelivered}
+              color="yellow">
               {isManager && !isCancelled && !isDelivered ? (
                 <div className="space-y-3">
-                  {/* Search button triggers search phase */}
-                  {order.status === "طلب جديد" && (
-                    <Button
-                      size="sm"
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1.5 text-xs h-8"
-                      onClick={handleStartSearch}
-                      disabled={saving}
-                    >
-                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                      بدء البحث
-                    </Button>
-                  )}
-
-                  {/* Supplier + Price fields */}
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-1">
-                      <label className="text-xs text-gray-500">اسم المورد</label>
-                      <Input
-                        value={supplierName}
-                        onChange={e => setSupplierName(e.target.value)}
-                        placeholder="اسم المورد..."
-                        className="h-8 text-sm"
-                      />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-500">المورد المتوقع</label>
+                      <Input value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)}
+                        placeholder="اسم المورد..." className="h-8 text-sm" />
                     </div>
-                    <div className="w-28 space-y-1">
-                      <label className="text-xs text-gray-500">السعر</label>
-                      <Input
-                        type="number"
-                        value={purchasePrice}
-                        onChange={e => setPurchasePrice(e.target.value)}
-                        placeholder="السعر"
-                        className="h-8 text-sm"
-                      />
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-500">سعر الشراء</label>
+                      <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)}
+                        placeholder="السعر" className="h-8 text-sm" />
                     </div>
                   </div>
-
-                  {/* تم الطلب checkbox */}
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={orderDone}
-                      onChange={e => setOrderDone(e.target.checked)}
-                      className="w-4 h-4 accent-yellow-500"
-                    />
-                    تم الطلب من المورد
-                  </label>
-
-                  {/* نقل للنواقص */}
-                  {(order.status === "جاري البحث" || order.status === "طلب جديد") && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 border-purple-300 text-purple-700 hover:bg-purple-50 text-xs h-8"
-                      onClick={handleMoveToShortage}
-                      disabled={saving}
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5" /> نقل الصنف للنواقص
-                    </Button>
-                  )}
-
-                  {/* Show existing data if already in search */}
-                  {(order.supplier_found || order.purchase_price) && (
-                    <div className="bg-yellow-50 rounded-lg p-2 text-xs text-yellow-800 space-y-1">
-                      {order.supplier_found && <p>المورد: <strong>{order.supplier_found}</strong></p>}
-                      {order.purchase_price && <p>السعر: <strong>{order.purchase_price}</strong></p>}
-                    </div>
-                  )}
-
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500">ملاحظات البحث</label>
+                    <Input value={searchNotes} onChange={e => setSearchNotes(e.target.value)}
+                      placeholder="ملاحظات..." className="h-8 text-sm" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {order.status === "طلب جديد" && (
+                      <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1.5 text-xs h-8"
+                        onClick={handleStartSearch} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                        بدء البحث
+                      </Button>
+                    )}
+                    {order.status === "جاري البحث" && (
+                      <Button size="sm" variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-50 gap-1.5 text-xs h-8"
+                        onClick={handleSaveSearch} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "💾"} حفظ التعديلات
+                      </Button>
+                    )}
+                    {(order.status === "جاري البحث" || order.status === "طلب جديد") && (
+                      <Button size="sm" variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50 gap-1.5 text-xs h-8"
+                        onClick={handleMoveToShortage} disabled={saving}>
+                        <AlertTriangle className="w-3.5 h-3.5" /> نقل للنواقص
+                      </Button>
+                    )}
+                  </div>
                   {order.status === "النواقص" && (
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-xs text-purple-700 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -279,57 +287,111 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                 <div className="text-sm space-y-1 text-gray-600">
                   {order.supplier_found && <p>المورد: <strong>{order.supplier_found}</strong></p>}
                   {order.purchase_price && <p>سعر الشراء: <strong>{order.purchase_price}</strong></p>}
+                  {order.search_notes && <p>ملاحظات: {order.search_notes}</p>}
                   {!order.supplier_found && <p className="text-gray-400 text-xs">لم تبدأ مرحلة البحث بعد</p>}
                 </div>
               )}
             </StageCard>
 
-            {/* ── STAGE 3: توفير الصنف ── */}
-            <StageCard
-              number={3}
-              title="توفير الصنف"
-              active={currentStage >= 2 && !isCancelled && !isDelivered}
-              done={currentStage > 3 || isDelivered}
-              color="teal"
-            >
+            {/* ══════════════════════════════════════ */}
+            {/* STAGE 3: تم الطلب (مرحلة جديدة) */}
+            {/* ══════════════════════════════════════ */}
+            <StageCard number={3} title="تم الطلب من المورد" icon={<ShoppingCart className="w-3.5 h-3.5" />}
+              active={!isCancelled && !isDelivered && progressIdx >= 1}
+              done={progressIdx >= 3 || isDelivered}
+              color="indigo">
               {isManager && !isCancelled && !isDelivered ? (
                 <div className="space-y-3">
-                  <Button
-                    size="sm"
-                    className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 text-xs h-8"
-                    onClick={handleMoveToAvailable}
-                    disabled={saving}
-                  >
-                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
-                    تم توفير الصنف
-                  </Button>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500">اسم المورد الذي تم الطلب منه *</label>
+                    <Input value={orderedSupplier} onChange={e => setOrderedSupplier(e.target.value)}
+                      placeholder="اسم المورد..." className="h-8 text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500">ملاحظات موعد الوصول</label>
+                    <Input value={arrivalNotes} onChange={e => setArrivalNotes(e.target.value)}
+                      placeholder="مثال: يصل الخميس القادم..." className="h-8 text-sm" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(order.status === "جاري البحث" || order.status === "النواقص" || order.status === "طلب جديد") && (
+                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs h-8"
+                        onClick={handleMoveToOrdered} disabled={saving || !orderedSupplier}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                        تأكيد: تم الطلب
+                      </Button>
+                    )}
+                    {order.status === "تم الطلب" && (
+                      <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 gap-1.5 text-xs h-8"
+                        onClick={handleSaveOrdered} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "💾"} حفظ التعديلات
+                      </Button>
+                    )}
+                  </div>
+                  {order.ordered_supplier && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-xs text-indigo-800 space-y-0.5">
+                      <p>المورد: <strong>{order.ordered_supplier}</strong></p>
+                      {order.arrival_notes && <p>موعد الوصول: {order.arrival_notes}</p>}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm space-y-1 text-gray-600">
+                  {order.ordered_supplier ? (
+                    <>
+                      <p className="flex items-center gap-1 text-indigo-700 font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> تم الطلب</p>
+                      <p>المورد: <strong>{order.ordered_supplier}</strong></p>
+                      {order.arrival_notes && <p className="text-xs text-gray-500">موعد الوصول: {order.arrival_notes}</p>}
+                    </>
+                  ) : (
+                    <p className="text-gray-400 text-xs">لم يتم الطلب من المورد بعد</p>
+                  )}
+                </div>
+              )}
+            </StageCard>
 
+            {/* ══════════════════════════════════════ */}
+            {/* STAGE 4: توفير الصنف */}
+            {/* ══════════════════════════════════════ */}
+            <StageCard number={4} title="توفير الصنف" icon={<Package className="w-3.5 h-3.5" />}
+              active={!isCancelled && !isDelivered && progressIdx >= 2}
+              done={progressIdx >= 4 || isDelivered}
+              color="teal">
+              {isManager && !isCancelled && !isDelivered ? (
+                <div className="space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={customerContacted}
+                    <input type="checkbox" checked={customerContacted}
                       onChange={e => setCustomerContacted(e.target.checked)}
-                      className="w-4 h-4 accent-teal-600"
-                    />
+                      className="w-4 h-4 accent-teal-600" />
                     تم التواصل مع العميل
                   </label>
-
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">ملاحظة</label>
-                    <Input
-                      value={contactNote}
-                      onChange={e => setContactNote(e.target.value)}
-                      placeholder="ملاحظة..."
-                      className="h-8 text-sm"
-                    />
+                    <label className="text-xs text-gray-500">ملاحظة المتابعة</label>
+                    <Input value={contactNote} onChange={e => setContactNote(e.target.value)}
+                      placeholder="ملاحظة..." className="h-8 text-sm" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(order.status === "تم الطلب" || order.status === "النواقص" || order.status === "جاري البحث") && (
+                      <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 text-xs h-8"
+                        onClick={handleMoveToAvailable} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+                        تم توفير الصنف
+                      </Button>
+                    )}
+                    {order.status === "تم توفير الصنف" && (
+                      <Button size="sm" variant="outline" className="border-teal-300 text-teal-700 hover:bg-teal-50 gap-1.5 text-xs h-8"
+                        onClick={handleSaveAvailable} disabled={saving}>
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "💾"} حفظ التعديلات
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="text-sm text-gray-600">
-                  {order.status === "تم توفير الصنف" || currentStage > 3 || isDelivered ? (
+                  {progressIdx >= 4 || isDelivered ? (
                     <div className="space-y-1">
                       <p className="flex items-center gap-1 text-teal-700 font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> تم توفير الصنف</p>
-                      {order.customer_contacted && <p className="text-xs text-gray-500">تم التواصل مع العميل</p>}
+                      {order.customer_contacted && <p className="text-xs text-gray-500">✓ تم التواصل مع العميل</p>}
+                      {order.followup_notes && <p className="text-xs text-gray-500">{order.followup_notes}</p>}
                     </div>
                   ) : (
                     <p className="text-gray-400 text-xs">في انتظار توفير الصنف</p>
@@ -338,39 +400,32 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
               )}
             </StageCard>
 
-            {/* ── STAGE 4: تم التوصيل ── */}
-            <StageCard
-              number={4}
-              title="تم التوصيل"
-              active={currentStage >= 3 && !isCancelled}
+            {/* ══════════════════════════════════════ */}
+            {/* STAGE 5: تم التوصيل */}
+            {/* ══════════════════════════════════════ */}
+            <StageCard number={5} title="تم التوصيل" icon={<Truck className="w-3.5 h-3.5" />}
+              active={!isCancelled && (progressIdx >= 4 || order.status === "تم توفير الصنف")}
               done={isDelivered}
-              color="green"
-            >
+              color="green">
               {isManager && !isCancelled && !isDelivered ? (
-                <Button
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs h-8"
-                  onClick={handleDeliver}
-                  disabled={saving}
-                >
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs h-8"
+                  onClick={handleDeliver} disabled={saving || order.status !== "تم توفير الصنف"}>
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                  تم التوصيل
+                  {order.status !== "تم توفير الصنف" ? "يتطلب توفير الصنف أولاً" : "تأكيد التوصيل"}
                 </Button>
               ) : isDelivered ? (
                 <p className="text-green-700 font-semibold text-sm flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4" /> تم تسليم الطلب للعميل
+                  <CheckCircle2 className="w-4 h-4" /> تم تسليم الطلب للعميل
                 </p>
               ) : (
                 <p className="text-gray-400 text-xs">في انتظار التوصيل</p>
               )}
             </StageCard>
 
-            {/* ── Cancelled state ── */}
+            {/* ── Cancelled ── */}
             {isCancelled && (
               <div className="border border-red-200 bg-red-50 rounded-xl p-3 space-y-2">
-                <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
-                  <Ban className="w-4 h-4" /> تم إلغاء الطلب
-                </p>
+                <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5"><Ban className="w-4 h-4" /> تم إلغاء الطلب</p>
                 {order.cancellation_reason && <p className="text-xs text-red-600">السبب: {order.cancellation_reason}</p>}
                 {isManager && (
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -425,24 +480,30 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   );
 }
 
-// ── Stage Card Component ──
+// ── Stage Card ──
 const STAGE_COLORS = {
   blue:   { border: "border-blue-200",   bg: "bg-blue-50",   num: "bg-blue-600",   title: "text-blue-800"  },
   yellow: { border: "border-yellow-200", bg: "bg-yellow-50", num: "bg-yellow-500", title: "text-yellow-800" },
+  indigo: { border: "border-indigo-200", bg: "bg-indigo-50", num: "bg-indigo-600", title: "text-indigo-800" },
   teal:   { border: "border-teal-200",   bg: "bg-teal-50",   num: "bg-teal-600",   title: "text-teal-800"  },
   green:  { border: "border-green-200",  bg: "bg-green-50",  num: "bg-green-600",  title: "text-green-800" },
 };
 
-function StageCard({ number, title, active, done, color = "blue", children }) {
+// hack for dynamic width in tailwind (use inline style)
+const calc100 = "calc(100%)";
+
+function StageCard({ number, title, icon, active, done, color = "blue", children }) {
   const c = STAGE_COLORS[color];
   return (
-    <div className={`rounded-xl border p-3 space-y-3 transition-opacity ${active ? `${c.border} ${c.bg}` : "border-gray-100 bg-gray-50 opacity-60"}`}>
+    <div className={`rounded-xl border p-3 space-y-3 transition-all ${active ? `${c.border} ${c.bg}` : "border-gray-100 bg-gray-50 opacity-50"}`}>
       <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${done ? "bg-green-500" : active ? c.num : "bg-gray-300"}`}>
-          {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : number}
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${done ? "bg-teal-500" : active ? c.num : "bg-gray-300"}`}>
+          {done ? <CheckCircle2 className="w-4 h-4" /> : number}
         </div>
-        <span className={`text-sm font-semibold ${active ? c.title : "text-gray-400"}`}>{title}</span>
-        {done && <span className="text-xs text-green-600 mr-auto">✓ مكتمل</span>}
+        <span className={`text-sm font-semibold flex items-center gap-1.5 ${active ? c.title : "text-gray-400"}`}>
+          {icon} {title}
+        </span>
+        {done && <span className="text-xs text-teal-600 mr-auto font-medium">✓ مكتمل</span>}
       </div>
       <div>{children}</div>
     </div>
