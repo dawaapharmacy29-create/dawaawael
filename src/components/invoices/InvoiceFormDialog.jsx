@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -9,6 +9,65 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { ChevronDown, X } from "lucide-react";
+
+function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter((o) => o.toLowerCase().includes(search.toLowerCase()));
+  const displayValue = value || "";
+
+  return (
+    <div className={`relative ${className}`} ref={ref}>
+      <div
+        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-accent/20"
+        onClick={() => { setOpen((p) => !p); setSearch(""); }}
+      >
+        <span className={displayValue ? "text-foreground" : "text-muted-foreground"}>{displayValue || placeholder}</span>
+        <div className="flex items-center gap-1">
+          {value && (
+            <X className="w-3 h-3 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false); }} />
+          )}
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
+      </div>
+      {open && (
+        <div className="absolute z-50 top-full mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div className="p-1 border-b">
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث..."
+              className="w-full px-2 py-1 text-sm outline-none bg-transparent"
+            />
+          </div>
+          <div className="max-h-44 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">لا توجد نتائج</p>
+            ) : filtered.map((o) => (
+              <div
+                key={o}
+                className={`px-2 py-1.5 text-sm rounded cursor-pointer hover:bg-accent hover:text-accent-foreground ${value === o ? "bg-accent font-medium" : ""}`}
+                onClick={() => { onChange(o); setOpen(false); setSearch(""); }}
+              >
+                {o}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -128,12 +187,12 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">المورد</Label>
-              <Select value={form.supplier_name} onValueChange={handleSupplierChange}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر المورد" /></SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.supplier_name}
+                onChange={handleSupplierChange}
+                options={suppliers.map((s) => s.name)}
+                placeholder="اختر المورد"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الفرع *</Label>
@@ -156,16 +215,12 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             {form.branch && (
               <div className="space-y-1">
                 <Label className="text-xs">مدخل الفاتورة</Label>
-                <Select value={form.entered_by} onValueChange={(v) => set("entered_by", v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>
-                    {branchMembers.length === 0 ? (
-                      <SelectItem value="_none" disabled>لا يوجد عاملين</SelectItem>
-                    ) : (
-                      branchMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={form.entered_by}
+                  onChange={(v) => set("entered_by", v)}
+                  options={branchMembers.map((m) => m.name)}
+                  placeholder={branchMembers.length === 0 ? "لا يوجد عاملين" : "اختر"}
+                />
               </div>
             )}
           </div>
