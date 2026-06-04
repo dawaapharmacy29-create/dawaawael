@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Eye } from "lucide-react";
+import { Loader2, Trash2, Eye, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { useState } from "react";
@@ -74,7 +74,12 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                   <div className="font-medium text-gray-800">{o.customer_name}</div>
                   <div className="text-xs text-gray-400">{o.phone}</div>
                 </td>
-                <td className="px-4 py-3 font-medium text-gray-700">{o.product_name}</td>
+                <td className="px-4 py-3 font-medium text-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    {o.product_name}
+                    {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" title={o.notes} />}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-lg"><SourceIcon source={o.request_source} /></td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLE[o.priority] || ""}`}>{o.priority}</span>
@@ -109,7 +114,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || ""}`}>{o.status}</span>
             </div>
-            <div className="text-sm font-medium text-teal-700 mb-2">🔹 {o.product_name}</div>
+            <div className="text-sm font-medium text-teal-700 mb-2 flex items-center gap-1.5">🔹 {o.product_name} {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
             <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-1"><SourceIcon source={o.request_source} /> {o.request_source}</span>
               {o.branch && <span>📍 {o.branch}</span>}

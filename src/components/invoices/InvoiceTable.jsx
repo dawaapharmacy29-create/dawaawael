@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Eye } from "lucide-react";
+import { Pencil, Trash2, Eye, MessageSquare } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
@@ -66,7 +66,12 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(inv.id)} />
                   </TableCell>
-                  <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>{inv.system_invoice_number}</TableCell>
+                  <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>
+                    <div className="flex items-center gap-1.5">
+                      {inv.system_invoice_number}
+                      {inv.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" title={inv.notes} />}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-gray-600">{inv.supplier_invoice_number || "—"}</TableCell>
                   <TableCell className="text-gray-700">{inv.supplier_name || "—"}</TableCell>
                   <TableCell className="text-gray-600 text-sm">{inv.invoice_date || "—"}</TableCell>
