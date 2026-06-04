@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { base44 } from "@/api/base44Client";
 import {
   Loader2, Edit2, Ban, RotateCcw, AlertTriangle, User, Phone,
-  MapPin, Calendar, CheckCircle2, Package, Truck, Search, ShoppingCart
+  MapPin, Calendar, CheckCircle2, Package, Truck, Search, ShoppingCart, ArrowLeftRight
 } from "lucide-react";
 import PharmacyOrderFormDialog from "./PharmacyOrderFormDialog";
 
@@ -107,6 +107,16 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
   const handleRestore = (newStatus) =>
     updateOrder({ cancellation_reason: "" }, newStatus, `استعادة إلى: ${newStatus}`);
 
+  const handleMoveToCustomer = async () => {
+    setSaving(true);
+    const { id, created_date, updated_date, created_by_id, ...data } = order;
+    await base44.entities.CustomerOrder.create({ ...data, timeline: [...(order.timeline || []), { status: order.status, by: "النظام", at: new Date().toISOString(), note: "تم النقل من طلبات الصيدليات" }] });
+    await base44.entities.PharmacyOrder.delete(order.id);
+    setSaving(false);
+    onUpdated?.(null);
+    onOpenChange(false);
+  };
+
   const cfg = STATUS_STYLE[order.status] || "";
 
   return (
@@ -123,6 +133,13 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
                 {isManager && !isCancelled && !isDelivered && (
                   <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} className="gap-1 h-7 text-xs">
                     <Edit2 className="w-3 h-3" /> تعديل
+                  </Button>
+                )}
+                {isManager && (
+                  <Button size="sm" variant="outline" onClick={handleMoveToCustomer} disabled={saving}
+                    className="gap-1 h-7 text-xs border-teal-300 text-teal-700 hover:bg-teal-50">
+                    {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowLeftRight className="w-3 h-3" />}
+                    نقل لعملاء
                   </Button>
                 )}
               </div>
