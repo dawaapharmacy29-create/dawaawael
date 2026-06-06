@@ -17,6 +17,7 @@ const STATUS_STYLE = {
   "النواقص":               "bg-purple-100 text-purple-700 border-purple-200",
   "تم توفير الصنف":        "bg-teal-100 text-teal-700 border-teal-200",
   "تم التوصيل":            "bg-green-100 text-green-700 border-green-200",
+  "تم توفير بديل":         "bg-cyan-100 text-cyan-700 border-cyan-200",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700 border-orange-200",
   "تم الإلغاء":            "bg-red-100 text-red-700 border-red-200",
 };
@@ -364,11 +365,18 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(order.status === "تم الطلب" || order.status === "النواقص" || order.status === "جاري البحث") && (
-                      <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 text-xs h-8"
-                        onClick={handleMoveToAvailable} disabled={saving}>
-                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
-                        تم توفير الصنف
-                      </Button>
+                      <>
+                        <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 text-xs h-8"
+                          onClick={handleMoveToAvailable} disabled={saving}>
+                          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+                          تم توفير الصنف
+                        </Button>
+                        <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white gap-1.5 text-xs h-8"
+                          onClick={() => updateOrder({ customer_contacted: customerContacted, followup_notes: contactNote, product_available: true }, "تم توفير بديل", "تم توفير بديل للصنف")} disabled={saving}>
+                          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔄"}
+                          تم توفير بديل
+                        </Button>
+                      </>
                     )}
                     {order.status === "تم توفير الصنف" && (
                       <Button size="sm" variant="outline" className="border-teal-300 text-teal-700 hover:bg-teal-50 gap-1.5 text-xs h-8"
@@ -400,9 +408,9 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               color="green">
               {isManager && !isCancelled && !isDelivered ? (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs h-8"
-                  onClick={handleDeliver} disabled={saving || order.status !== "تم توفير الصنف"}>
+                  onClick={handleDeliver} disabled={saving || (order.status !== "تم توفير الصنف" && order.status !== "تم توفير بديل")}>
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                  {order.status !== "تم توفير الصنف" ? "يتطلب توفير الصنف أولاً" : "تأكيد التوصيل"}
+                  {(order.status !== "تم توفير الصنف" && order.status !== "تم توفير بديل") ? "يتطلب توفير الصنف أولاً" : "تأكيد التوصيل"}
                 </Button>
               ) : isDelivered ? (
                 <p className="text-green-700 font-semibold text-sm flex items-center gap-1.5">

@@ -10,6 +10,7 @@ const STATUS_STYLE = {
   "النواقص":               "bg-purple-100 text-purple-700",
   "تم توفير الصنف":        "bg-teal-100 text-teal-700",
   "تم التوصيل":            "bg-green-100 text-green-700",
+  "تم توفير بديل":         "bg-cyan-100 text-cyan-700",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700",
   "تم الإلغاء":            "bg-red-100 text-red-700",
 };
