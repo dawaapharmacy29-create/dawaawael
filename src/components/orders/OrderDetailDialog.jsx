@@ -431,7 +431,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
             <StageCard number={5} title="تم التوصيل" icon={<Truck className="w-3.5 h-3.5" />}
               active={!isCancelled && (progressIdx >= 4 || order.status === "تم توفير الصنف" || order.status === "تم توفير بديل")}
               done={isDelivered}
-              color={order.status === "تم توفير بديل" && !isDelivered ? "cyan" : isDelivered && order.timeline?.slice().reverse().find(t => t.status === "تم توفير بديل") ? "cyan" : "green"}>
+              color={order.status === "تم توفير بديل" && !isDelivered ? "amber" : isDelivered && order.timeline?.slice().reverse().find(t => t.status === "تم توفير بديل") ? "amber" : "green"}>
               {isManager && !isCancelled && !isDelivered ? (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs h-8"
                   onClick={handleDeliver} disabled={saving || (order.status !== "تم توفير الصنف" && order.status !== "تم توفير بديل")}>
@@ -512,7 +512,7 @@ const STAGE_COLORS = {
   indigo: { border: "border-indigo-200", bg: "bg-indigo-50", num: "bg-indigo-600", title: "text-indigo-800" },
   teal:   { border: "border-teal-200",   bg: "bg-teal-50",   num: "bg-teal-600",   title: "text-teal-800"  },
   green:  { border: "border-green-200",  bg: "bg-green-50",  num: "bg-green-600",  title: "text-green-800" },
-  cyan:   { border: "border-cyan-200",   bg: "bg-cyan-50",   num: "bg-cyan-600",   title: "text-cyan-800"  },
+  amber:  { border: "border-amber-200",  bg: "bg-amber-50",  num: "bg-amber-500",  title: "text-amber-800" },
 };
 
 // hack for dynamic width in tailwind (use inline style)
