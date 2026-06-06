@@ -10,9 +10,16 @@ const STATUS_STYLE = {
   "النواقص":               "bg-purple-100 text-purple-700",
   "تم توفير الصنف":        "bg-teal-100 text-teal-700",
   "تم التوصيل":            "bg-green-100 text-green-700",
-  "تم توفير بديل":         "bg-cyan-100 text-cyan-700",
+  "تم توفير بديل":         "bg-amber-100 text-amber-700",
   "الصنف غير متوفر حاليا": "bg-orange-100 text-orange-700",
   "تم الإلغاء":            "bg-red-100 text-red-700",
+};
+
+const getStatusStyle = (order) => {
+  if (order.status === "تم التوصيل" && order.timeline?.some(t => t.status === "تم توفير بديل")) {
+    return "bg-amber-100 text-amber-700";
+  }
+  return STATUS_STYLE[order.status] || "bg-gray-100 text-gray-600";
 };
 
 const PRIORITY_STYLE = {
@@ -89,7 +96,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 <td className="px-4 py-3 text-xs text-gray-600">{o.assigned_employee || "—"}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || "bg-gray-100 text-gray-600"}`}>{o.status}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusStyle(o)}`}>{o.status}</span>
                 </td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   {isManager && (
@@ -113,7 +120,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 <div className="font-bold text-gray-800">{o.customer_name}</div>
                 <div className="text-xs text-gray-400">{o.phone}</div>
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || ""}`}>{o.status}</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusStyle(o)}`}>{o.status}</span>
             </div>
             <div className="text-sm font-medium text-teal-700 mb-2 flex items-center gap-1.5">🔹 {o.product_name} {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
             <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
