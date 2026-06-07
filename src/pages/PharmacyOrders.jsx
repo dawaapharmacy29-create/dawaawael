@@ -13,7 +13,7 @@ import OrderAlerts from "@/components/orders/OrderAlerts";
 import PharmacyOrderFormDialog from "@/components/orders/PharmacyOrderFormDialog";
 import PharmacyOrderDetailDialog from "@/components/orders/PharmacyOrderDetailDialog";
 
-import ReorderPointsTab from "@/components/inventory/ReorderPointsTab";
+import ReplenishmentList from "@/components/pharmacy/ReplenishmentList";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -71,7 +71,6 @@ export default function PharmacyOrders() {
   const tabs = [
     { id: "orders", label: "الطلبات" },
     { id: "analytics", label: "الإحصائيات" },
-    { id: "reorder", label: "حدود الطلب 🔔" },
   ];
 
   return (
@@ -113,9 +112,7 @@ export default function PharmacyOrders() {
         ))}
       </div>
 
-      {activeTab === "reorder" ? (
-        <ReorderPointsTab />
-      ) : activeTab === "analytics" ? (
+      {activeTab === "analytics" ? (
         <OrderAnalytics orders={orders} />
       ) : (
         <>
@@ -186,6 +183,11 @@ export default function PharmacyOrders() {
           />
         </>
       )}
+
+      {/* Replenishment List - below all tabs */}
+      <div className="border-t pt-6">
+        <ReplenishmentList />
+      </div>
 
       {showForm && (
         <PharmacyOrderFormDialog
