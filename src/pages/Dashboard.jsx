@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check, Calendar } from "lucide-react";
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
+import LowStockAlert from "@/components/dashboard/LowStockAlert";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -189,6 +190,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Low Stock Alerts */}
+      <LowStockAlert />
 
       {/* Budget Alerts */}
       <BudgetAlert invoices={invoices} expenses={expenses} budgets={budgets} />
