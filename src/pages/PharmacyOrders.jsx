@@ -185,7 +185,7 @@ export default function PharmacyOrders() {
       )}
 
       {/* Replenishment List - below all tabs */}
-      <div className="border-t pt-6">
+      <div className="mt-6 rounded-2xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
         <ReplenishmentList />
       </div>
 
