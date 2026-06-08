@@ -13,7 +13,6 @@ import OrderAlerts from "@/components/orders/OrderAlerts";
 import PharmacyOrderFormDialog from "@/components/orders/PharmacyOrderFormDialog";
 import PharmacyOrderDetailDialog from "@/components/orders/PharmacyOrderDetailDialog";
 
-import ReplenishmentList from "@/components/pharmacy/ReplenishmentList";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -183,11 +182,6 @@ export default function PharmacyOrders() {
           />
         </>
       )}
-
-      {/* Replenishment List - below all tabs */}
-      <div className="mt-6 rounded-2xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
-        <ReplenishmentList />
-      </div>
 
       {showForm && (
         <PharmacyOrderFormDialog

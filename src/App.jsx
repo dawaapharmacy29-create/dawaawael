@@ -24,6 +24,7 @@ import PharmacyOrders from './pages/PharmacyOrders';
 import InventoryCount from './pages/InventoryCount';
 import ReportsBranch from './pages/ReportsBranch';
 import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
+import ReplenishmentPage from './pages/ReplenishmentPage';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -66,6 +67,7 @@ const AuthenticatedApp = () => {
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<ReportsBranch />} />
         <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
+        <Route path="/replenishment" element={<ReplenishmentPage />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
