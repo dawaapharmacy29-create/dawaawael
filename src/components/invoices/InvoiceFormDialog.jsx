@@ -158,6 +158,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       total_value: totalVal,
       returned_value: returnedVal,
       paid_value: isCash ? totalVal - returnedVal : (form.payment_type === "آجل" ? currentPaid : 0),
+      ...(!invoice && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
     });
   };
 

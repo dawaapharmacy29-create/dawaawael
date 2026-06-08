@@ -56,6 +56,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       status: editOrder ? form.status : "طلب جديد",
       order_number: editOrder ? form.order_number : genOrderNumber(),
       timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: userName, at: now, note: "تم إنشاء الطلب" }],
+      ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
     };
     if (editOrder) {
       await base44.entities.CustomerOrder.update(editOrder.id, data);

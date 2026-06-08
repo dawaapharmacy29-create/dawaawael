@@ -62,6 +62,7 @@ export default function ReplenishmentList() {
       ...form,
       requested_quantity: parseFloat(form.requested_quantity) || 0,
       actual_balance: parseFloat(form.actual_balance) || 0,
+      added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
     });
   };
 
@@ -146,6 +147,7 @@ export default function ReplenishmentList() {
                 <th className="px-4 py-3 text-center font-medium">الكمية المطلوبة</th>
                 <th className="px-4 py-3 text-center font-medium">تم الطلب؟</th>
                 <th className="px-4 py-3 text-center font-medium">ملاحظات</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-400">وقت الإضافة</th>
                 <th className="px-4 py-3 text-center font-medium">حذف</th>
               </tr>
             </thead>
@@ -173,6 +175,7 @@ export default function ReplenishmentList() {
                     </button>
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-500">{item.notes || "—"}</td>
+                  <td className="px-4 py-2.5 text-center text-xs text-gray-400 whitespace-nowrap">{item.added_at || "—"}</td>
                   <td className="px-4 py-2.5 text-center">
                     <button
                       onClick={() => deleteMutation.mutate(item.id)}

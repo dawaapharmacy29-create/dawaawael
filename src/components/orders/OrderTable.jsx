@@ -63,6 +63,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
               <th className="px-4 py-3 text-right font-medium">الفرع</th>
               <th className="px-4 py-3 text-right font-medium">الموظف</th>
               <th className="px-4 py-3 text-right font-medium">التاريخ</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-400">وقت الإضافة</th>
               <th className="px-4 py-3 text-right font-medium">الحالة</th>
               <th className="px-4 py-3 text-right font-medium"></th>
             </tr>
@@ -88,6 +89,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 <td className="px-4 py-3 text-xs text-gray-600">{o.branch}</td>
                 <td className="px-4 py-3 text-xs text-gray-600">{o.assigned_employee || "—"}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")}</td>
+                <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{o.added_at || "—"}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || "bg-gray-100 text-gray-600"}`}>{o.status}</span>
                 </td>
