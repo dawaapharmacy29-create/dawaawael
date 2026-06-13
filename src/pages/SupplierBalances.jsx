@@ -9,13 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, Calendar, CalendarDays } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, Calendar, CalendarDays, FileText, Receipt } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import SupplierInvoiceStatement from "@/components/supplier/SupplierInvoiceStatement";
+import PaymentsLog from "@/components/supplier/PaymentsLog";
 
 export default function SupplierBalances() {
   const qc = useQueryClient();
   const { isManager } = useUserRole();
 
+  const [activeTab, setActiveTab] = useState("balances"); // balances | statement | payments
   const [expanded, setExpanded] = useState(null);
   const [payDialog, setPayDialog] = useState(null);
   const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
@@ -263,6 +266,35 @@ export default function SupplierBalances() {
           </div>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        {[
+          { key: "balances", label: "الأرصدة", icon: Wallet },
+          { key: "statement", label: "كشف حساب", icon: FileText },
+          { key: "payments", label: "سجل المدفوعات", icon: Receipt },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === key ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Statement */}
+      {activeTab === "statement" && <SupplierInvoiceStatement />}
+
+      {/* Tab: Payments Log */}
+      {activeTab === "payments" && <PaymentsLog />}
+
+      {/* Tab: Balances (original content below) */}
+      {activeTab === "balances" && (<>
 
       {/* Overdue Alerts */}
       {overdueInvoices.length > 0 && (
@@ -526,6 +558,7 @@ export default function SupplierBalances() {
           })}
         </div>
       )}
+      </>)}
 
       {/* ─── Pay Dialog ─── */}
       <Dialog open={!!payDialog} onOpenChange={(o) => !o && setPayDialog(null)}>
