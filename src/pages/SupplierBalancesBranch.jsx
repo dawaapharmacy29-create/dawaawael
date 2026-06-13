@@ -356,12 +356,16 @@ export default function SupplierBalancesBranch() {
                         {group.initialDebt > 0 && (
                           <div className="mt-3 space-y-1.5">
                             <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-100">
-                              <span className="text-xs text-gray-500">مديونية قبل التطبيق</span>
+                              <span className="text-xs text-gray-500">مديونية قبل التطبيق (الأصلية)</span>
                               <span className="text-sm font-bold text-purple-600">{fmt(group.initialDebt)} ج</span>
                             </div>
                             <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
                               <span className="text-xs text-gray-500">المسدّد منها</span>
                               <span className="text-sm font-bold text-green-600">- {fmt(group.debtPaid)} ج</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-orange-100 rounded-lg px-3 py-2 border border-orange-200">
+                              <span className="text-xs font-semibold text-orange-800">المتبقي من المديونية القديمة</span>
+                              <span className="text-sm font-bold text-orange-700">{fmt(group.remainingInitialDebt)} ج</span>
                             </div>
                             {group.remainingInitialDebt > 0 && (
                               <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1 w-full"
