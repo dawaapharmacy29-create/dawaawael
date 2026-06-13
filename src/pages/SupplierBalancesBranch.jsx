@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, FileText } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays } from "lucide-react";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -34,11 +34,15 @@ export default function SupplierBalancesBranch() {
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
   const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
   const [statementOpen, setStatementOpen] = useState(false);
+  const [monthStartDialog, setMonthStartDialog] = useState(null);
+  const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
+  const [savingMonthStart, setSavingMonthStart] = useState(false);
 
   const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000) });
   const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date") });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
+  const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
   // Filter invoices to this branch only
   const invoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
@@ -77,6 +81,25 @@ export default function SupplierBalancesBranch() {
     setDebtDialog(null);
   };
 
+  const openMonthStartDialog = (supplierName) => {
+    const existing = monthStarts.find(m => m.supplier_name === supplierName);
+    setMonthStartForm({ month_start_date: existing?.month_start_date || "", notes: existing?.notes || "" });
+    setMonthStartDialog({ supplier_name: supplierName, existing });
+  };
+
+  const saveMonthStart = async () => {
+    setSavingMonthStart(true);
+    const data = { supplier_name: monthStartDialog.supplier_name, month_start_date: monthStartForm.month_start_date, notes: monthStartForm.notes };
+    if (monthStartDialog.existing) {
+      await base44.entities.SupplierMonthStart.update(monthStartDialog.existing.id, data);
+    } else {
+      await base44.entities.SupplierMonthStart.create(data);
+    }
+    await qc.invalidateQueries({ queryKey: ["supplier-month-starts"] });
+    setSavingMonthStart(false);
+    setMonthStartDialog(null);
+  };
+
   const openDebtDialog = (supplierName) => {
     const existing = debts.find(d => d.supplier_name === supplierName);
     setDebtForm({ initial_debt: existing?.initial_debt?.toString() || "", notes: existing?.notes || "" });
@@ -102,34 +125,48 @@ export default function SupplierBalancesBranch() {
 
       const debtRecord = debts.find(d => d.supplier_name === name);
       const initialDebt = debtRecord?.initial_debt || 0;
+      const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
+      const monthStartDate = monthStartRecord?.month_start_date || null;
 
       const debtPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id);
       const debtPaid = debtPayments.reduce((s, p) => s + (p.amount || 0), 0);
       const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
 
-      const invoicesRemaining = creditInvoices.reduce((s, inv) => {
-        return s + (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0);
-      }, 0);
+      const withRemaining = creditInvoices.map(inv => ({
+        ...inv,
+        remaining: (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0),
+      }));
 
+      const oldInvoices = monthStartDate ? withRemaining.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10)) < monthStartDate) : withRemaining;
+      const newInvoices = monthStartDate ? withRemaining.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10)) >= monthStartDate) : [];
+
+      const oldInvoicesRemaining = oldInvoices.reduce((s, inv) => s + inv.remaining, 0);
+      const newDebt = newInvoices.reduce((s, inv) => s + inv.remaining, 0);
+      const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
+
+      const invoicesRemaining = withRemaining.reduce((s, inv) => s + inv.remaining, 0);
       const totalNet = remainingInitialDebt + invoicesRemaining;
       if (totalNet <= 0 && creditInvoices.length === 0) return;
 
       map[name] = {
         name,
-        invoices: creditInvoices.map(inv => ({
-          ...inv,
-          remaining: (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0),
-        })),
+        invoices: withRemaining,
+        oldInvoices,
+        newInvoices,
         initialDebt,
         debtPaid,
         remainingInitialDebt,
+        oldInvoicesRemaining,
         invoicesRemaining,
+        oldDebt,
+        newDebt,
         totalNet,
         debtRecord,
+        monthStartDate,
       };
     });
     return Object.values(map).sort((a, b) => b.totalNet - a.totalNet);
-  }, [invoices, payments, debts, allSupplierNames]);
+  }, [invoices, payments, debts, allSupplierNames, monthStarts]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
@@ -259,22 +296,45 @@ export default function SupplierBalancesBranch() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-800">{group.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {group.invoices.length} فاتورة
-                        {group.initialDebt > 0 && ` + مديونية قديمة ${fmt(group.remainingInitialDebt)} ج`}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs text-gray-500">{group.invoices.length} فاتورة</p>
+                        {group.monthStartDate && (
+                          <span className="text-xs text-blue-500 flex items-center gap-1">
+                            <CalendarDays className="w-3 h-3" />
+                            بداية الشهر: {group.monthStartDate}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-left hidden sm:block">
-                      <p className="text-xs text-gray-500">الصافي المتبقي</p>
-                      <p className="font-bold text-red-600">{fmt(group.totalNet)} ج</p>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {group.monthStartDate && (
+                      <>
+                        <div className="hidden sm:flex flex-col items-center bg-orange-50 border border-orange-100 rounded-lg px-3 py-1.5 min-w-[90px]">
+                          <p className="text-xs text-gray-400">قديمة</p>
+                          <p className="font-bold text-orange-600 text-sm">{fmt(group.oldDebt)} ج</p>
+                        </div>
+                        <div className="hidden sm:flex flex-col items-center bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 min-w-[90px]">
+                          <p className="text-xs text-gray-400">جديدة</p>
+                          <p className="font-bold text-blue-600 text-sm">{fmt(group.newDebt)} ج</p>
+                        </div>
+                      </>
+                    )}
+                    <div className="hidden sm:flex flex-col items-center bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 min-w-[90px]">
+                      <p className="text-xs text-gray-400">الإجمالي</p>
+                      <p className="font-bold text-red-600 text-sm">{fmt(group.totalNet)} ج</p>
                     </div>
                     {isManager && (
-                      <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1"
-                        onClick={(e) => { e.stopPropagation(); openDebtDialog(group.name); }}>
-                        <Edit2 className="w-3 h-3" /> مديونية قديمة
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50 h-7 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); openMonthStartDialog(group.name); }}>
+                          <Calendar className="w-3 h-3" /> بداية شهر
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); openDebtDialog(group.name); }}>
+                          <Edit2 className="w-3 h-3" /> مديونية قديمة
+                        </Button>
+                      </>
                     )}
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                   </div>
@@ -282,73 +342,137 @@ export default function SupplierBalancesBranch() {
 
                 {isExpanded && (
                   <div className="border-t">
-                    {group.initialDebt > 0 && (
-                      <div className="p-4 bg-purple-50 border-b">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold text-purple-700">المديونية القديمة (قبل التطبيق)</p>
+
+                    {/* ── 3 Summary Cards ── */}
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold text-orange-700">المديونية القديمة</p>
+                          <span className="text-xs text-gray-400 bg-white rounded px-2 py-0.5 border">
+                            {group.monthStartDate ? `قبل ${group.monthStartDate}` : "كل الفترة"}
+                          </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-3 text-sm mb-3">
-                          <div className="bg-white rounded-lg p-2 border border-purple-100 text-center">
-                            <p className="text-xs text-gray-500">المديونية الأصلية</p>
-                            <p className="font-bold text-purple-700">{fmt(group.initialDebt)} ج</p>
+                        <p className="text-2xl font-bold text-orange-600 mt-2">{fmt(group.oldDebt)} ج</p>
+                        {group.initialDebt > 0 && (
+                          <div className="mt-3 space-y-1.5">
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-100">
+                              <span className="text-xs text-gray-500">مديونية قبل التطبيق</span>
+                              <span className="text-sm font-bold text-purple-600">{fmt(group.initialDebt)} ج</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
+                              <span className="text-xs text-gray-500">المسدّد منها</span>
+                              <span className="text-sm font-bold text-green-600">- {fmt(group.debtPaid)} ج</span>
+                            </div>
+                            {group.remainingInitialDebt > 0 && (
+                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1 w-full"
+                                onClick={() => openDebtPayDialog(group.name, group.remainingInitialDebt)}>
+                                <CreditCard className="w-3 h-3" /> سداد مديونية قديمة
+                              </Button>
+                            )}
                           </div>
-                          <div className="bg-white rounded-lg p-2 border border-purple-100 text-center">
-                            <p className="text-xs text-gray-500">المسدد منها</p>
-                            <p className="font-bold text-green-600">{fmt(group.debtPaid)} ج</p>
-                          </div>
-                          <div className="bg-white rounded-lg p-2 border border-purple-100 text-center">
-                            <p className="text-xs text-gray-500">المتبقي</p>
-                            <p className="font-bold text-red-600">{fmt(group.remainingInitialDebt)} ج</p>
-                          </div>
-                        </div>
-                        {group.remainingInitialDebt > 0 && (
-                          <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1"
-                            onClick={() => openDebtPayDialog(group.name, group.remainingInitialDebt)}>
-                            <CreditCard className="w-3 h-3" /> سداد مديونية قديمة
-                          </Button>
                         )}
                       </div>
-                    )}
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold text-blue-700">المديونية الجديدة</p>
+                          <span className="text-xs text-gray-400 bg-white rounded px-2 py-0.5 border">
+                            {group.monthStartDate ? `من ${group.monthStartDate}` : "—"}
+                          </span>
+                        </div>
+                        <p className="text-2xl font-bold text-blue-600 mt-2">{fmt(group.newDebt)} ج</p>
+                        <p className="text-xs text-gray-500 mt-2">{group.newInvoices.length} فاتورة جديدة</p>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold text-red-700">الإجمالي</p>
+                          <span className="text-xs text-gray-400 bg-white rounded px-2 py-0.5 border">كل الفترات</span>
+                        </div>
+                        <p className="text-2xl font-bold text-red-600 mt-2">{fmt(group.totalNet)} ج</p>
+                        <p className="text-xs text-gray-500 mt-2">{group.invoices.length} فاتورة إجمالي</p>
+                      </div>
+                    </div>
 
-                    {group.invoices.length > 0 && (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-gray-50">
-                              <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
-                              <TableHead className="text-right text-xs">القيمة</TableHead>
-                              <TableHead className="text-right text-xs">المدفوع</TableHead>
-                              <TableHead className="text-right text-xs">المتبقي</TableHead>
-                              {isManager && <TableHead className="text-right text-xs">إجراء</TableHead>}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {group.invoices.map((inv) => (
-                              <TableRow key={inv.id} className="hover:bg-gray-50">
-                                <TableCell className="font-mono text-teal-700 text-sm">{inv.system_invoice_number}</TableCell>
-                                <TableCell className="font-semibold text-sm">{fmt(inv.total_value)} ج</TableCell>
-                                <TableCell className="text-green-600 text-sm">{fmt(inv.paid_value)} ج</TableCell>
-                                <TableCell className="text-red-600 font-semibold text-sm">{fmt(inv.remaining)} ج</TableCell>
-                                {isManager && (
-                                  <TableCell>
-                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-green-700 border-green-300"
-                                      onClick={() => openPayDialog(inv)}>
-                                      <CreditCard className="w-3 h-3" /> سداد
-                                    </Button>
-                                  </TableCell>
-                                )}
+                    {/* ── Old Invoices ── */}
+                    {group.oldInvoices.length > 0 && (
+                      <div className="border-t">
+                        <div className="px-4 py-2 bg-orange-50 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-orange-700">📋 الفواتير القديمة ({group.oldInvoices.length})</span>
+                          {group.monthStartDate && <span className="text-xs text-gray-400">قبل {group.monthStartDate}</span>}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-gray-50">
+                                <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
+                                <TableHead className="text-right text-xs">التاريخ</TableHead>
+                                <TableHead className="text-right text-xs">القيمة</TableHead>
+                                <TableHead className="text-right text-xs">المدفوع</TableHead>
+                                <TableHead className="text-right text-xs">المتبقي</TableHead>
+                                {isManager && <TableHead className="text-right text-xs"></TableHead>}
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {group.oldInvoices.map((inv) => (
+                                <TableRow key={inv.id} className="hover:bg-orange-50/30">
+                                  <TableCell className="font-mono text-teal-700 text-sm">{inv.system_invoice_number}</TableCell>
+                                  <TableCell className="text-xs text-gray-500">{inv.invoice_date || inv.created_date?.slice(0,10) || "—"}</TableCell>
+                                  <TableCell className="font-semibold text-sm">{fmt(inv.total_value)} ج</TableCell>
+                                  <TableCell className="text-green-600 text-sm">{fmt(inv.paid_value)} ج</TableCell>
+                                  <TableCell className="text-red-600 font-semibold text-sm">{fmt(inv.remaining)} ج</TableCell>
+                                  {isManager && (
+                                    <TableCell>
+                                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-green-700 border-green-300"
+                                        onClick={() => openPayDialog(inv)}>سداد</Button>
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
                     )}
 
-                    <div className="p-3 bg-gray-50 border-t flex flex-wrap gap-4 text-sm">
-                      {group.initialDebt > 0 && <span>مديونية قديمة: <strong className="text-purple-700">{fmt(group.remainingInitialDebt)} ج</strong></span>}
-                      {group.invoicesRemaining > 0 && <span>فواتير: <strong className="text-red-600">{fmt(group.invoicesRemaining)} ج</strong></span>}
-                      <span className="mr-auto font-bold text-red-700">الصافي الإجمالي: {fmt(group.totalNet)} ج</span>
-                    </div>
+                    {/* ── New Invoices ── */}
+                    {group.newInvoices.length > 0 && (
+                      <div className="border-t">
+                        <div className="px-4 py-2 bg-blue-50 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-blue-700">🆕 الفواتير الجديدة ({group.newInvoices.length})</span>
+                          {group.monthStartDate && <span className="text-xs text-gray-400">من {group.monthStartDate}</span>}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-gray-50">
+                                <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
+                                <TableHead className="text-right text-xs">التاريخ</TableHead>
+                                <TableHead className="text-right text-xs">القيمة</TableHead>
+                                <TableHead className="text-right text-xs">المدفوع</TableHead>
+                                <TableHead className="text-right text-xs">المتبقي</TableHead>
+                                {isManager && <TableHead className="text-right text-xs"></TableHead>}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.newInvoices.map((inv) => (
+                                <TableRow key={inv.id} className="hover:bg-blue-50/30">
+                                  <TableCell className="font-mono text-teal-700 text-sm">{inv.system_invoice_number}</TableCell>
+                                  <TableCell className="text-xs text-gray-500">{inv.invoice_date || inv.created_date?.slice(0,10) || "—"}</TableCell>
+                                  <TableCell className="font-semibold text-sm">{fmt(inv.total_value)} ج</TableCell>
+                                  <TableCell className="text-green-600 text-sm">{fmt(inv.paid_value)} ج</TableCell>
+                                  <TableCell className="text-red-600 font-semibold text-sm">{fmt(inv.remaining)} ج</TableCell>
+                                  {isManager && (
+                                    <TableCell>
+                                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-green-700 border-green-300"
+                                        onClick={() => openPayDialog(inv)}>سداد</Button>
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
 
                     {payments.filter((p) => p.supplier_name === group.name).length > 0 && (
                       <div className="p-4 border-t bg-green-50">
@@ -456,6 +580,43 @@ export default function SupplierBalancesBranch() {
               <Button variant="outline" onClick={() => setDebtDialog(null)}>إلغاء</Button>
               <Button disabled={savingDebt} onClick={saveDebt} className="bg-purple-600 hover:bg-purple-700">
                 {savingDebt ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Month Start Dialog */}
+      {isManager && (
+        <Dialog open={!!monthStartDialog} onOpenChange={(o) => !o && setMonthStartDialog(null)}>
+          <DialogContent dir="rtl" className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                بداية الشهر الجديد — {monthStartDialog?.supplier_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                <p>الفواتير قبل هذا التاريخ = <strong>مديونية قديمة</strong>، والفواتير بعده = <strong>مديونية جديدة</strong>.</p>
+                {monthStartDialog?.existing && (
+                  <p className="mt-1 text-xs text-gray-500">التاريخ الحالي: <strong>{monthStartDialog.existing.month_start_date}</strong></p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>تاريخ بداية الشهر *</Label>
+                <Input type="date" value={monthStartForm.month_start_date}
+                  onChange={e => setMonthStartForm(f => ({ ...f, month_start_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>ملاحظات (اختياري)</Label>
+                <Textarea value={monthStartForm.notes} onChange={e => setMonthStartForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setMonthStartDialog(null)}>إلغاء</Button>
+              <Button disabled={!monthStartForm.month_start_date || savingMonthStart} onClick={saveMonthStart} className="bg-blue-600 hover:bg-blue-700">
+                {savingMonthStart ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد"}
               </Button>
             </DialogFooter>
           </DialogContent>
