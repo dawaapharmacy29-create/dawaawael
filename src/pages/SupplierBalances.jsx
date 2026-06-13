@@ -165,12 +165,30 @@ export default function SupplierBalances() {
       // Initial (pre-app) debt
       const debtRecord = debts.find(d => d.supplier_name === name);
       const initialDebt = debtRecord?.initial_debt || 0;
-      const debtPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id);
-      const debtPaid = debtPayments.reduce((s, p) => s + (p.amount || 0), 0);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
 
-      // Old debt = pre-app debt + old invoices remaining
-      const oldInvoicesRemaining = oldInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0);
+      // General payments (no invoice_id) = خصم أولاً من المديونية القديمة (initialDebt ثم الفواتير القديمة)
+      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id);
+      let generalPaidPool = generalPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+      // 1. خصم من initialDebt أولاً
+      const debtPaidFromGeneral = Math.min(generalPaidPool, initialDebt);
+      const remainingInitialDebt = Math.max(0, initialDebt - debtPaidFromGeneral);
+      generalPaidPool = Math.max(0, generalPaidPool - debtPaidFromGeneral);
+
+      // 2. ما تبقى من الدفعات العامة يُخصم من الفواتير القديمة بالترتيب (الأقدم أولاً)
+      const oldInvoicesSorted = [...oldInvoicesWithRemaining].sort((a, b) => {
+        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
+        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
+        return da.localeCompare(db);
+      });
+      const oldInvoicesAdjusted = oldInvoicesSorted.map(inv => {
+        const deduct = Math.min(generalPaidPool, inv.remaining);
+        generalPaidPool = Math.max(0, generalPaidPool - deduct);
+        return { ...inv, remaining: inv.remaining - deduct };
+      });
+
+      // Old debt = pre-app debt + old invoices remaining (بعد خصم الدفعات العامة)
+      const oldInvoicesRemaining = oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0);
       const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
 
       // New debt = new invoices remaining
@@ -183,10 +201,10 @@ export default function SupplierBalances() {
         name,
         monthStartDate,
         monthStartRecord,
-        oldInvoices: oldInvoicesWithRemaining,
+        oldInvoices: oldInvoicesAdjusted,
         newInvoices: newInvoicesWithRemaining,
         initialDebt,
-        debtPaid,
+        debtPaid: debtPaidFromGeneral,
         remainingInitialDebt,
         oldInvoicesRemaining,
         oldDebt,
