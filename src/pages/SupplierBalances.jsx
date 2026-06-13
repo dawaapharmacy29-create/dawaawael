@@ -378,16 +378,20 @@ export default function SupplierBalances() {
                           </span>
                         </div>
                         <p className="text-2xl font-bold text-orange-600 mt-2">{fmt(group.oldDebt)} ج</p>
-                        <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                          {group.initialDebt > 0 && <p>مديونية سابقة: <span className="font-semibold text-purple-600">{fmt(group.remainingInitialDebt)} ج</span></p>}
-                          <p>فواتير قديمة: <span className="font-semibold">{fmt(group.oldInvoicesRemaining)} ج</span></p>
+                        <div className="mt-3 space-y-1.5">
+                          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-100">
+                            <span className="text-xs text-gray-500">إجمالي المديونية القديمة</span>
+                            <span className="text-sm font-bold text-orange-600">{fmt((group.initialDebt || 0) + (group.oldInvoicesRemaining || 0) + (group.debtPaid || 0))} ج</span>
+                          </div>
+                          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
+                            <span className="text-xs text-gray-500">المسدّد منها</span>
+                            <span className="text-sm font-bold text-green-600">- {fmt(group.debtPaid)} ج</span>
+                          </div>
+                          <div className="flex items-center justify-between bg-orange-100 rounded-lg px-3 py-2 border border-orange-200">
+                            <span className="text-xs font-semibold text-orange-800">المتبقي</span>
+                            <span className="text-sm font-bold text-orange-700">{fmt(group.oldDebt)} ج</span>
+                          </div>
                         </div>
-                        {group.oldDebt > 0 && (
-                          <Button size="sm" className="mt-3 w-full bg-orange-500 hover:bg-orange-600 text-white text-xs h-7"
-                            onClick={() => openDebtPayDialog(group.name, group.oldDebt)}>
-                            <CreditCard className="w-3 h-3 ml-1" /> سداد المديونية القديمة
-                          </Button>
-                        )}
                       </div>
 
                       {/* New Debt Card */}
