@@ -35,17 +35,22 @@ export default function PurchaseInvoices() {
 
   // Real-time: تحديث تلقائي عند أي تغيير
   useEffect(() => {
+    let timeout;
     const unsub = base44.entities.PurchaseInvoice.subscribe(() => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      }, 800);
     });
-    return unsub;
+    return () => { unsub(); clearTimeout(timeout); };
   }, []);
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 500),
-    staleTime: 15000,
+    staleTime: 30000,
+    placeholderData: (prev) => prev,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
