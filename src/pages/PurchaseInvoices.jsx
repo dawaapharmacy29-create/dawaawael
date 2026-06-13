@@ -48,7 +48,7 @@ export default function PurchaseInvoices() {
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 500),
+    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000),
     staleTime: 30000,
     placeholderData: (prev) => prev,
   });
