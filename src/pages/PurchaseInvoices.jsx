@@ -46,11 +46,24 @@ export default function PurchaseInvoices() {
     return () => { unsub(); clearTimeout(timeout); };
   }, []);
 
-  const { data: invoices = [], isLoading } = useQuery({
+  // نحمل الكل مرة واحدة لكن مع keepPreviousData لمنع الوميض
+  const { data: invoices = [], isLoading, isFetching } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000),
-    staleTime: 30000,
+    queryFn: async () => {
+      const PAGE = 500;
+      let all = [];
+      let page = 0;
+      while (true) {
+        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        all = [...all, ...batch];
+        if (batch.length < PAGE) break;
+        page++;
+      }
+      return all;
+    },
+    staleTime: 60000,
     placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
