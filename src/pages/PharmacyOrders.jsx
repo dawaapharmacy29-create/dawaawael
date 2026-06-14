@@ -83,6 +83,20 @@ export default function PharmacyOrders() {
           <div>
             <h1 className="text-xl font-bold text-gray-800">طلبات الصيدليات</h1>
             <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
+            {orders.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {["تم التوصيل", "تم الإلغاء", "الصنف غير متوفر حاليا", "طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف"].map((status) => {
+                  const count = orders.filter((o) => o.status === status).length;
+                  if (count === 0) return null;
+                  const pct = ((count / orders.length) * 100).toFixed(1);
+                  return (
+                    <span key={status} className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                      {status}: <b className="text-gray-700">{pct}%</b>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
