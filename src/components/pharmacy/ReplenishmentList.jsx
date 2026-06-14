@@ -48,11 +48,18 @@ export default function ReplenishmentList() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["replenishment-orders"] }),
   });
 
-  // دورة الحالات: null/false → "نواقص" → true → null/false
+  // دورة الحالات: false/null → "نواقص" → true → false
+  const getStatus = (val) => {
+    if (val === true || val === "true") return "ordered";
+    if (val === "نواقص") return "shortage";
+    return "pending";
+  };
+
   const cycleStatus = (item) => {
+    const current = getStatus(item.is_ordered);
     let next;
-    if (!item.is_ordered || item.is_ordered === false) next = "نواقص";
-    else if (item.is_ordered === "نواقص") next = true;
+    if (current === "pending") next = "نواقص";
+    else if (current === "shortage") next = true;
     else next = false;
     toggleOrdered.mutate({ id: item.id, is_ordered: next });
   };
@@ -77,15 +84,15 @@ export default function ReplenishmentList() {
 
   const filtered = items.filter((item) => {
     if (filterBranch !== "all" && item.branch !== filterBranch) return false;
-    if (filterOrdered === "ordered" && item.is_ordered !== true) return false;
-    if (filterOrdered === "pending" && item.is_ordered) return false;
-    if (filterOrdered === "shortage" && item.is_ordered !== "نواقص") return false;
+    if (filterOrdered === "ordered" && getStatus(item.is_ordered) !== "ordered") return false;
+    if (filterOrdered === "pending" && getStatus(item.is_ordered) !== "pending") return false;
+    if (filterOrdered === "shortage" && getStatus(item.is_ordered) !== "shortage") return false;
     return true;
   });
 
-  const orderedCount = items.filter((i) => i.is_ordered === true).length;
-  const shortageCount = items.filter((i) => i.is_ordered === "نواقص").length;
-  const pendingCount = items.filter((i) => !i.is_ordered || i.is_ordered === false).length;
+  const orderedCount = items.filter((i) => getStatus(i.is_ordered) === "ordered").length;
+  const shortageCount = items.filter((i) => getStatus(i.is_ordered) === "shortage").length;
+  const pendingCount = items.filter((i) => getStatus(i.is_ordered) === "pending").length;
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -168,7 +175,7 @@ export default function ReplenishmentList() {
               {filtered.map((item) => (
                 <tr
                   key={item.id}
-                  className={`hover:bg-gray-50 transition-colors ${item.is_ordered === true ? "bg-emerald-50/40" : item.is_ordered === "نواقص" ? "bg-amber-50/40" : ""}`}
+                  className={`hover:bg-gray-50 transition-colors ${getStatus(item.is_ordered) === "ordered" ? "bg-emerald-50/40" : getStatus(item.is_ordered) === "shortage" ? "bg-amber-50/40" : ""}`}
                 >
                   <td className="px-4 py-2.5 font-medium text-gray-800">{item.product_name}</td>
                   <td className="px-4 py-2.5 text-gray-500 text-xs">{item.product_code || "—"}</td>
@@ -181,9 +188,9 @@ export default function ReplenishmentList() {
                       className="flex items-center gap-1.5 mx-auto text-xs font-medium transition-colors"
                       title="اضغط للتغيير"
                     >
-                      {item.is_ordered === true ? (
+                      {getStatus(item.is_ordered) === "ordered" ? (
                         <><CheckCircle2 className="w-5 h-5 text-emerald-500" /><span className="text-emerald-600">تم</span></>
-                      ) : item.is_ordered === "نواقص" ? (
+                      ) : getStatus(item.is_ordered) === "shortage" ? (
                         <><AlertCircle className="w-5 h-5 text-amber-500" /><span className="text-amber-600">نواقص</span></>
                       ) : (
                         <><Circle className="w-5 h-5 text-gray-300" /><span className="text-gray-400">لا</span></>
