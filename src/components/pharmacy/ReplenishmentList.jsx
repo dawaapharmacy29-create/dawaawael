@@ -195,7 +195,9 @@ export default function ReplenishmentList() {
                     </select>
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-500">{item.notes || "—"}</td>
-                  <td className="px-4 py-2.5 text-center text-xs text-gray-400 whitespace-nowrap">{item.added_at || "—"}</td>
+                  <td className="px-4 py-2.5 text-center text-xs text-gray-400 max-w-[60px] overflow-hidden">
+                    <span className="block truncate cursor-default" title={item.added_at || "—"}>{item.added_at || "—"}</span>
+                  </td>
                   <td className="px-4 py-2.5 text-center">
                     <button
                       onClick={() => deleteMutation.mutate(item.id)}

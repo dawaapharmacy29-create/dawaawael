@@ -84,7 +84,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                   <TableCell className={remaining > 0 ? "text-orange-600 font-semibold" : "text-gray-500"}>{remaining.toLocaleString("ar-EG")}</TableCell>
                   <TableCell><Badge className={`${paymentColor[inv.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs`}>{inv.payment_type}</Badge></TableCell>
                   <TableCell><Badge className={`${statusColor[inv.status]} border-0 text-xs`}>{statusIcon[inv.status]} {inv.status}</Badge></TableCell>
-                  <TableCell className="text-xs text-gray-400 whitespace-nowrap">{inv.added_at || "—"}</TableCell>
+                  <TableCell className="text-xs text-gray-400 max-w-[60px] overflow-hidden">
+                    <span className="block truncate cursor-default" title={inv.added_at || "—"}>{inv.added_at || "—"}</span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-500 hover:bg-gray-100" onClick={() => onView(inv)} title="عرض"><Eye className="w-3.5 h-3.5" /></Button>
