@@ -183,19 +183,24 @@ export default function ReplenishmentList() {
                   <td className="px-4 py-2.5 text-center text-gray-700">{item.actual_balance ?? "—"}</td>
                   <td className="px-4 py-2.5 text-center font-semibold text-blue-700">{item.requested_quantity}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <button
-                      onClick={() => cycleStatus(item)}
-                      className="flex items-center gap-1.5 mx-auto text-xs font-medium transition-colors"
-                      title="اضغط للتغيير"
+                    <select
+                      value={getStatus(item.is_ordered)}
+                      onChange={(e) => {
+                        const map = { ordered: true, shortage: "نواقص", pending: false };
+                        toggleOrdered.mutate({ id: item.id, is_ordered: map[e.target.value] });
+                      }}
+                      className={`text-xs font-medium rounded-lg px-2 py-1 border cursor-pointer outline-none transition-colors ${
+                        getStatus(item.is_ordered) === "ordered"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : getStatus(item.is_ordered) === "shortage"
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-gray-50 text-gray-500 border-gray-200"
+                      }`}
                     >
-                      {getStatus(item.is_ordered) === "ordered" ? (
-                        <><CheckCircle2 className="w-5 h-5 text-emerald-500" /><span className="text-emerald-600">تم</span></>
-                      ) : getStatus(item.is_ordered) === "shortage" ? (
-                        <><AlertCircle className="w-5 h-5 text-amber-500" /><span className="text-amber-600">نواقص</span></>
-                      ) : (
-                        <><Circle className="w-5 h-5 text-gray-300" /><span className="text-gray-400">لا</span></>
-                      )}
-                    </button>
+                      <option value="pending">لا</option>
+                      <option value="shortage">نواقص</option>
+                      <option value="ordered">تم الطلب</option>
+                    </select>
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-500">{item.notes || "—"}</td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-400 whitespace-nowrap">{item.added_at || "—"}</td>
