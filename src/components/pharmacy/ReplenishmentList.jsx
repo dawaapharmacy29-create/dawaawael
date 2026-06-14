@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, CheckCircle2, Circle, PackageSearch } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, Circle, PackageSearch, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -48,6 +48,15 @@ export default function ReplenishmentList() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["replenishment-orders"] }),
   });
 
+  // دورة الحالات: null/false → "نواقص" → true → null/false
+  const cycleStatus = (item) => {
+    let next;
+    if (!item.is_ordered || item.is_ordered === false) next = "نواقص";
+    else if (item.is_ordered === "نواقص") next = true;
+    else next = false;
+    toggleOrdered.mutate({ id: item.id, is_ordered: next });
+  };
+
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ReplenishmentOrder.delete(id),
     onSuccess: () => {
@@ -68,13 +77,15 @@ export default function ReplenishmentList() {
 
   const filtered = items.filter((item) => {
     if (filterBranch !== "all" && item.branch !== filterBranch) return false;
-    if (filterOrdered === "ordered" && !item.is_ordered) return false;
+    if (filterOrdered === "ordered" && item.is_ordered !== true) return false;
     if (filterOrdered === "pending" && item.is_ordered) return false;
+    if (filterOrdered === "shortage" && item.is_ordered !== "نواقص") return false;
     return true;
   });
 
-  const orderedCount = items.filter((i) => i.is_ordered).length;
-  const pendingCount = items.filter((i) => !i.is_ordered).length;
+  const orderedCount = items.filter((i) => i.is_ordered === true).length;
+  const shortageCount = items.filter((i) => i.is_ordered === "نواقص").length;
+  const pendingCount = items.filter((i) => !i.is_ordered || i.is_ordered === false).length;
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -88,6 +99,7 @@ export default function ReplenishmentList() {
             <h2 className="text-base font-bold text-gray-800">قائمة الطلبات المطلوبة</h2>
             <p className="text-xs text-gray-500">
               <span className="text-orange-600 font-semibold">{pendingCount}</span> لم يُطلب •{" "}
+              <span className="text-amber-600 font-semibold">{shortageCount}</span> نواقص •{" "}
               <span className="text-emerald-600 font-semibold">{orderedCount}</span> تم الطلب
             </p>
           </div>
@@ -116,6 +128,7 @@ export default function ReplenishmentList() {
         {[
           { id: "all", label: "الكل" },
           { id: "pending", label: "⏳ لم يُطلب" },
+          { id: "shortage", label: "⚠️ نواقص" },
           { id: "ordered", label: "✅ تم الطلب" },
         ].map((f) => (
           <button
@@ -155,7 +168,7 @@ export default function ReplenishmentList() {
               {filtered.map((item) => (
                 <tr
                   key={item.id}
-                  className={`hover:bg-gray-50 transition-colors ${item.is_ordered ? "bg-emerald-50/40" : ""}`}
+                  className={`hover:bg-gray-50 transition-colors ${item.is_ordered === true ? "bg-emerald-50/40" : item.is_ordered === "نواقص" ? "bg-amber-50/40" : ""}`}
                 >
                   <td className="px-4 py-2.5 font-medium text-gray-800">{item.product_name}</td>
                   <td className="px-4 py-2.5 text-gray-500 text-xs">{item.product_code || "—"}</td>
@@ -164,11 +177,14 @@ export default function ReplenishmentList() {
                   <td className="px-4 py-2.5 text-center font-semibold text-blue-700">{item.requested_quantity}</td>
                   <td className="px-4 py-2.5 text-center">
                     <button
-                      onClick={() => toggleOrdered.mutate({ id: item.id, is_ordered: !item.is_ordered })}
+                      onClick={() => cycleStatus(item)}
                       className="flex items-center gap-1.5 mx-auto text-xs font-medium transition-colors"
+                      title="اضغط للتغيير"
                     >
-                      {item.is_ordered ? (
+                      {item.is_ordered === true ? (
                         <><CheckCircle2 className="w-5 h-5 text-emerald-500" /><span className="text-emerald-600">تم</span></>
+                      ) : item.is_ordered === "نواقص" ? (
+                        <><AlertCircle className="w-5 h-5 text-amber-500" /><span className="text-amber-600">نواقص</span></>
                       ) : (
                         <><Circle className="w-5 h-5 text-gray-300" /><span className="text-gray-400">لا</span></>
                       )}
