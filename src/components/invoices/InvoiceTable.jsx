@@ -75,7 +75,11 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                   </TableCell>
                   <TableCell className="text-gray-600">{inv.supplier_invoice_number || "—"}</TableCell>
                   <TableCell className="text-gray-700">{inv.supplier_name || "—"}</TableCell>
-                  <TableCell className="text-gray-600 text-sm">{inv.invoice_date || "—"}</TableCell>
+                  <TableCell className="text-gray-600 text-sm max-w-[60px] overflow-hidden">
+                    <span className="block truncate cursor-default" title={inv.invoice_date || "—"}>
+                      {inv.invoice_date ? inv.invoice_date.slice(5) : "—"}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     {inv.branch ? <Badge className={`${branchColor[inv.branch]} border-0 text-xs`}>{inv.branch}</Badge> : "—"}
                   </TableCell>
