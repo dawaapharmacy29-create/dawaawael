@@ -34,6 +34,7 @@ const SourceIcon = ({ source }) => {
 
 export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager }) {
   const [confirmId, setConfirmId] = useState(null);
+  const total = orders.length;
 
   if (isLoading) return (
     <div className="flex justify-center py-16">
@@ -65,6 +66,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
               <th className="px-4 py-3 text-right font-medium">التاريخ</th>
               <th className="px-4 py-3 text-right font-medium text-gray-400">وقت الإضافة</th>
               <th className="px-4 py-3 text-right font-medium">الحالة</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-400">النسبة</th>
               <th className="px-4 py-3 text-right font-medium"></th>
             </tr>
           </thead>
@@ -99,6 +101,13 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 </td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || "bg-gray-100 text-gray-600"}`}>{o.status}</span>
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                  {total > 0 ? (
+                    <span className="font-medium text-teal-700">
+                      {((orders.filter(x => x.status === o.status).length / total) * 100).toFixed(1)}%
+                    </span>
+                  ) : "—"}
                 </td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   {isManager && (

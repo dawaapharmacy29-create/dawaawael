@@ -12,6 +12,7 @@ import OrderFormDialog from "@/components/orders/OrderFormDialog";
 import OrderDetailDialog from "@/components/orders/OrderDetailDialog";
 import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
+import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -180,6 +181,9 @@ export default function CustomerOrders() {
             onDelete={(id) => deleteMutation.mutate(id)}
             isManager={isManager}
           />
+
+          {/* Branch Efficiency */}
+          <BranchEfficiencyCard orders={filteredOrders} />
         </>
       )}
 
