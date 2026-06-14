@@ -13,12 +13,15 @@ export default function BranchEfficiencyCard({ orders }) {
   const stats = BRANCHES.map((branch) => {
     const branchOrders = orders.filter((o) => o.branch === branch);
     const total = branchOrders.length;
-    const done = branchOrders.filter((o) => DONE_STATUSES.includes(o.status)).length;
+    const done = branchOrders.filter((o) => o.status === "تم التوصيل").length;
     const cancelled = branchOrders.filter((o) => CANCELLED_STATUSES.includes(o.status)).length;
     const pending = total - done - cancelled;
     const rate = total > 0 ? Math.round((done / total) * 100) : 0;
     return { branch, total, done, cancelled, pending, rate };
   });
+
+  const maxDone = Math.max(...stats.map((s) => s.done));
+  const topBranch = maxDone > 0 ? stats.find((s) => s.done === maxDone)?.branch : null;
 
   return (
     <div className="bg-white rounded-xl border p-4">
@@ -33,7 +36,12 @@ export default function BranchEfficiencyCard({ orders }) {
           return (
             <div key={branch} className={`rounded-xl p-4 ${colors.bg} border`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-gray-800 text-sm">{branch}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-800 text-sm">{branch}</span>
+                  {topBranch === branch && (
+                    <span title="الأكثر توصيلاً 🏆" className="text-lg animate-bounce">🏆</span>
+                  )}
+                </div>
                 <span className={`text-2xl font-bold ${colors.text}`}>{rate}%</span>
               </div>
 
