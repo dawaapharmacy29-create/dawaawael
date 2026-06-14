@@ -199,7 +199,7 @@ export default function Dashboard() {
 
       {/* Branch Budget */}
       <div>
-        <BranchBudgetCard invoices={invoices} budgets={budgets} />
+        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} />
       </div>
 
       {/* Branches Summary */}
