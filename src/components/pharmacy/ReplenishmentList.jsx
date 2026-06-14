@@ -42,14 +42,14 @@ export default function ReplenishmentList() {
     },
   });
 
-  const toggleOrdered = useMutation({
-    mutationFn: ({ id, is_ordered }) =>
-      base44.entities.ReplenishmentOrder.update(id, { is_ordered }),
-    onMutate: async ({ id, is_ordered }) => {
+  const updateStatus = useMutation({
+    mutationFn: ({ id, order_status }) =>
+      base44.entities.ReplenishmentOrder.update(id, { order_status }),
+    onMutate: async ({ id, order_status }) => {
       await qc.cancelQueries({ queryKey: ["replenishment-orders"] });
       const previous = qc.getQueryData(["replenishment-orders"]);
       qc.setQueryData(["replenishment-orders"], (old) =>
-        old ? old.map((i) => i.id === id ? { ...i, is_ordered } : i) : old
+        old ? old.map((i) => i.id === id ? { ...i, order_status } : i) : old
       );
       return { previous };
     },
@@ -59,21 +59,7 @@ export default function ReplenishmentList() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["replenishment-orders"] }),
   });
 
-  // دورة الحالات: false/null → "نواقص" → true → false
-  const getStatus = (val) => {
-    if (val === true || val === "true") return "ordered";
-    if (val === "نواقص") return "shortage";
-    return "pending";
-  };
-
-  const cycleStatus = (item) => {
-    const current = getStatus(item.is_ordered);
-    let next;
-    if (current === "pending") next = "نواقص";
-    else if (current === "shortage") next = true;
-    else next = false;
-    toggleOrdered.mutate({ id: item.id, is_ordered: next });
-  };
+  const getStatus = (item) => item.order_status || "pending";
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ReplenishmentOrder.delete(id),
@@ -95,15 +81,13 @@ export default function ReplenishmentList() {
 
   const filtered = items.filter((item) => {
     if (filterBranch !== "all" && item.branch !== filterBranch) return false;
-    if (filterOrdered === "ordered" && getStatus(item.is_ordered) !== "ordered") return false;
-    if (filterOrdered === "pending" && getStatus(item.is_ordered) !== "pending") return false;
-    if (filterOrdered === "shortage" && getStatus(item.is_ordered) !== "shortage") return false;
+    if (filterOrdered !== "all" && getStatus(item) !== filterOrdered) return false;
     return true;
   });
 
-  const orderedCount = items.filter((i) => getStatus(i.is_ordered) === "ordered").length;
-  const shortageCount = items.filter((i) => getStatus(i.is_ordered) === "shortage").length;
-  const pendingCount = items.filter((i) => getStatus(i.is_ordered) === "pending").length;
+  const orderedCount = items.filter((i) => getStatus(i) === "ordered").length;
+  const shortageCount = items.filter((i) => getStatus(i) === "shortage").length;
+  const pendingCount = items.filter((i) => getStatus(i) === "pending").length;
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -186,7 +170,7 @@ export default function ReplenishmentList() {
               {filtered.map((item) => (
                 <tr
                   key={item.id}
-                  className={`hover:bg-gray-50 transition-colors ${getStatus(item.is_ordered) === "ordered" ? "bg-emerald-50/40" : getStatus(item.is_ordered) === "shortage" ? "bg-amber-50/40" : ""}`}
+                  className={`hover:bg-gray-50 transition-colors ${getStatus(item) === "ordered" ? "bg-emerald-50/40" : getStatus(item) === "shortage" ? "bg-amber-50/40" : ""}`}
                 >
                   <td className="px-4 py-2.5 font-medium text-gray-800">{item.product_name}</td>
                   <td className="px-4 py-2.5 text-gray-500 text-xs">{item.product_code || "—"}</td>
@@ -195,15 +179,12 @@ export default function ReplenishmentList() {
                   <td className="px-4 py-2.5 text-center font-semibold text-blue-700">{item.requested_quantity}</td>
                   <td className="px-4 py-2.5 text-center">
                     <select
-                      value={getStatus(item.is_ordered)}
-                      onChange={(e) => {
-                        const map = { ordered: true, shortage: "نواقص", pending: false };
-                        toggleOrdered.mutate({ id: item.id, is_ordered: map[e.target.value] });
-                      }}
+                      value={getStatus(item)}
+                      onChange={(e) => updateStatus.mutate({ id: item.id, order_status: e.target.value })}
                       className={`text-xs font-medium rounded-lg px-2 py-1 border cursor-pointer outline-none transition-colors ${
-                        getStatus(item.is_ordered) === "ordered"
+                        getStatus(item) === "ordered"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : getStatus(item.is_ordered) === "shortage"
+                          : getStatus(item) === "shortage"
                           ? "bg-amber-50 text-amber-700 border-amber-200"
                           : "bg-gray-50 text-gray-500 border-gray-200"
                       }`}

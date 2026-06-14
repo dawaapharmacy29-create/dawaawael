@@ -27,10 +27,15 @@
       "description": "\u0627\u0644\u0631\u0635\u064a\u062f \u0627\u0644\u0641\u0639\u0644\u064a",
       "default": 0
     },
-    "is_ordered": {
-      "type": "boolean",
-      "default": false,
-      "description": "\u062a\u0645 \u0627\u0644\u0637\u0644\u0628\u061f"
+    "order_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "ordered",
+        "shortage"
+      ],
+      "default": "pending",
+      "description": "\u062d\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628"
     },
     "notes": {
       "type": "string",
