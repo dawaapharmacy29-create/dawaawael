@@ -45,7 +45,18 @@ export default function ReplenishmentList() {
   const toggleOrdered = useMutation({
     mutationFn: ({ id, is_ordered }) =>
       base44.entities.ReplenishmentOrder.update(id, { is_ordered }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["replenishment-orders"] }),
+    onMutate: async ({ id, is_ordered }) => {
+      await qc.cancelQueries({ queryKey: ["replenishment-orders"] });
+      const previous = qc.getQueryData(["replenishment-orders"]);
+      qc.setQueryData(["replenishment-orders"], (old) =>
+        old ? old.map((i) => i.id === id ? { ...i, is_ordered } : i) : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(["replenishment-orders"], context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["replenishment-orders"] }),
   });
 
   // دورة الحالات: false/null → "نواقص" → true → false
