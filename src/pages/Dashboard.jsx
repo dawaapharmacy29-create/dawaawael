@@ -195,7 +195,7 @@ export default function Dashboard() {
       <LowStockAlert />
 
       {/* Budget Alerts */}
-      <BudgetAlert invoices={invoices} expenses={expenses} budgets={budgets} />
+      <BudgetAlert invoices={monthInvoices} expenses={monthExpenses} budgets={budgets} />
 
       {/* Branch Budget */}
       <div>
