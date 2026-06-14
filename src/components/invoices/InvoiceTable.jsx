@@ -85,7 +85,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                   <TableCell><Badge className={`${paymentColor[inv.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs`}>{inv.payment_type}</Badge></TableCell>
                   <TableCell><Badge className={`${statusColor[inv.status]} border-0 text-xs`}>{statusIcon[inv.status]} {inv.status}</Badge></TableCell>
                   <TableCell className="text-xs text-gray-400 max-w-[60px] overflow-hidden">
-                    <span className="block truncate cursor-default" title={inv.added_at || "—"}>{inv.added_at || "—"}</span>
+                    <span className="block truncate cursor-default" title={inv.created_date ? new Date(inv.created_date).toLocaleString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}>
+                      {inv.created_date ? new Date(inv.created_date).toLocaleString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

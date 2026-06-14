@@ -196,7 +196,9 @@ export default function ReplenishmentList() {
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-500">{item.notes || "—"}</td>
                   <td className="px-4 py-2.5 text-center text-xs text-gray-400 max-w-[60px] overflow-hidden">
-                    <span className="block truncate cursor-default" title={item.added_at || "—"}>{item.added_at || "—"}</span>
+                    <span className="block truncate cursor-default" title={item.created_date ? new Date(item.created_date).toLocaleString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}>
+                      {item.created_date ? new Date(item.created_date).toLocaleString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <button
