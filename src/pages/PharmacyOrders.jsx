@@ -5,7 +5,8 @@ import { useUserRole } from "@/lib/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, FlaskConical } from "lucide-react";
+import { Plus, Search, FlaskConical, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
 import OrderTable from "@/components/orders/OrderTable";
 import OrderAnalytics from "@/components/orders/OrderAnalytics";
@@ -16,6 +17,38 @@ import PharmacyOrderDetailDialog from "@/components/orders/PharmacyOrderDetailDi
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+
+const STATUS_LIST_PHARMACY = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+
+function exportPharmacyOrdersToExcel(orders) {
+  const rows = orders.map((o) => ({
+    "رقم الطلب": o.order_number || o.id?.slice(-6) || "",
+    "اسم الصيدلية": o.customer_name || "",
+    "رقم الهاتف": o.phone || "",
+    "كود الصيدلية": o.customer_code || "",
+    "الفرع": o.branch || "",
+    "الصنف": o.product_name || "",
+    "المصدر": o.request_source || "",
+    "الأولوية": o.priority || "",
+    "الموظف المسؤول": o.assigned_employee || "",
+    "تاريخ الطلب": o.request_date || "",
+    "الحالة": o.status || "",
+    "المورد": o.supplier_found || "",
+    "سعر الشراء": o.purchase_price || "",
+    "سعر البيع": o.selling_price || "",
+    "ملاحظات": o.notes || "",
+    "ملاحظات البحث": o.search_notes || "",
+    "ملاحظات المتابعة": o.followup_notes || "",
+    "سبب الإلغاء": o.cancellation_reason || "",
+    "تاريخ الإضافة": o.created_date ? new Date(o.created_date).toLocaleString("ar-EG") : "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const colWidths = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
+  ws["!cols"] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "طلبات الصيدليات");
+  XLSX.writeFile(wb, `طلبات_الصيدليات_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
 
 export default function PharmacyOrders() {
   const { isAdmin, isManager, user } = useUserRole();
@@ -85,7 +118,7 @@ export default function PharmacyOrders() {
             <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
             {orders.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1">
-                {["تم التوصيل", "تم الإلغاء", "الصنف غير متوفر حاليا", "طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف"].map((status) => {
+                {STATUS_LIST_PHARMACY.map((status) => {
                   const count = orders.filter((o) => o.status === status).length;
                   if (count === 0) return null;
                   const pct = ((count / orders.length) * 100).toFixed(1);
@@ -101,6 +134,9 @@ export default function PharmacyOrders() {
         </div>
         <div className="flex items-center gap-2">
           <OrderAlerts orders={orders} />
+          <Button variant="outline" onClick={() => exportPharmacyOrdersToExcel(filteredOrders)} className="gap-2 border-violet-300 text-violet-700 hover:bg-violet-50">
+            <Download className="w-4 h-4" /> تصدير Excel
+          </Button>
           <Button onClick={() => setShowForm(true)} className="bg-violet-600 hover:bg-violet-700 gap-2">
             <Plus className="w-4 h-4" /> طلب جديد
           </Button>

@@ -5,7 +5,8 @@ import { useUserRole } from "@/lib/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Filter, ShoppingBag, Bell } from "lucide-react";
+import { Plus, Search, Filter, ShoppingBag, Bell, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
 import OrderTable from "@/components/orders/OrderTable";
 import OrderFormDialog from "@/components/orders/OrderFormDialog";
@@ -16,6 +17,39 @@ import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+
+const STATUS_LIST = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+
+function exportOrdersToExcel(orders) {
+  const rows = orders.map((o) => ({
+    "رقم الطلب": o.order_number || o.id?.slice(-6) || "",
+    "اسم العميل": o.customer_name || "",
+    "رقم الهاتف": o.phone || "",
+    "كود العميل": o.customer_code || "",
+    "الفرع": o.branch || "",
+    "الصنف": o.product_name || "",
+    "المصدر": o.request_source || "",
+    "الأولوية": o.priority || "",
+    "الموظف المسؤول": o.assigned_employee || "",
+    "تاريخ الطلب": o.request_date || "",
+    "الحالة": o.status || "",
+    "المورد": o.supplier_found || "",
+    "سعر الشراء": o.purchase_price || "",
+    "سعر البيع": o.selling_price || "",
+    "ملاحظات": o.notes || "",
+    "ملاحظات البحث": o.search_notes || "",
+    "ملاحظات المتابعة": o.followup_notes || "",
+    "سبب الإلغاء": o.cancellation_reason || "",
+    "تاريخ الإضافة": o.created_date ? new Date(o.created_date).toLocaleString("ar-EG") : "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!dir"] = "rtl";
+  const colWidths = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
+  ws["!cols"] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "طلبات العملاء");
+  XLSX.writeFile(wb, `طلبات_العملاء_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
 
 export default function CustomerOrders() {
   const { isAdmin, isManager, user } = useUserRole();
@@ -84,10 +118,27 @@ export default function CustomerOrders() {
           <div>
             <h1 className="text-xl font-bold text-gray-800">طلبات العملاء</h1>
             <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
+            {orders.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {STATUS_LIST.map((status) => {
+                  const count = orders.filter((o) => o.status === status).length;
+                  if (count === 0) return null;
+                  const pct = ((count / orders.length) * 100).toFixed(1);
+                  return (
+                    <span key={status} className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                      {status}: <b className="text-gray-700">{pct}%</b>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <OrderAlerts orders={orders} />
+          <Button variant="outline" onClick={() => exportOrdersToExcel(filteredOrders)} className="gap-2 border-teal-300 text-teal-700 hover:bg-teal-50">
+            <Download className="w-4 h-4" /> تصدير Excel
+          </Button>
           <Button onClick={() => setShowForm(true)} className="bg-teal-600 hover:bg-teal-700 gap-2">
             <Plus className="w-4 h-4" /> طلب جديد
           </Button>
@@ -173,6 +224,9 @@ export default function CustomerOrders() {
             )}
           </div>
 
+          {/* Branch Efficiency */}
+          <BranchEfficiencyCard orders={filteredOrders} />
+
           {/* Table */}
           <OrderTable
             orders={filteredOrders}
@@ -181,9 +235,6 @@ export default function CustomerOrders() {
             onDelete={(id) => deleteMutation.mutate(id)}
             isManager={isManager}
           />
-
-          {/* Branch Efficiency */}
-          <BranchEfficiencyCard orders={filteredOrders} />
         </>
       )}
 

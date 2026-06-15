@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, CheckCircle2, Circle, PackageSearch, AlertCircle } from "lucide-react";
+import { Plus, Trash2, PackageSearch, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useToast } from "@/components/ui/use-toast";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -18,6 +19,26 @@ const emptyForm = {
   actual_balance: "",
   notes: "",
 };
+
+function exportReplenishmentToExcel(items) {
+  const statusLabel = { pending: "لم يُطلب", ordered: "تم الطلب", shortage: "نواقص" };
+  const rows = items.map((item) => ({
+    "اسم الصنف": item.product_name || "",
+    "كود الصنف": item.product_code || "",
+    "الفرع": item.branch || "",
+    "الرصيد الفعلي": item.actual_balance ?? "",
+    "الكمية المطلوبة": item.requested_quantity || "",
+    "الحالة": statusLabel[item.order_status || "pending"] || "",
+    "ملاحظات": item.notes || "",
+    "تاريخ الإضافة": item.created_date ? new Date(item.created_date).toLocaleString("ar-EG") : "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const colWidths = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
+  ws["!cols"] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "الأصناف المطلوبة");
+  XLSX.writeFile(wb, `الأصناف_المطلوبة_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
 
 export default function ReplenishmentList() {
   const qc = useQueryClient();
@@ -106,9 +127,14 @@ export default function ReplenishmentList() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 gap-2" size="sm">
-          <Plus className="w-4 h-4" /> إضافة صنف
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => exportReplenishmentToExcel(filtered)} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50" size="sm">
+            <Download className="w-4 h-4" /> تصدير Excel
+          </Button>
+          <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 gap-2" size="sm">
+            <Plus className="w-4 h-4" /> إضافة صنف
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

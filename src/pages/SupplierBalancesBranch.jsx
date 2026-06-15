@@ -57,6 +57,7 @@ export default function SupplierBalancesBranch() {
         amount: parseFloat(amount),
         payment_date,
         notes,
+        branch,
       });
       await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
     },
@@ -128,7 +129,7 @@ export default function SupplierBalancesBranch() {
       const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
       const monthStartDate = monthStartRecord?.month_start_date || null;
 
-      const debtPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id);
+      const debtPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
       const debtPaid = debtPayments.reduce((s, p) => s + (p.amount || 0), 0);
       const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
 
@@ -197,7 +198,7 @@ export default function SupplierBalancesBranch() {
 
   const addDebtPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes, branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -208,7 +209,7 @@ export default function SupplierBalancesBranch() {
 
   const addGeneralPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة" });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة", branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
