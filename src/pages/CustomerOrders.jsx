@@ -5,7 +5,8 @@ import { useUserRole } from "@/lib/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Filter, ShoppingBag, Bell, Download } from "lucide-react";
+import { Plus, Search, ShoppingBag, Download, PieChart } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
 import OrderTable from "@/components/orders/OrderTable";
@@ -116,22 +117,35 @@ export default function CustomerOrders() {
             <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">طلبات العملاء</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-gray-800">طلبات العملاء</h1>
+              {orders.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="w-5 h-5 rounded-full bg-teal-100 hover:bg-teal-200 flex items-center justify-center transition-colors" title="نسب الحالات">
+                      <PieChart className="w-3 h-3 text-teal-600" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-3" align="start">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">نسب الحالات</p>
+                    <div className="flex flex-col gap-1">
+                      {STATUS_LIST.map((status) => {
+                        const count = orders.filter((o) => o.status === status).length;
+                        if (count === 0) return null;
+                        const pct = ((count / orders.length) * 100).toFixed(1);
+                        return (
+                          <div key={status} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600">{status}</span>
+                            <span className="font-bold text-gray-800">{pct}% <span className="font-normal text-gray-400">({count})</span></span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
             <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
-            {orders.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-1">
-                {STATUS_LIST.map((status) => {
-                  const count = orders.filter((o) => o.status === status).length;
-                  if (count === 0) return null;
-                  const pct = ((count / orders.length) * 100).toFixed(1);
-                  return (
-                    <span key={status} className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
-                      {status}: <b className="text-gray-700">{pct}%</b>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
