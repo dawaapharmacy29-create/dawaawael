@@ -118,47 +118,65 @@ export default function SupplierBalancesBranch() {
   const supplierGroups = useMemo(() => {
     const map = {};
     allSupplierNames.forEach(name => {
-      const creditInvoices = invoices.filter(inv => {
-        if (inv.payment_type !== "آجل" || inv.supplier_name !== name) return false;
-        const remaining = (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0);
-        return remaining > 0;
-      });
-
       const debtRecord = debts.find(d => d.supplier_name === name);
       const initialDebt = debtRecord?.initial_debt || 0;
       const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
       const monthStartDate = monthStartRecord?.month_start_date || null;
 
-      const debtPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      const debtPaid = debtPayments.reduce((s, p) => s + (p.amount || 0), 0);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
+      // كل فواتير الآجل لهذا المورد في هذا الفرع
+      const allCreditInvoices = invoices.filter(inv =>
+        inv.payment_type === "آجل" && inv.supplier_name === name
+      );
 
-      const withRemaining = creditInvoices.map(inv => ({
-        ...inv,
-        remaining: (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0),
-      }));
+      const calcRemaining = (inv) => Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0));
 
-      const oldInvoices = monthStartDate ? withRemaining.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10)) < monthStartDate) : withRemaining;
-      const newInvoices = monthStartDate ? withRemaining.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10)) >= monthStartDate) : [];
+      const oldInvoicesRaw = monthStartDate
+        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10) || "") < monthStartDate)
+        : allCreditInvoices;
+      const newInvoices = monthStartDate
+        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10) || "") >= monthStartDate)
+        : [];
 
-      const oldInvoicesRemaining = oldInvoices.reduce((s, inv) => s + inv.remaining, 0);
-      const newDebt = newInvoices.reduce((s, inv) => s + inv.remaining, 0);
+      const oldInvoicesWithRemaining = oldInvoicesRaw.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+      const newInvoicesWithRemaining = newInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+
+      // الدفعات العامة لهذا الفرع فقط (بدون invoice_id)
+      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
+      let generalPaidPool = generalPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+      // 1. خصم من initialDebt أولاً
+      const debtPaidFromGeneral = Math.min(generalPaidPool, initialDebt);
+      const remainingInitialDebt = Math.max(0, initialDebt - debtPaidFromGeneral);
+      generalPaidPool = Math.max(0, generalPaidPool - debtPaidFromGeneral);
+
+      // 2. ما تبقى يُخصم من الفواتير القديمة بالترتيب (الأقدم أولاً)
+      const oldInvoicesSorted = [...oldInvoicesWithRemaining].sort((a, b) => {
+        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
+        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
+        return da.localeCompare(db);
+      });
+      const oldInvoicesAdjusted = oldInvoicesSorted.map(inv => {
+        const deduct = Math.min(generalPaidPool, inv.remaining);
+        generalPaidPool = Math.max(0, generalPaidPool - deduct);
+        return { ...inv, remaining: inv.remaining - deduct };
+      });
+
+      const oldInvoicesRemaining = oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0);
+      const newDebt = newInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0);
       const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
+      const totalNet = oldDebt + newDebt;
 
-      const invoicesRemaining = withRemaining.reduce((s, inv) => s + inv.remaining, 0);
-      const totalNet = remainingInitialDebt + invoicesRemaining;
-      if (totalNet <= 0 && creditInvoices.length === 0) return;
+      if (totalNet <= 0 && allCreditInvoices.length === 0) return;
 
       map[name] = {
         name,
-        invoices: withRemaining,
-        oldInvoices,
-        newInvoices,
+        invoices: [...oldInvoicesAdjusted, ...newInvoicesWithRemaining],
+        oldInvoices: oldInvoicesAdjusted,
+        newInvoices: newInvoicesWithRemaining,
         initialDebt,
-        debtPaid,
+        debtPaid: debtPaidFromGeneral,
         remainingInitialDebt,
         oldInvoicesRemaining,
-        invoicesRemaining,
         oldDebt,
         newDebt,
         totalNet,
@@ -167,7 +185,7 @@ export default function SupplierBalancesBranch() {
       };
     });
     return Object.values(map).sort((a, b) => b.totalNet - a.totalNet);
-  }, [invoices, payments, debts, allSupplierNames, monthStarts]);
+  }, [invoices, payments, debts, allSupplierNames, monthStarts, branch]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
@@ -450,7 +468,10 @@ export default function SupplierBalancesBranch() {
                         <div className="space-y-1">
                           {payments.filter((p) => p.supplier_name === group.name).map((p) => (
                             <div key={p.id} className="flex items-center justify-between text-xs text-gray-600 bg-white rounded px-3 py-1.5 border border-green-100">
-                              <span>{p.payment_date} — {p.invoice_number ? `فاتورة ${p.invoice_number}` : p.notes || "مديونية قديمة"}</span>
+                              <span>
+                                {p.payment_date} — {p.invoice_number ? `فاتورة ${p.invoice_number}` : p.notes || "مديونية قديمة"}
+                                {p.branch && <span className="mr-1 text-blue-600 font-medium">({p.branch})</span>}
+                              </span>
                               <span className="font-semibold text-green-700">{fmt(p.amount)} ج</span>
                             </div>
                           ))}
@@ -476,12 +497,14 @@ export default function SupplierBalancesBranch() {
                   <>
                     <p className="text-gray-500">المورد: <span className="font-semibold text-gray-800">{payDialog.supplier_name}</span></p>
                     <p className="text-gray-500">النوع: <span className="font-semibold text-purple-700">سداد مديونية قديمة</span></p>
+                    <p className="text-gray-500">الفرع: <span className="font-semibold text-blue-700">{branch}</span></p>
                     <p className="text-gray-500">المتبقي: <span className="font-bold text-red-600">{fmt(payDialog.remaining)} ج</span></p>
                   </>
                 ) : (
                   <>
                     <p className="text-gray-500">المورد: <span className="font-semibold text-gray-800">{payDialog.invoice.supplier_name}</span></p>
                     <p className="text-gray-500">الفاتورة: <span className="font-mono font-semibold text-teal-700">{payDialog.invoice.system_invoice_number}</span></p>
+                    <p className="text-gray-500">الفرع: <span className="font-semibold text-blue-700">{branch}</span></p>
                     <p className="text-gray-500">المتبقي: <span className="font-bold text-red-600">{fmt(payDialog.invoice.remaining)} ج</span></p>
                   </>
                 )}
@@ -505,8 +528,11 @@ export default function SupplierBalancesBranch() {
       {/* General Payment Dialog */}
       <Dialog open={generalPayDialog} onOpenChange={setGeneralPayDialog}>
         <DialogContent dir="rtl" className="max-w-sm">
-          <DialogHeader><DialogTitle>تسديد دفعة عامة لمورد</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>تسديد دفعة عامة لمورد — {branch}</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+              الفرع: <strong>{branch}</strong>
+            </div>
             <div className="space-y-1">
               <Label>اسم المورد</Label>
               <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

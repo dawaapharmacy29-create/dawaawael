@@ -21,12 +21,12 @@ export default function SupplierBalances() {
   const [activeTab, setActiveTab] = useState("balances"); // balances | statement | payments
   const [expanded, setExpanded] = useState(null);
   const [payDialog, setPayDialog] = useState(null);
-  const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
   const [debtDialog, setDebtDialog] = useState(null);
   const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "" });
   const [savingDebt, setSavingDebt] = useState(false);
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
-  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
   const [monthStartDialog, setMonthStartDialog] = useState(null); // { supplier_name, existing? }
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
@@ -56,7 +56,7 @@ export default function SupplierBalances() {
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
   const addPayment = useMutation({
-    mutationFn: async ({ invoice, amount, payment_date, notes }) => {
+    mutationFn: async ({ invoice, amount, payment_date, notes, branch }) => {
       const newPaid = (invoice.paid_value || 0) + parseFloat(amount);
       await base44.entities.SupplierPayment.create({
         supplier_name: invoice.supplier_name,
@@ -65,6 +65,7 @@ export default function SupplierBalances() {
         amount: parseFloat(amount),
         payment_date,
         notes,
+        branch: branch || invoice.branch || "",
       });
       await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
     },
@@ -77,8 +78,8 @@ export default function SupplierBalances() {
   });
 
   const addDebtPayment = useMutation({
-    mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes });
+    mutationFn: async ({ supplier_name, amount, payment_date, notes, branch }) => {
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes, branch: branch || "" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -88,13 +89,13 @@ export default function SupplierBalances() {
   });
 
   const addGeneralPayment = useMutation({
-    mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة" });
+    mutationFn: async ({ supplier_name, amount, payment_date, notes, branch }) => {
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة", branch: branch || "" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
       setGeneralPayDialog(false);
-      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
     },
   });
 
@@ -223,12 +224,12 @@ export default function SupplierBalances() {
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
 
   const openPayDialog = (invoice) => {
-    setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+    setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: invoice.branch || "" });
     setPayDialog({ invoice });
   };
 
   const openDebtPayDialog = (supplierName, remaining) => {
-    setPayForm({ amount: remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "سداد مديونية قديمة" });
+    setPayForm({ amount: remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "سداد مديونية قديمة", branch: "" });
     setPayDialog({ debtPayment: true, supplier_name: supplierName, remaining });
   };
 
@@ -509,7 +510,10 @@ export default function SupplierBalances() {
                         <div className="space-y-1">
                           {payments.filter((p) => p.supplier_name === group.name).map((p) => (
                             <div key={p.id} className="flex items-center justify-between text-xs text-gray-600 bg-white rounded px-3 py-1.5 border border-green-100">
-                              <span>{p.payment_date} — {p.invoice_number ? `فاتورة ${p.invoice_number}` : p.notes || "مديونية قديمة"}</span>
+                              <span>
+                                {p.payment_date} — {p.invoice_number ? `فاتورة ${p.invoice_number}` : p.notes || "مديونية قديمة"}
+                                {p.branch && <span className="mr-1 text-blue-600 font-medium">({p.branch})</span>}
+                              </span>
                               <span className="font-semibold text-green-700">{fmt(p.amount)} ج</span>
                             </div>
                           ))}
@@ -547,6 +551,15 @@ export default function SupplierBalances() {
                     <p className="text-gray-500">المتبقي: <span className="font-bold text-red-600">{fmt(payDialog.invoice?.remaining)} ج</span></p>
                   </>
                 )}
+              </div>
+              <div className="space-y-1">
+                <Label>الفرع المسدد عليه</Label>
+                <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={payForm.branch} onChange={(e) => setPayForm((f) => ({ ...f, branch: e.target.value }))}>
+                  <option value="">-- اختر الفرع --</option>
+                  <option value="دواء شكري">دواء شكري</option>
+                  <option value="دواء الشامي">دواء الشامي</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <Label>مبلغ الدفعة</Label>
@@ -592,6 +605,16 @@ export default function SupplierBalances() {
                 onChange={e => setGeneralPayForm(f => ({ ...f, supplier_name: e.target.value }))}>
                 <option value="">-- اختر مورد --</option>
                 {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>الفرع المسدد عليه</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={generalPayForm.branch}
+                onChange={e => setGeneralPayForm(f => ({ ...f, branch: e.target.value }))}>
+                <option value="">-- اختر الفرع --</option>
+                <option value="دواء شكري">دواء شكري</option>
+                <option value="دواء الشامي">دواء الشامي</option>
               </select>
             </div>
             <div className="space-y-1">

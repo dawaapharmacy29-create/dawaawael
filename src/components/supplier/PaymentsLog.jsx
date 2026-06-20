@@ -102,6 +102,7 @@ export default function PaymentsLog() {
                 <TableRow className="bg-gray-50">
                   <TableHead className="text-right text-xs">التاريخ</TableHead>
                   <TableHead className="text-right text-xs">المورد</TableHead>
+                  <TableHead className="text-right text-xs">الفرع</TableHead>
                   <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
                   <TableHead className="text-right text-xs">المبلغ</TableHead>
@@ -112,6 +113,7 @@ export default function PaymentsLog() {
                   <TableRow key={p.id} className="hover:bg-gray-50 text-sm">
                     <TableCell className="text-gray-600">{p.payment_date || "—"}</TableCell>
                     <TableCell className="font-semibold text-gray-800">{p.supplier_name || "—"}</TableCell>
+                    <TableCell className="text-xs text-blue-700 font-medium">{p.branch || "—"}</TableCell>
                     <TableCell className="font-mono text-teal-700">{p.invoice_number || "—"}</TableCell>
                     <TableCell className="text-gray-500 text-xs">{p.notes || "—"}</TableCell>
                     <TableCell className="font-bold text-green-700">{fmt(p.amount)} ج</TableCell>
