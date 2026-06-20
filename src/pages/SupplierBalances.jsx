@@ -141,74 +141,83 @@ export default function SupplierBalances() {
   }, [invoices, debts]);
 
   const supplierGroups = useMemo(() => {
+    const BRANCHES = ["دواء شكري", "دواء الشامي"];
+    const calcRemaining = (inv) => Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0));
+
+    // حساب بيانات مورد لفرع معين (نفس منطق صفحة الفرع)
+    const calcBranchData = (name, branch, monthStartDate, initialDebt) => {
+      const branchInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name && inv.branch === branch);
+
+      const oldInvsRaw = monthStartDate
+        ? branchInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0, 10) || "") < monthStartDate)
+        : branchInvoices;
+      const newInvs = monthStartDate
+        ? branchInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0, 10) || "") >= monthStartDate)
+        : [];
+
+      const oldInvsWithRem = oldInvsRaw.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+      const newInvsWithRem = newInvs.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+
+      // الدفعات العامة لهذا الفرع فقط
+      const genPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
+      let pool = genPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+      const debtPaid = Math.min(pool, initialDebt);
+      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
+      pool = Math.max(0, pool - debtPaid);
+
+      const oldSorted = [...oldInvsWithRem].sort((a, b) =>
+        (a.invoice_date || a.created_date?.slice(0, 10) || "").localeCompare(b.invoice_date || b.created_date?.slice(0, 10) || "")
+      );
+      const oldAdjusted = oldSorted.map(inv => {
+        const deduct = Math.min(pool, inv.remaining);
+        pool = Math.max(0, pool - deduct);
+        return { ...inv, remaining: inv.remaining - deduct };
+      });
+
+      const oldInvoicesRemaining = oldAdjusted.reduce((s, inv) => s + inv.remaining, 0);
+      const newDebt = newInvsWithRem.reduce((s, inv) => s + inv.remaining, 0);
+      const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
+
+      return { oldInvoices: oldAdjusted, newInvoices: newInvsWithRem, debtPaid, remainingInitialDebt, oldInvoicesRemaining, oldDebt, newDebt };
+    };
+
     const map = {};
 
     allSupplierNames.forEach(name => {
       const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
       const monthStartDate = monthStartRecord?.month_start_date || null;
-
-      // All credit invoices for this supplier
-      const allCreditInvoices = invoices.filter(inv =>
-        inv.payment_type === "آجل" && inv.supplier_name === name
-      );
-
-      // Split by month start date
-      const oldInvoices = monthStartDate
-        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0, 10) || "") < monthStartDate)
-        : allCreditInvoices;
-      const newInvoices = monthStartDate
-        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0, 10) || "") >= monthStartDate)
-        : [];
-
-      // Calculate remaining per invoice
-      const calcRemaining = (inv) => Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0));
-
-      const oldInvoicesWithRemaining = oldInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
-      const newInvoicesWithRemaining = newInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
-
-      // Initial (pre-app) debt
       const debtRecord = debts.find(d => d.supplier_name === name);
       const initialDebt = debtRecord?.initial_debt || 0;
 
-      // General payments (no invoice_id) = خصم أولاً من المديونية القديمة (initialDebt ثم الفواتير القديمة)
-      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id);
-      let generalPaidPool = generalPayments.reduce((s, p) => s + (p.amount || 0), 0);
+      // احسب لكل فرع على حدة ثم اجمع
+      const branchResults = BRANCHES.map(br => calcBranchData(name, br, monthStartDate, initialDebt));
 
-      // 1. خصم من initialDebt أولاً
-      const debtPaidFromGeneral = Math.min(generalPaidPool, initialDebt);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaidFromGeneral);
-      generalPaidPool = Math.max(0, generalPaidPool - debtPaidFromGeneral);
+      // دمج الفواتير من الفرعين
+      const oldInvoicesAll = branchResults.flatMap(r => r.oldInvoices);
+      const newInvoicesAll = branchResults.flatMap(r => r.newInvoices);
 
-      // 2. ما تبقى من الدفعات العامة يُخصم من الفواتير القديمة بالترتيب (الأقدم أولاً)
-      const oldInvoicesSorted = [...oldInvoicesWithRemaining].sort((a, b) => {
-        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
-        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
-        return da.localeCompare(db);
-      });
-      const oldInvoicesAdjusted = oldInvoicesSorted.map(inv => {
-        const deduct = Math.min(generalPaidPool, inv.remaining);
-        generalPaidPool = Math.max(0, generalPaidPool - deduct);
-        return { ...inv, remaining: inv.remaining - deduct };
-      });
-
-      // Old debt = pre-app debt + old invoices remaining (بعد خصم الدفعات العامة)
-      const oldInvoicesRemaining = oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0);
-      const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
-
-      // New debt = new invoices remaining
-      const newDebt = newInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0);
-
+      // الإجمالي = مجموع الفرعين
+      const oldDebt = branchResults.reduce((s, r) => s + r.oldDebt, 0);
+      const newDebt = branchResults.reduce((s, r) => s + r.newDebt, 0);
       const totalNet = oldDebt + newDebt;
+
+      const allCreditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
       if (totalNet <= 0 && allCreditInvoices.length === 0) return;
+
+      // للعرض فقط: debtPaid = مجموع ما دُفع عبر الدفعات العامة من المديونية القديمة
+      const debtPaid = branchResults.reduce((s, r) => s + r.debtPaid, 0);
+      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
+      const oldInvoicesRemaining = branchResults.reduce((s, r) => s + r.oldInvoicesRemaining, 0);
 
       map[name] = {
         name,
         monthStartDate,
         monthStartRecord,
-        oldInvoices: oldInvoicesAdjusted,
-        newInvoices: newInvoicesWithRemaining,
+        oldInvoices: oldInvoicesAll,
+        newInvoices: newInvoicesAll,
         initialDebt,
-        debtPaid: debtPaidFromGeneral,
+        debtPaid,
         remainingInitialDebt,
         oldInvoicesRemaining,
         oldDebt,
