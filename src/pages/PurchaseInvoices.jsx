@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Trash2, CheckSquare } from "lucide-react";
+import { Plus, Search, Trash2, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
@@ -30,7 +30,35 @@ export default function PurchaseInvoices() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [singleDeleteId, setSingleDeleteId] = useState(null);
+  const [activeMonthOffset, setActiveMonthOffset] = useState(0); // 0 = الشهر الحالي، -1 = السابق، null = لا يوجد
   const queryClient = useQueryClient();
+
+  // حساب أزرار الشهور: الشهر الحالي + الشهرين السابقين
+  const monthButtons = Array.from({ length: 3 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+    return { offset: -i, from, to, label };
+  });
+
+  const selectMonth = (btn) => {
+    if (activeMonthOffset === btn.offset) {
+      // إلغاء الاختيار
+      setActiveMonthOffset(null);
+      setDateFrom("");
+      setDateTo("");
+    } else {
+      setActiveMonthOffset(btn.offset);
+      setDateFrom(btn.from);
+      setDateTo(btn.to);
+    }
+  };
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
   // Real-time: تحديث تلقائي عند أي تغيير
@@ -179,6 +207,23 @@ export default function PurchaseInvoices() {
 
       <InvoiceStats invoices={invoices} />
 
+      {/* Month Buttons */}
+      <div className="flex gap-2 flex-wrap">
+        {monthButtons.map((btn) => (
+          <button
+            key={btn.offset}
+            onClick={() => selectMonth(btn)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              activeMonthOffset === btn.offset
+                ? "bg-teal-600 text-white border-teal-600"
+                : "bg-white text-gray-600 border-gray-300 hover:border-teal-400"
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters Row */}
       <div className="bg-white rounded-lg border p-3 space-y-3">
         <div className="flex flex-wrap gap-2 items-center">
@@ -194,8 +239,8 @@ export default function PurchaseInvoices() {
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1.5 text-sm text-gray-600">
-            <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-32 h-9" />
-            <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-32 h-9" />
+            <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setActiveMonthOffset(null); }} className="w-32 h-9" />
+            <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setActiveMonthOffset(null); }} className="w-32 h-9" />
           </div>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
@@ -206,7 +251,7 @@ export default function PurchaseInvoices() {
             </SelectContent>
           </Select>
           {hasFilters && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); }} className="text-xs text-red-500 hover:underline whitespace-nowrap">
+            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap">
               مسح الكل
             </button>
           )}
