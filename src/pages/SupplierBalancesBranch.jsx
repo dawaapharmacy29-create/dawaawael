@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, AlertTriangle, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays } from "lucide-react";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -38,8 +38,8 @@ export default function SupplierBalancesBranch() {
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
 
-  const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000) });
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date") });
+  const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000), staleTime: 0 });
+  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 0 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
@@ -172,20 +172,6 @@ export default function SupplierBalancesBranch() {
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
-  const overdueInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      if (inv.payment_type !== "آجل") return false;
-      const remaining = (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0);
-      if (remaining <= 0) return false;
-      const supplier = suppliers.find((s) => s.name === inv.supplier_name);
-      const terms = supplier?.payment_terms_days || 30;
-      const dateStr = inv.invoice_date || inv.created_date;
-      if (!dateStr) return false;
-      const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
-      return days >= terms;
-    });
-  }, [invoices, suppliers]);
-
   const openPayDialog = (invoice) => {
     setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
     setPayDialog({ invoice });
@@ -257,27 +243,6 @@ export default function SupplierBalancesBranch() {
           </div>
         </div>
       </div>
-
-      {/* Overdue Alerts */}
-      {overdueInvoices.length > 0 && (
-        <Card className="p-4 border-r-4 border-r-red-500 bg-red-50">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-            <p className="font-semibold text-red-700 text-sm">{overdueInvoices.length} فاتورة آجلة تجاوزت مدة السداد</p>
-          </div>
-          <div className="space-y-1">
-            {overdueInvoices.map((inv) => {
-              const days = Math.floor((Date.now() - new Date(inv.invoice_date || inv.created_date).getTime()) / (1000 * 60 * 60 * 24));
-              return (
-                <div key={inv.id} className="text-xs text-red-600 bg-white rounded px-3 py-1.5 border border-red-100 flex justify-between">
-                  <span>{inv.supplier_name} — فاتورة {inv.system_invoice_number} ({days} يوم)</span>
-                  <span className="font-semibold">{fmt((inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0))} ج</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
 
       {/* Supplier Cards */}
       {supplierGroups.length === 0 ? (
