@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -19,6 +19,7 @@ const navItems = [
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true },
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true },
+  { path: "/shift-delivery", label: "تسليم الشيفت", icon: Clock, purple: true },
   { path: "/suppliers", label: "الموردين", icon: Users },
   { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2 },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true },
@@ -77,6 +78,8 @@ export default function AppLayout() {
                   ? "bg-violet-600 text-white border border-violet-700"
                   : item.emerald
                   ? "bg-emerald-600 text-white border border-emerald-700"
+                  : item.purple
+                  ? "bg-purple-600 text-white border border-purple-700"
                   : isActive
                   ? "bg-teal-50 text-teal-700"
                   : item.indent
@@ -84,7 +87,7 @@ export default function AppLayout() {
                   : "text-gray-600 hover:bg-gray-100"
                   )}
                   >
-                  <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white")} />
+                  <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && pendingCount > 0 && (
                 <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
@@ -134,6 +137,8 @@ export default function AppLayout() {
                          ? "bg-violet-600 text-white border border-violet-700"
                          : item.emerald
                          ? "bg-emerald-600 text-white border border-emerald-700"
+                         : item.purple
+                         ? "bg-purple-600 text-white border border-purple-700"
                          : isActive
                          ? "bg-teal-50 text-teal-700"
                          : item.indent
@@ -141,7 +146,7 @@ export default function AppLayout() {
                          : "text-gray-600 hover:bg-gray-100"
                         )}
                         >
-                        <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white")} />
+                        <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
                   <span className="flex-1">{item.label}</span>
                   {item.badge && pendingCount > 0 && (
                     <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>

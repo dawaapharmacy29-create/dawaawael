@@ -25,6 +25,7 @@ import InventoryCount from './pages/InventoryCount';
 import ReportsBranch from './pages/ReportsBranch';
 import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
 import ReplenishmentPage from './pages/ReplenishmentPage';
+import ShiftDelivery from './pages/ShiftDelivery';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -68,6 +69,7 @@ const AuthenticatedApp = () => {
         <Route path="/reports-branch" element={<ReportsBranch />} />
         <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
+        <Route path="/shift-delivery" element={<ShiftDelivery />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
