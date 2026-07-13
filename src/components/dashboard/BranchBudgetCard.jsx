@@ -85,7 +85,7 @@ export default function BranchBudgetCard({ invoices, budgets, startDate, endDate
                     <span>الحد: <b>{limit.toLocaleString("ar-EG")} ج</b></span>
                   </div>
 
-                  <DailyProgressIndicator startDate={startDate} endDate={endDate} currentAmount={spent} targetAmount={limit} height="h-3" color={c.bar} />
+                  <DailyProgressIndicator startDate={startDate} endDate={endDate} currentAmount={spent} targetAmount={limit} height="h-6" color={c.bar} />
                 </>
               )}
             </Card>

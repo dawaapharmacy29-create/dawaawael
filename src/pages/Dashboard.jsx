@@ -177,7 +177,7 @@ export default function Dashboard() {
                         <span className="text-gray-400">المستهدف: {targetAmount.toLocaleString("ar-EG")} ج</span>
                         <span className={targetPercent >= 100 ? "text-red-600 font-bold" : targetPercent >= 80 ? "text-orange-500 font-bold" : "text-green-600 font-semibold"}>{targetPercent}%</span>
                       </div>
-                      <DailyProgressIndicator startDate={monthStart} endDate={monthEnd} currentAmount={totalPayments} targetAmount={targetAmount} height="h-1.5" />
+                      <DailyProgressIndicator startDate={monthStart} endDate={monthEnd} currentAmount={totalPayments} targetAmount={targetAmount} height="h-7" />
                     </div>
                   ) : (
                     <p className="text-xs text-gray-400">لم يحدد هدف شهري</p>
