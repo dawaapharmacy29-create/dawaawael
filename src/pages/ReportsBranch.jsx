@@ -55,8 +55,21 @@ export default function ReportsBranch() {
   const SETTING_KEY_FROM = `report_date_from_${branch}`;
   const SETTING_KEY_TO = `report_date_to_${branch}`;
 
-  const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
-  const { data: allExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
+  const { data: allInvoices = [] } = useQuery({
+    queryKey: ["purchase-invoices"],
+    queryFn: async () => {
+      const PAGE = 500; let all = []; let page = 0;
+      while (true) {
+        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        all = [...all, ...batch];
+        if (batch.length < PAGE) break;
+        page++;
+      }
+      return all;
+    },
+    staleTime: 60000,
+  });
+  const { data: allExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
   const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
 
   // Filter to this branch only

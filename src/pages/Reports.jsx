@@ -46,8 +46,21 @@ export default function Reports() {
   const [pendingFrom, setPendingFrom] = useState(DEFAULT_FROM);
   const [pendingTo, setPendingTo] = useState(DEFAULT_TO);
 
-  const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date") });
-  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date") });
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["purchase-invoices"],
+    queryFn: async () => {
+      const PAGE = 500; let all = []; let page = 0;
+      while (true) {
+        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        all = [...all, ...batch];
+        if (batch.length < PAGE) break;
+        page++;
+      }
+      return all;
+    },
+    staleTime: 60000,
+  });
+  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
   const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
 
   const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);

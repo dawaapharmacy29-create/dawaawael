@@ -43,7 +43,16 @@ export default function Dashboard() {
 
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000),
+    queryFn: async () => {
+      const PAGE = 500; let all = []; let page = 0;
+      while (true) {
+        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        all = [...all, ...batch];
+        if (batch.length < PAGE) break;
+        page++;
+      }
+      return all;
+    },
     staleTime: 20000,
   });
   const { data: suppliers = [] } = useQuery({
