@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,23 @@ import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
-const EXPENSE_CATEGORIES = ["إيجار", "كهرباء", "مياه", "رواتب", "صيانة", "أخرى"];
 
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
   const { user } = useUserRole();
   const today = new Date().toISOString().split("T")[0];
+
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members"],
+    queryFn: () => base44.entities.TeamMember.list(),
+    staleTime: 60000,
+  });
+  const { data: expenseItems = [] } = useQuery({
+    queryKey: ["expense-items"],
+    queryFn: () => base44.entities.ExpenseItem.list(),
+    staleTime: 60000,
+  });
+  const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false);
 
   const [form, setForm] = useState({
     branch: "",
@@ -52,6 +63,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
+    if (!form.submitted_by) return setError("الرجاء اختيار الموظف المسؤول");
     if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
 
     const validExpenses = expenses
@@ -137,8 +149,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
               <Input type="date" value={form.shift_date} onChange={(e) => setForm({ ...form, shift_date: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm text-gray-600">الموظف المسؤول</Label>
-              <Input value={form.submitted_by} readOnly className="bg-gray-50" />
+              <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
+              <Select value={form.submitted_by} onValueChange={(v) => setForm({ ...form, submitted_by: v })}>
+                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="mt-4 space-y-1.5">
@@ -188,7 +205,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
                 <Select value={exp.category} onValueChange={(v) => updateExpense(idx, "category", v)}>
                   <SelectTrigger className="w-36"><SelectValue placeholder="اختر المصروف" /></SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {activeExpenseItems.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
