@@ -56,7 +56,9 @@ export default function DailyProgressIndicator({ startDate, endDate, currentAmou
       <div className="flex justify-between text-xs">
         <span className="text-gray-400">المتبقي للوصول للهدف {remaining.toLocaleString("ar-EG")} ج</span>
         <span className={isBehind ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
-          {isBehind ? "الإنفاق أقل من المعدل" : "الإنفاق أعلى من المعدل"}
+          {isBehind
+            ? `الإنفاق أقل من المعدل بـ ${Math.round(expectedAmount - currentAmount).toLocaleString("ar-EG")} ج`
+            : `الإنفاق أعلى من المعدل بـ ${Math.round(currentAmount - expectedAmount).toLocaleString("ar-EG")} ج`}
         </span>
       </div>
     </div>
