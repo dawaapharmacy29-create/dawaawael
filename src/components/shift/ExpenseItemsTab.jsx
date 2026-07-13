@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
 
-export default function ExpenseItems() {
+export default function ExpenseItemsTab() {
   const qc = useQueryClient();
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -51,18 +51,17 @@ export default function ExpenseItems() {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
           <Plus className="w-5 h-5 text-indigo-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-800">بنود المصروفات</h1>
+          <h2 className="text-xl font-bold text-gray-800">بنود المصروفات</h2>
           <p className="text-sm text-gray-500">إدارة بنود المصروفات المتاحة في تسليم الشيفت</p>
         </div>
       </div>
 
-      {/* Add new */}
       <Card className="p-4 mb-4">
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
@@ -81,7 +80,6 @@ export default function ExpenseItems() {
         </div>
       </Card>
 
-      {/* List */}
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>

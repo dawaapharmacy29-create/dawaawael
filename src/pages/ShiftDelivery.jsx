@@ -6,6 +6,7 @@ import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
 import ShiftDeliveryHistory from "@/components/shift/ShiftDeliveryHistory";
 import ShiftDeliveryStats from "@/components/shift/ShiftDeliveryStats";
 import ShiftDeliveryReport from "@/components/shift/ShiftDeliveryReport";
+import ExpenseItemsTab from "@/components/shift/ExpenseItemsTab";
 import { cn } from "@/lib/utils";
 
 export default function ShiftDelivery() {
@@ -34,6 +35,7 @@ export default function ShiftDelivery() {
         { key: "history", label: "التسليمات" },
         { key: "stats", label: "الإحصائيات" },
         { key: "report", label: "التقرير" },
+        { key: "items", label: "بنود المصروفات" },
       ]
     : [{ key: "new", label: "تسليم جديد" }];
 
@@ -64,6 +66,7 @@ export default function ShiftDelivery() {
       )}
       {activeTab === "stats" && canViewAll && <ShiftDeliveryStats deliveries={deliveries} />}
       {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={deliveries} />}
+      {activeTab === "items" && canViewAll && <ExpenseItemsTab />}
     </div>
   );
 }
