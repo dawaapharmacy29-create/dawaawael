@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Settings } from "lucide-react";
+import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
 import { useUserRole } from "@/lib/useUserRole";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -15,7 +16,7 @@ const branchColor = {
   "دواء الشامي": { bar: "bg-purple-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
 };
 
-export default function BranchBudgetCard({ invoices, budgets }) {
+export default function BranchBudgetCard({ invoices, budgets, startDate, endDate }) {
   const { canSetBudget } = useUserRole();
   const [editOpen, setEditOpen] = useState(false);
   const [limits, setLimits] = useState({});
@@ -84,26 +85,7 @@ export default function BranchBudgetCard({ invoices, budgets }) {
                     <span>الحد: <b>{limit.toLocaleString("ar-EG")} ج</b></span>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-                    <div
-                      className={`h-3 rounded-full transition-all ${isOver ? "bg-red-500" : isNear ? "bg-yellow-400" : c.bar}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-
-                  <div className="flex justify-between items-center text-xs">
-                    <span className={`font-semibold ${isOver ? "text-red-600" : isNear ? "text-yellow-600" : "text-gray-600"}`}>
-                      {pct.toFixed(1)}%
-                    </span>
-                    <span className={`font-semibold ${isOver ? "text-red-600" : "text-gray-600"}`}>
-                      {isOver
-                        ? `⚠️ تجاوز بـ ${Math.abs(remaining).toLocaleString("ar-EG")} ج`
-                        : isNear
-                        ? `⚠️ متبقي ${remaining.toLocaleString("ar-EG")} ج`
-                        : `متبقي ${remaining.toLocaleString("ar-EG")} ج`}
-                    </span>
-                  </div>
+                  <DailyProgressIndicator startDate={startDate} endDate={endDate} currentAmount={spent} targetAmount={limit} height="h-3" color={c.bar} />
                 </>
               )}
             </Card>

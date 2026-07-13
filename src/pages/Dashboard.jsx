@@ -8,6 +8,7 @@ import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check, Calenda
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
+import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -173,12 +174,10 @@ export default function Dashboard() {
                   {targetAmount > 0 ? (
                     <div>
                       <div className="flex justify-between text-xs mb-0.5">
-                        <span className="text-gray-400">من {targetAmount.toLocaleString("ar-EG")} ج</span>
+                        <span className="text-gray-400">المستهدف: {targetAmount.toLocaleString("ar-EG")} ج</span>
                         <span className={targetPercent >= 100 ? "text-red-600 font-bold" : targetPercent >= 80 ? "text-orange-500 font-bold" : "text-green-600 font-semibold"}>{targetPercent}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-gray-200 rounded-full">
-                        <div className={`h-1.5 rounded-full transition-all ${targetPercent >= 100 ? "bg-red-500" : targetPercent >= 80 ? "bg-orange-400" : "bg-green-500"}`} style={{ width: `${targetPercent}%` }} />
-                      </div>
+                      <DailyProgressIndicator startDate={monthStart} endDate={monthEnd} currentAmount={totalPayments} targetAmount={targetAmount} height="h-1.5" />
                     </div>
                   ) : (
                     <p className="text-xs text-gray-400">لم يحدد هدف شهري</p>
@@ -208,7 +207,7 @@ export default function Dashboard() {
 
       {/* Branch Budget */}
       <div>
-        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} />
+        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} startDate={monthStart} endDate={monthEnd} />
       </div>
 
       {/* Branches Summary */}
