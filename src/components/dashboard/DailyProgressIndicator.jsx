@@ -23,45 +23,41 @@ export default function DailyProgressIndicator({ startDate, endDate, currentAmou
     : { top: "#22c55e", bottom: "#15803d" };
 
   return (
-    <div className="space-y-2">
-      {/* Tube container */}
-      <div className={`relative w-full ${height} bg-gray-200 rounded-full overflow-hidden border border-gray-300 shadow-inner`}>
-        {/* Fill */}
-        <div
-          className="h-full rounded-full transition-all duration-500 relative"
-          style={{
-            width: `${actualPercent}%`,
-            background: `linear-gradient(180deg, ${tubeColors.top} 0%, ${tubeColors.bottom} 100%)`,
-          }}
-        >
-          {/* Shine */}
-          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent rounded-full" />
-        </div>
-
-        {/* Percentage centered */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-bold text-gray-800 drop-shadow-sm">{actualPercent.toFixed(0)}% من الهدف</span>
-        </div>
-
-        {/* Daily progress marker */}
-        <div
-          className="absolute top-0 bottom-0 w-1 bg-gray-900 shadow-md flex items-start justify-center"
-          style={{ right: `calc(${timePercent}% - 2px)` }}
-        >
-          <div className="absolute -top-1.5 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-900" />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>المعدل اليومي: {Math.round(dailyAverage).toLocaleString("ar-EG")} ج</span>
-        <span>المتوقع: {Math.round(expectedAmount).toLocaleString("ar-EG")} ج ({timePercent.toFixed(0)}%)</span>
-      </div>
-      <div className="flex justify-between text-xs">
-        <span className={isBehind ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
-          {isBehind ? "الإنفاق أقل من المعدل المتوقع" : "الإنفاق أعلى من المعدل المتوقع"}
+    <div className="space-y-1">
+      {/* Percentage + tube */}
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-bold ${actualPercent >= 100 ? "text-red-600" : actualPercent >= 80 ? "text-orange-500" : "text-green-600"}`}>
+          {actualPercent.toFixed(1)}%
         </span>
-        {remaining > 0 && <span className="text-gray-400">المتبقي: {remaining.toLocaleString("ar-EG")} ج</span>}
+        <div className={`relative flex-1 ${height} bg-gray-200 rounded-full overflow-hidden border border-gray-300 shadow-inner`}>
+          {/* Fill */}
+          <div
+            className="h-full rounded-full transition-all duration-500 relative"
+            style={{
+              width: `${actualPercent}%`,
+              background: `linear-gradient(180deg, ${tubeColors.top} 0%, ${tubeColors.bottom} 100%)`,
+            }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent rounded-full" />
+          </div>
+
+          {/* Daily progress marker */}
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-gray-900"
+            style={{ right: `calc(${timePercent}% - 1px)` }}
+          />
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-xs text-gray-500">
+        الخط الأسود = المعدل المتوقع ({timePercent.toFixed(0)}%)
+      </p>
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-400">المتبقي للوصول للهدف {remaining.toLocaleString("ar-EG")} ج</span>
+        <span className={isBehind ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
+          {isBehind ? "الإنفاق أقل من المعدل" : "الإنفاق أعلى من المعدل"}
+        </span>
       </div>
     </div>
   );
