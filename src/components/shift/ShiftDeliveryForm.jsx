@@ -191,7 +191,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
                     <Trash2 className="w-4 h-4" />
                   </button>
                   <Select value={exp.category} onValueChange={(v) => updateExpense(idx, "category", v)}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="اختر بند المصروف" /></SelectTrigger>
+                    <SelectTrigger className="flex-1 w-1/2"><SelectValue placeholder="اختر بند المصروف" /></SelectTrigger>
                     <SelectContent>
                       {activeExpenseItems.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                     </SelectContent>
@@ -201,7 +201,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
                     placeholder="القيمة"
                     value={exp.amount}
                     onChange={(e) => updateExpense(idx, "amount", e.target.value)}
-                    className="w-28"
+                    className="flex-1 w-1/2"
                   />
                 </div>
                 <Input
