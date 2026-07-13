@@ -67,7 +67,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
     if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
 
     const validExpenses = expenses
-      .filter((e) => e.description || parseFloat(e.amount) > 0)
+      .filter((e) => e.category || parseFloat(e.amount) > 0)
       .map((e) => ({
         description: e.description || "",
         amount: parseFloat(e.amount) || 0,
@@ -180,34 +180,36 @@ export default function ShiftDeliveryForm({ onSaved }) {
           </div>
           <div className="space-y-3">
             {expenses.map((exp, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => removeExpense(idx)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg flex-shrink-0"
-                  disabled={expenses.length === 1}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div key={idx} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removeExpense(idx)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg flex-shrink-0"
+                    disabled={expenses.length === 1}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <Select value={exp.category} onValueChange={(v) => updateExpense(idx, "category", v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="اختر بند المصروف" /></SelectTrigger>
+                    <SelectContent>
+                      {activeExpenseItems.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="القيمة"
+                    value={exp.amount}
+                    onChange={(e) => updateExpense(idx, "amount", e.target.value)}
+                    className="w-28"
+                  />
+                </div>
                 <Input
-                  placeholder="وصف المصروف"
+                  placeholder="تسجيل ملاحظة"
                   value={exp.description}
                   onChange={(e) => updateExpense(idx, "description", e.target.value)}
                   className="flex-1"
                 />
-                <Input
-                  type="number"
-                  placeholder="القيمة"
-                  value={exp.amount}
-                  onChange={(e) => updateExpense(idx, "amount", e.target.value)}
-                  className="w-28"
-                />
-                <Select value={exp.category} onValueChange={(v) => updateExpense(idx, "category", v)}>
-                  <SelectTrigger className="w-36"><SelectValue placeholder="اختر المصروف" /></SelectTrigger>
-                  <SelectContent>
-                    {activeExpenseItems.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
               </div>
             ))}
           </div>
