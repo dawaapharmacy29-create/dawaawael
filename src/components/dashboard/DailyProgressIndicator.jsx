@@ -1,4 +1,4 @@
-export default function DailyProgressIndicator({ startDate, endDate, currentAmount, targetAmount, height = "h-7", color = "bg-green-500" }) {
+export default function DailyProgressIndicator({ startDate, endDate, currentAmount, targetAmount, height = "h-8", color = "bg-green-500" }) {
   if (!targetAmount || targetAmount <= 0) return null;
 
   const start = new Date(startDate);
@@ -12,58 +12,93 @@ export default function DailyProgressIndicator({ startDate, endDate, currentAmou
   const actualPercent = targetAmount > 0 ? Math.min((currentAmount / targetAmount) * 100, 100) : 0;
 
   const expectedAmount = targetAmount * (timePercent / 100);
-  const dailyAverage = elapsedDays > 0 ? currentAmount / elapsedDays : 0;
-  const isBehind = currentAmount < expectedAmount;
   const remaining = Math.max(targetAmount - currentAmount, 0);
+  const diffFromExpected = currentAmount - expectedAmount;
+  const isBehind = diffFromExpected < 0;
+  const diffFromTarget = currentAmount - targetAmount;
 
-  const tubeColors = actualPercent >= 100
-    ? { top: "#ef4444", bottom: "#b91c1c" }
-    : actualPercent >= 80
-    ? { top: "#fb923c", bottom: "#ea580c" }
-    : { top: "#22c55e", bottom: "#15803d" };
+  const fmt = (n) => Math.round(n).toLocaleString("ar-EG");
+
+  // Status config
+  const status = actualPercent >= 100
+    ? { label: "تجاوز الهدف", color: "text-red-600", bg: "bg-red-50", ring: "ring-red-200", tube: { top: "#f87171", bottom: "#dc2626" } }
+    : isBehind
+    ? { label: "أقل من المعدل", color: "text-blue-600", bg: "bg-blue-50", ring: "ring-blue-200", tube: { top: "#60a5fa", bottom: "#2563eb" } }
+    : { label: "ضمن المعدل", color: "text-green-600", bg: "bg-green-50", ring: "ring-green-200", tube: { top: "#4ade80", bottom: "#16a34a" } };
 
   return (
-    <div className="space-y-1">
-      {/* Percentage + tube */}
-      <div className="flex items-center gap-2">
-        <span className={`text-sm font-bold ${actualPercent >= 100 ? "text-red-600" : actualPercent >= 80 ? "text-orange-500" : "text-green-600"}`}>
-          {actualPercent.toFixed(1)}%
-        </span>
-        <div className={`relative flex-1 ${height} bg-gray-200 rounded-full overflow-hidden border border-gray-300 shadow-inner`}>
+    <div className="space-y-2">
+      {/* Top row: percentage + status badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-lg font-bold ${status.color}`}>
+            {actualPercent.toFixed(1)}%
+          </span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${status.bg} ${status.color} ring-1 ${status.ring}`}>
+            {status.label}
+          </span>
+        </div>
+        <div className="text-[11px] text-gray-400">
+          اليوم {elapsedDays} من {totalDays}
+        </div>
+      </div>
+
+      {/* Progress tube */}
+      <div className="relative">
+        <div className={`relative w-full ${height} bg-gray-100 rounded-full overflow-hidden border border-gray-200 shadow-inner`}>
+          {/* Expected zone (light shading up to timePercent) */}
+          <div
+            className="absolute top-0 bottom-0 bg-gray-200/60"
+            style={{ right: 0, width: `${100 - timePercent}%` }}
+          />
           {/* Fill */}
           <div
-            className="h-full rounded-full transition-all duration-500 relative"
+            className="h-full rounded-full transition-all duration-700 relative"
             style={{
               width: `${actualPercent}%`,
-              background: `linear-gradient(180deg, ${tubeColors.top} 0%, ${tubeColors.bottom} 100%)`,
+              background: `linear-gradient(180deg, ${status.tube.top} 0%, ${status.tube.bottom} 100%)`,
             }}
           >
             <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent rounded-full" />
           </div>
 
-          {/* Daily progress marker */}
+          {/* Expected marker line */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-gray-900"
+            className="absolute top-0 bottom-0 w-[2px] bg-gray-900 shadow-sm"
             style={{ right: `calc(${timePercent}% - 1px)` }}
-          />
+          >
+            <div className="absolute -top-1 right-1/2 translate-x-1/2 w-2 h-2 rotate-45 bg-gray-900" />
+          </div>
+        </div>
+
+        {/* Marker label */}
+        <div
+          className="absolute -top-5 text-[9px] text-gray-500 font-medium whitespace-nowrap"
+          style={{ right: `calc(${timePercent}% - 15px)` }}
+        >
+          متوقع {timePercent.toFixed(0)}%
         </div>
       </div>
 
-      {/* Description */}
-      <p className="text-xs text-gray-500">
-        الخط الأسود = المعدل المتوقع ({timePercent.toFixed(0)}%)
-      </p>
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-400">المتبقي للوصول للهدف {remaining.toLocaleString("ar-EG")} ج</span>
-        <span className={isBehind ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
-          {isBehind
-            ? `الإنفاق أقل من المعدل بـ ${Math.round(expectedAmount - currentAmount).toLocaleString("ar-EG")} ج`
-            : `الإنفاق أعلى من المعدل بـ ${Math.round(currentAmount - expectedAmount).toLocaleString("ar-EG")} ج`}
-        </span>
-        <span className="text-[10px] text-gray-400">
-          ({currentAmount >= targetAmount
-            ? `+${Math.round(currentAmount - targetAmount).toLocaleString("ar-EG")} ج`
-            : `${Math.round(currentAmount - targetAmount).toLocaleString("ar-EG")} ج`} عن التارجت)
+      {/* Bottom: amounts */}
+      <div className="flex items-center justify-between gap-2 text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-gray-400">المنصرف:</span>
+          <span className="font-semibold text-gray-700">{fmt(currentAmount)} ج</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-gray-400">المتبقي:</span>
+          <span className="font-semibold text-gray-700">{fmt(remaining)} ج</span>
+        </div>
+      </div>
+
+      {/* Difference from expected */}
+      <div className={`text-[11px] font-medium ${isBehind ? "text-blue-600" : "text-green-600"}`}>
+        {isBehind
+          ? `أقل من المعدل المتوقع بـ ${fmt(Math.abs(diffFromExpected))} ج`
+          : `أعلى من المعدل المتوقع بـ ${fmt(diffFromExpected)} ج`}
+        <span className="text-gray-400 mr-1">
+          • {diffFromTarget >= 0 ? `+${fmt(diffFromTarget)}` : fmt(diffFromTarget)} ج عن التارجت
         </span>
       </div>
     </div>
