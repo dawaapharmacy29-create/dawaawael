@@ -60,6 +60,11 @@ export default function DailyProgressIndicator({ startDate, endDate, currentAmou
             ? `الإنفاق أقل من المعدل بـ ${Math.round(expectedAmount - currentAmount).toLocaleString("ar-EG")} ج`
             : `الإنفاق أعلى من المعدل بـ ${Math.round(currentAmount - expectedAmount).toLocaleString("ar-EG")} ج`}
         </span>
+        <span className="text-[10px] text-gray-400">
+          ({currentAmount >= targetAmount
+            ? `+${Math.round(currentAmount - targetAmount).toLocaleString("ar-EG")} ج`
+            : `${Math.round(currentAmount - targetAmount).toLocaleString("ar-EG")} ج`} عن التارجت)
+        </span>
       </div>
     </div>
   );
