@@ -186,11 +186,21 @@ export default function SupplierBalances() {
         return { ...inv, remaining: round2(inv.remaining - deduct) };
       });
 
+      // 3. ما تبقى يُخصم من الفواتير الجديدة بالترتيب (الأقدم أولاً)
+      const newSorted = [...newInvsWithRem].sort((a, b) =>
+        (a.invoice_date || a.created_date?.slice(0, 10) || "").localeCompare(b.invoice_date || b.created_date?.slice(0, 10) || "")
+      );
+      const newAdjusted = newSorted.map(inv => {
+        const deduct = round2(Math.min(pool, inv.remaining));
+        pool = Math.max(0, round2(pool - deduct));
+        return { ...inv, remaining: round2(inv.remaining - deduct) };
+      });
+
       const oldInvoicesRemaining = round2(oldAdjusted.reduce((s, inv) => s + inv.remaining, 0));
-      const newDebt = round2(newInvsWithRem.reduce((s, inv) => s + inv.remaining, 0));
+      const newDebt = round2(newAdjusted.reduce((s, inv) => s + inv.remaining, 0));
       const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
 
-      return { oldInvoices: oldAdjusted, newInvoices: newInvsWithRem, initialDebt, monthStartDate, debtPaid, remainingInitialDebt, oldInvoicesRemaining, oldDebt, newDebt };
+      return { oldInvoices: oldAdjusted, newInvoices: newAdjusted, initialDebt, monthStartDate, debtPaid, remainingInitialDebt, oldInvoicesRemaining, oldDebt, newDebt };
     };
 
     const map = {};

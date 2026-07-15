@@ -164,8 +164,20 @@ export default function SupplierBalancesBranch() {
         return { ...inv, remaining: round2(inv.remaining - deduct) };
       });
 
+      // 3. ما تبقى يُخصم من الفواتير الجديدة بالترتيب (الأقدم أولاً)
+      const newInvoicesSorted = [...newInvoicesWithRemaining].sort((a, b) => {
+        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
+        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
+        return da.localeCompare(db);
+      });
+      const newInvoicesAdjusted = newInvoicesSorted.map(inv => {
+        const deduct = round2(Math.min(generalPaidPool, inv.remaining));
+        generalPaidPool = Math.max(0, round2(generalPaidPool - deduct));
+        return { ...inv, remaining: round2(inv.remaining - deduct) };
+      });
+
       const oldInvoicesRemaining = round2(oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0));
-      const newDebt = round2(newInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0));
+      const newDebt = round2(newInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0));
       const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
       const totalNet = round2(oldDebt + newDebt);
 
@@ -173,9 +185,9 @@ export default function SupplierBalancesBranch() {
 
       map[name] = {
         name,
-        invoices: [...oldInvoicesAdjusted, ...newInvoicesWithRemaining],
+        invoices: [...oldInvoicesAdjusted, ...newInvoicesAdjusted],
         oldInvoices: oldInvoicesAdjusted,
-        newInvoices: newInvoicesWithRemaining,
+        newInvoices: newInvoicesAdjusted,
         initialDebt,
         debtPaid: debtPaidFromGeneral,
         remainingInitialDebt,
