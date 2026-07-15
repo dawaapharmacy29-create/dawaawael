@@ -1,31 +1,39 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Calendar, TrendingDown, TrendingUp, BarChart3, Clock, Wallet } from "lucide-react";
+import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
 
+const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
 export default function ShiftDeliveryStats({ deliveries }) {
+  const [branch, setBranch] = useState("الكل");
+
+  const filtered = useMemo(
+    () => (branch === "الكل" ? deliveries : deliveries.filter((d) => d.branch === branch)),
+    [deliveries, branch]
+  );
+
   const stats = useMemo(() => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const todayStr = now.toISOString().split("T")[0];
 
-    const monthItems = deliveries.filter((d) => {
-      if (!d.shift_date) return false;
-      return new Date(d.shift_date) >= monthStart;
-    });
-    const todayItems = deliveries.filter((d) => d.shift_date === todayStr);
+    const monthItems = filtered.filter((d) => d.shift_date && new Date(d.shift_date) >= monthStart);
+    const todayItems = filtered.filter((d) => d.shift_date === todayStr);
 
-    const monthExpenses = monthItems.reduce((s, d) => s + (d.total_expenses || 0), 0);
-    const todayExpenses = todayItems.reduce((s, d) => s + (d.total_expenses || 0), 0);
-    const monthSales = monthItems.reduce((s, d) => s + (d.total_sales || 0), 0);
-    const todaySales = todayItems.reduce((s, d) => s + (d.total_sales || 0), 0);
-    const monthNet = monthItems.reduce((s, d) => s + (d.net_amount || 0), 0);
-    const todayNet = todayItems.reduce((s, d) => s + (d.net_amount || 0), 0);
-    const shiftCount = monthItems.length;
-    const shiftAvg = shiftCount > 0 ? monthNet / shiftCount : 0;
+    const sum = (arr, key) => arr.reduce((s, d) => s + (d[key] || 0), 0);
 
-    return { monthExpenses, todayExpenses, monthSales, todaySales, monthNet, todayNet, shiftCount, shiftAvg };
-  }, [deliveries]);
+    return {
+      monthExpenses: sum(monthItems, "total_expenses"),
+      todayExpenses: sum(todayItems, "total_expenses"),
+      monthSales: sum(monthItems, "total_sales"),
+      todaySales: sum(todayItems, "total_sales"),
+      monthNet: sum(monthItems, "net_amount"),
+      todayNet: sum(todayItems, "net_amount"),
+      shiftCount: monthItems.length,
+      shiftAvg: monthItems.length > 0 ? sum(monthItems, "net_amount") / monthItems.length : 0,
+    };
+  }, [filtered]);
 
   const cards = [
     { label: "مصروفات الشهر", value: stats.monthExpenses, icon: Calendar, color: "red" },
@@ -46,8 +54,24 @@ export default function ShiftDeliveryStats({ deliveries }) {
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-bold text-gray-800 mb-4">لوحة الإحصائيات</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-lg font-bold text-gray-800">لوحة الإحصائيات</h2>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          {["الكل", ...BRANCHES].map((b) => (
+            <button
+              key={b}
+              onClick={() => setBranch(b)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                branch === b ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {cards.map((card, idx) => {
           const c = colorMap[card.color];
@@ -67,6 +91,8 @@ export default function ShiftDeliveryStats({ deliveries }) {
           );
         })}
       </div>
+
+      <ExpenseCategoryBreakdown deliveries={filtered} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
+import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
@@ -93,6 +94,9 @@ export default function ShiftDeliveryReport({ deliveries }) {
           <p className="text-lg font-bold text-green-600">{fmt(totals.net)}</p>
         </Card>
       </div>
+
+      {/* Expense Category Breakdown */}
+      <ExpenseCategoryBreakdown deliveries={filtered} title="تفصيل المصروفات حسب البند" />
 
       {/* Table */}
       <Card className="overflow-hidden">
