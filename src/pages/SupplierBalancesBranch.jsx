@@ -38,7 +38,21 @@ export default function SupplierBalancesBranch() {
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
 
-  const { data: allInvoices = [] } = useQuery({ queryKey: ["purchase-invoices"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000), staleTime: 0 });
+  const { data: allInvoices = [] } = useQuery({
+    queryKey: ["purchase-invoices"],
+    queryFn: async () => {
+      const PAGE = 500; let all = []; let page = 0;
+      while (true) {
+        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        all = [...all, ...batch];
+        if (batch.length < PAGE) break;
+        page++;
+      }
+      return all;
+    },
+    staleTime: 0,
+    placeholderData: (prev) => prev,
+  });
   const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 0 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
