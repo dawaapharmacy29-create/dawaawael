@@ -49,7 +49,7 @@ export default function SupplierBalancesBranch() {
 
   const addPayment = useMutation({
     mutationFn: async ({ invoice, amount, payment_date, notes }) => {
-      const newPaid = (invoice.paid_value || 0) + parseFloat(amount);
+      const newPaid = round2((invoice.paid_value || 0) + parseFloat(amount));
       await base44.entities.SupplierPayment.create({
         supplier_name: invoice.supplier_name,
         invoice_id: invoice.id,
@@ -71,7 +71,7 @@ export default function SupplierBalancesBranch() {
 
   const saveDebt = async () => {
     setSavingDebt(true);
-    const data = { supplier_name: debtDialog.supplier_name, initial_debt: parseFloat(debtForm.initial_debt) || 0, notes: debtForm.notes };
+    const data = { supplier_name: debtDialog.supplier_name, branch, initial_debt: round2(parseFloat(debtForm.initial_debt) || 0), notes: debtForm.notes };
     if (debtDialog.existing) {
       await base44.entities.SupplierDebt.update(debtDialog.existing.id, data);
     } else {
@@ -83,14 +83,14 @@ export default function SupplierBalancesBranch() {
   };
 
   const openMonthStartDialog = (supplierName) => {
-    const existing = monthStarts.find(m => m.supplier_name === supplierName);
+    const existing = monthStarts.find(m => m.supplier_name === supplierName && m.branch === branch);
     setMonthStartForm({ month_start_date: existing?.month_start_date || "", notes: existing?.notes || "" });
     setMonthStartDialog({ supplier_name: supplierName, existing });
   };
 
   const saveMonthStart = async () => {
     setSavingMonthStart(true);
-    const data = { supplier_name: monthStartDialog.supplier_name, month_start_date: monthStartForm.month_start_date, notes: monthStartForm.notes };
+    const data = { supplier_name: monthStartDialog.supplier_name, branch, month_start_date: monthStartForm.month_start_date, notes: monthStartForm.notes };
     if (monthStartDialog.existing) {
       await base44.entities.SupplierMonthStart.update(monthStartDialog.existing.id, data);
     } else {
@@ -102,7 +102,7 @@ export default function SupplierBalancesBranch() {
   };
 
   const openDebtDialog = (supplierName) => {
-    const existing = debts.find(d => d.supplier_name === supplierName);
+    const existing = debts.find(d => d.supplier_name === supplierName && d.branch === branch);
     setDebtForm({ initial_debt: existing?.initial_debt?.toString() || "", notes: existing?.notes || "" });
     setDebtDialog({ supplier_name: supplierName, existing });
   };
@@ -118,9 +118,9 @@ export default function SupplierBalancesBranch() {
   const supplierGroups = useMemo(() => {
     const map = {};
     allSupplierNames.forEach(name => {
-      const debtRecord = debts.find(d => d.supplier_name === name);
+      const debtRecord = debts.find(d => d.supplier_name === name && d.branch === branch);
       const initialDebt = debtRecord?.initial_debt || 0;
-      const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
+      const monthStartRecord = monthStarts.find(m => m.supplier_name === name && m.branch === branch);
       const monthStartDate = monthStartRecord?.month_start_date || null;
 
       // كل فواتير الآجل لهذا المورد في هذا الفرع
@@ -128,7 +128,7 @@ export default function SupplierBalancesBranch() {
         inv.payment_type === "آجل" && inv.supplier_name === name
       );
 
-      const calcRemaining = (inv) => Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0));
+      const calcRemaining = (inv) => round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)));
 
       const oldInvoicesRaw = monthStartDate
         ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10) || "") < monthStartDate)
@@ -142,12 +142,12 @@ export default function SupplierBalancesBranch() {
 
       // الدفعات العامة لهذا الفرع فقط (بدون invoice_id)
       const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      let generalPaidPool = generalPayments.reduce((s, p) => s + (p.amount || 0), 0);
+      let generalPaidPool = round2(generalPayments.reduce((s, p) => s + (p.amount || 0), 0));
 
       // 1. خصم من initialDebt أولاً
-      const debtPaidFromGeneral = Math.min(generalPaidPool, initialDebt);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaidFromGeneral);
-      generalPaidPool = Math.max(0, generalPaidPool - debtPaidFromGeneral);
+      const debtPaidFromGeneral = round2(Math.min(generalPaidPool, initialDebt));
+      const remainingInitialDebt = round2(Math.max(0, initialDebt - debtPaidFromGeneral));
+      generalPaidPool = Math.max(0, round2(generalPaidPool - debtPaidFromGeneral));
 
       // 2. ما تبقى يُخصم من الفواتير القديمة بالترتيب (الأقدم أولاً)
       const oldInvoicesSorted = [...oldInvoicesWithRemaining].sort((a, b) => {
@@ -156,15 +156,15 @@ export default function SupplierBalancesBranch() {
         return da.localeCompare(db);
       });
       const oldInvoicesAdjusted = oldInvoicesSorted.map(inv => {
-        const deduct = Math.min(generalPaidPool, inv.remaining);
-        generalPaidPool = Math.max(0, generalPaidPool - deduct);
-        return { ...inv, remaining: inv.remaining - deduct };
+        const deduct = round2(Math.min(generalPaidPool, inv.remaining));
+        generalPaidPool = Math.max(0, round2(generalPaidPool - deduct));
+        return { ...inv, remaining: round2(inv.remaining - deduct) };
       });
 
-      const oldInvoicesRemaining = oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0);
-      const newDebt = newInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0);
-      const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
-      const totalNet = oldDebt + newDebt;
+      const oldInvoicesRemaining = round2(oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0));
+      const newDebt = round2(newInvoicesWithRemaining.reduce((s, inv) => s + inv.remaining, 0));
+      const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
+      const totalNet = round2(oldDebt + newDebt);
 
       if (totalNet <= 0 && allCreditInvoices.length === 0) return;
 
@@ -189,6 +189,7 @@ export default function SupplierBalancesBranch() {
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
   const openPayDialog = (invoice) => {
     setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
@@ -202,7 +203,7 @@ export default function SupplierBalancesBranch() {
 
   const addDebtPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes, branch });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes, branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -213,7 +214,7 @@ export default function SupplierBalancesBranch() {
 
   const addGeneralPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة", branch });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes: notes || "دفعة عامة", branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -568,6 +569,9 @@ export default function SupplierBalancesBranch() {
           <DialogContent dir="rtl" className="max-w-sm">
             <DialogHeader><DialogTitle>المديونية القديمة — {debtDialog?.supplier_name}</DialogTitle></DialogHeader>
             <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+                الفرع: <strong>{branch}</strong>
+              </div>
               <p className="text-sm text-gray-500">سجّل المديونية التي كانت موجودة للمورد قبل استخدام التطبيق.</p>
               <div className="space-y-1"><Label>المديونية القديمة (جنيه)</Label><Input type="number" value={debtForm.initial_debt} onChange={e => setDebtForm(f => ({ ...f, initial_debt: e.target.value }))} placeholder="0" /></div>
               <div className="space-y-1"><Label>ملاحظات</Label><Textarea value={debtForm.notes} onChange={e => setDebtForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
@@ -593,6 +597,9 @@ export default function SupplierBalancesBranch() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+                الفرع: <strong>{branch}</strong>
+              </div>
               <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
                 <p>الفواتير قبل هذا التاريخ = <strong>مديونية قديمة</strong>، والفواتير بعده = <strong>مديونية جديدة</strong>.</p>
                 {monthStartDialog?.existing && (

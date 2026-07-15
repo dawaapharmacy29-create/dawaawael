@@ -23,12 +23,12 @@ export default function SupplierBalances() {
   const [payDialog, setPayDialog] = useState(null);
   const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
   const [debtDialog, setDebtDialog] = useState(null);
-  const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "" });
+  const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "", branch: "" });
   const [savingDebt, setSavingDebt] = useState(false);
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
   const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
   const [monthStartDialog, setMonthStartDialog] = useState(null); // { supplier_name, existing? }
-  const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
+  const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "", branch: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
 
   const { data: invoices = [] } = useQuery({
@@ -53,11 +53,12 @@ export default function SupplierBalances() {
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
   const addPayment = useMutation({
     mutationFn: async ({ invoice, amount, payment_date, notes, branch }) => {
-      const newPaid = (invoice.paid_value || 0) + parseFloat(amount);
+      const newPaid = round2((invoice.paid_value || 0) + parseFloat(amount));
       await base44.entities.SupplierPayment.create({
         supplier_name: invoice.supplier_name,
         invoice_id: invoice.id,
@@ -79,7 +80,7 @@ export default function SupplierBalances() {
 
   const addDebtPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes, branch }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes, branch: branch || "" });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes, branch: branch || "" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -90,7 +91,7 @@ export default function SupplierBalances() {
 
   const addGeneralPayment = useMutation({
     mutationFn: async ({ supplier_name, amount, payment_date, notes, branch }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: parseFloat(amount), payment_date, notes: notes || "دفعة عامة", branch: branch || "" });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes: notes || "دفعة عامة", branch: branch || "" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -101,7 +102,7 @@ export default function SupplierBalances() {
 
   const saveDebt = async () => {
     setSavingDebt(true);
-    const data = { supplier_name: debtDialog.supplier_name, initial_debt: parseFloat(debtForm.initial_debt) || 0, notes: debtForm.notes };
+    const data = { supplier_name: debtDialog.supplier_name, branch: debtForm.branch, initial_debt: round2(parseFloat(debtForm.initial_debt) || 0), notes: debtForm.notes };
     if (debtDialog.existing) await base44.entities.SupplierDebt.update(debtDialog.existing.id, data);
     else await base44.entities.SupplierDebt.create(data);
     await qc.invalidateQueries({ queryKey: ["supplier-debts"] });
@@ -111,7 +112,7 @@ export default function SupplierBalances() {
 
   const saveMonthStart = async () => {
     setSavingMonthStart(true);
-    const data = { supplier_name: monthStartDialog.supplier_name, month_start_date: monthStartForm.month_start_date, notes: monthStartForm.notes };
+    const data = { supplier_name: monthStartDialog.supplier_name, branch: monthStartForm.branch, month_start_date: monthStartForm.month_start_date, notes: monthStartForm.notes };
     if (monthStartDialog.existing) await base44.entities.SupplierMonthStart.update(monthStartDialog.existing.id, data);
     else await base44.entities.SupplierMonthStart.create(data);
     await qc.invalidateQueries({ queryKey: ["supplier-month-starts"] });
@@ -120,15 +121,25 @@ export default function SupplierBalances() {
   };
 
   const openDebtDialog = (supplierName) => {
-    const existing = debts.find(d => d.supplier_name === supplierName);
-    setDebtForm({ initial_debt: existing?.initial_debt?.toString() || "", notes: existing?.notes || "" });
-    setDebtDialog({ supplier_name: supplierName, existing });
+    setDebtForm({ initial_debt: "", notes: "", branch: "" });
+    setDebtDialog({ supplier_name: supplierName });
+  };
+
+  const onDebtBranchChange = (branchName) => {
+    const existing = debts.find(d => d.supplier_name === debtDialog.supplier_name && d.branch === branchName);
+    setDebtForm(f => ({ ...f, branch: branchName, initial_debt: existing?.initial_debt?.toString() || "", notes: existing?.notes || "" }));
+    setDebtDialog(d => ({ ...d, existing }));
   };
 
   const openMonthStartDialog = (supplierName) => {
-    const existing = monthStarts.find(m => m.supplier_name === supplierName);
-    setMonthStartForm({ month_start_date: existing?.month_start_date || new Date().toISOString().split("T")[0], notes: existing?.notes || "" });
-    setMonthStartDialog({ supplier_name: supplierName, existing });
+    setMonthStartForm({ month_start_date: new Date().toISOString().split("T")[0], notes: "", branch: "" });
+    setMonthStartDialog({ supplier_name: supplierName });
+  };
+
+  const onMonthStartBranchChange = (branchName) => {
+    const existing = monthStarts.find(m => m.supplier_name === monthStartDialog.supplier_name && m.branch === branchName);
+    setMonthStartForm(f => ({ ...f, branch: branchName, month_start_date: existing?.month_start_date || new Date().toISOString().split("T")[0], notes: existing?.notes || "" }));
+    setMonthStartDialog(d => ({ ...d, existing }));
   };
 
   // ─── Data Aggregation ────────────────────────────────────────────────────────
@@ -142,7 +153,7 @@ export default function SupplierBalances() {
 
   const supplierGroups = useMemo(() => {
     const BRANCHES = ["دواء شكري", "دواء الشامي"];
-    const calcRemaining = (inv) => Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0));
+    const calcRemaining = (inv) => round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)));
 
     // حساب بيانات مورد لفرع معين (نفس منطق صفحة الفرع)
     const calcBranchData = (name, branch, monthStartDate, initialDebt) => {
@@ -160,60 +171,62 @@ export default function SupplierBalances() {
 
       // الدفعات العامة لهذا الفرع فقط
       const genPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      let pool = genPayments.reduce((s, p) => s + (p.amount || 0), 0);
+      let pool = round2(genPayments.reduce((s, p) => s + (p.amount || 0), 0));
 
-      const debtPaid = Math.min(pool, initialDebt);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
+      const debtPaid = round2(Math.min(pool, initialDebt));
+      const remainingInitialDebt = round2(Math.max(0, initialDebt - debtPaid));
       pool = Math.max(0, pool - debtPaid);
 
       const oldSorted = [...oldInvsWithRem].sort((a, b) =>
         (a.invoice_date || a.created_date?.slice(0, 10) || "").localeCompare(b.invoice_date || b.created_date?.slice(0, 10) || "")
       );
       const oldAdjusted = oldSorted.map(inv => {
-        const deduct = Math.min(pool, inv.remaining);
-        pool = Math.max(0, pool - deduct);
-        return { ...inv, remaining: inv.remaining - deduct };
+        const deduct = round2(Math.min(pool, inv.remaining));
+        pool = Math.max(0, round2(pool - deduct));
+        return { ...inv, remaining: round2(inv.remaining - deduct) };
       });
 
-      const oldInvoicesRemaining = oldAdjusted.reduce((s, inv) => s + inv.remaining, 0);
-      const newDebt = newInvsWithRem.reduce((s, inv) => s + inv.remaining, 0);
-      const oldDebt = remainingInitialDebt + oldInvoicesRemaining;
+      const oldInvoicesRemaining = round2(oldAdjusted.reduce((s, inv) => s + inv.remaining, 0));
+      const newDebt = round2(newInvsWithRem.reduce((s, inv) => s + inv.remaining, 0));
+      const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
 
-      return { oldInvoices: oldAdjusted, newInvoices: newInvsWithRem, debtPaid, remainingInitialDebt, oldInvoicesRemaining, oldDebt, newDebt };
+      return { oldInvoices: oldAdjusted, newInvoices: newInvsWithRem, initialDebt, monthStartDate, debtPaid, remainingInitialDebt, oldInvoicesRemaining, oldDebt, newDebt };
     };
 
     const map = {};
 
     allSupplierNames.forEach(name => {
-      const monthStartRecord = monthStarts.find(m => m.supplier_name === name);
-      const monthStartDate = monthStartRecord?.month_start_date || null;
-      const debtRecord = debts.find(d => d.supplier_name === name);
-      const initialDebt = debtRecord?.initial_debt || 0;
-
-      // احسب لكل فرع على حدة ثم اجمع
-      const branchResults = BRANCHES.map(br => calcBranchData(name, br, monthStartDate, initialDebt));
+      // احسب لكل فرع على حدة مع مديونية وتاريخ بداية شهر خاص بكل فرع
+      const branchResults = BRANCHES.map(br => {
+        const branchMonthStart = monthStarts.find(m => m.supplier_name === name && m.branch === br);
+        const branchMonthStartDate = branchMonthStart?.month_start_date || null;
+        const branchDebtRecord = debts.find(d => d.supplier_name === name && d.branch === br);
+        const branchInitialDebt = branchDebtRecord?.initial_debt || 0;
+        return calcBranchData(name, br, branchMonthStartDate, branchInitialDebt);
+      });
 
       // دمج الفواتير من الفرعين
       const oldInvoicesAll = branchResults.flatMap(r => r.oldInvoices);
       const newInvoicesAll = branchResults.flatMap(r => r.newInvoices);
 
       // الإجمالي = مجموع الفرعين
-      const oldDebt = branchResults.reduce((s, r) => s + r.oldDebt, 0);
-      const newDebt = branchResults.reduce((s, r) => s + r.newDebt, 0);
-      const totalNet = oldDebt + newDebt;
+      const oldDebt = round2(branchResults.reduce((s, r) => s + r.oldDebt, 0));
+      const newDebt = round2(branchResults.reduce((s, r) => s + r.newDebt, 0));
+      const totalNet = round2(oldDebt + newDebt);
 
       const allCreditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
       if (totalNet <= 0 && allCreditInvoices.length === 0) return;
 
-      // للعرض فقط: debtPaid = مجموع ما دُفع عبر الدفعات العامة من المديونية القديمة
-      const debtPaid = branchResults.reduce((s, r) => s + r.debtPaid, 0);
-      const remainingInitialDebt = Math.max(0, initialDebt - debtPaid);
-      const oldInvoicesRemaining = branchResults.reduce((s, r) => s + r.oldInvoicesRemaining, 0);
+      // مجموع القيم عبر الفرعين (دقيقة لكل فرع)
+      const initialDebt = round2(branchResults.reduce((s, r) => s + (r.initialDebt || 0), 0));
+      const debtPaid = round2(branchResults.reduce((s, r) => s + r.debtPaid, 0));
+      const remainingInitialDebt = round2(branchResults.reduce((s, r) => s + r.remainingInitialDebt, 0));
+      const oldInvoicesRemaining = round2(branchResults.reduce((s, r) => s + r.oldInvoicesRemaining, 0));
+      const monthStartDate = branchResults.map(r => r.monthStartDate).find(Boolean) || null;
 
       map[name] = {
         name,
         monthStartDate,
-        monthStartRecord,
         oldInvoices: oldInvoicesAll,
         newInvoices: newInvoicesAll,
         initialDebt,
@@ -223,7 +236,6 @@ export default function SupplierBalances() {
         oldDebt,
         newDebt,
         totalNet,
-        debtRecord,
       };
     });
 
@@ -657,19 +669,28 @@ export default function SupplierBalances() {
               <DialogTitle>المديونية القديمة — {debtDialog?.supplier_name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">سجّل المديونية التي كانت موجودة للمورد قبل استخدام التطبيق.</p>
+              <p className="text-sm text-gray-500">سجّل المديونية التي كانت موجودة للمورد قبل استخدام التطبيق — اختر الفرع أولاً.</p>
+              <div className="space-y-1">
+                <Label>الفرع *</Label>
+                <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={debtForm.branch} onChange={e => onDebtBranchChange(e.target.value)}>
+                  <option value="">-- اختر الفرع --</option>
+                  <option value="دواء شكري">دواء شكري</option>
+                  <option value="دواء الشامي">دواء الشامي</option>
+                </select>
+              </div>
               <div className="space-y-1">
                 <Label>المديونية القديمة (جنيه)</Label>
-                <Input type="number" value={debtForm.initial_debt} onChange={e => setDebtForm(f => ({ ...f, initial_debt: e.target.value }))} placeholder="0" />
+                <Input type="number" value={debtForm.initial_debt} onChange={e => setDebtForm(f => ({ ...f, initial_debt: e.target.value }))} placeholder="0" disabled={!debtForm.branch} />
               </div>
               <div className="space-y-1">
                 <Label>ملاحظات</Label>
-                <Textarea value={debtForm.notes} onChange={e => setDebtForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="اختياري..." />
+                <Textarea value={debtForm.notes} onChange={e => setDebtForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="اختياري..." disabled={!debtForm.branch} />
               </div>
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setDebtDialog(null)}>إلغاء</Button>
-              <Button disabled={savingDebt} onClick={saveDebt} className="bg-purple-600 hover:bg-purple-700">
+              <Button disabled={!debtForm.branch || savingDebt} onClick={saveDebt} className="bg-purple-600 hover:bg-purple-700">
                 {savingDebt ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ"}
               </Button>
             </DialogFooter>
@@ -689,24 +710,33 @@ export default function SupplierBalances() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
-                <p>سيتم تصنيف الفواتير قبل هذا التاريخ كـ <strong>مديونية قديمة</strong> والفواتير بعده كـ <strong>مديونية جديدة</strong>.</p>
+                <p>سيتم تصنيف الفواتير قبل هذا التاريخ كـ <strong>مديونية قديمة</strong> والفواتير بعده كـ <strong>مديونية جديدة</strong> — لكل فرع على حدة.</p>
                 {monthStartDialog?.existing && (
                   <p className="mt-1 text-xs text-gray-500">التاريخ الحالي: <strong>{monthStartDialog.existing.month_start_date}</strong></p>
                 )}
               </div>
               <div className="space-y-1">
+                <Label>الفرع *</Label>
+                <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={monthStartForm.branch} onChange={e => onMonthStartBranchChange(e.target.value)}>
+                  <option value="">-- اختر الفرع --</option>
+                  <option value="دواء شكري">دواء شكري</option>
+                  <option value="دواء الشامي">دواء الشامي</option>
+                </select>
+              </div>
+              <div className="space-y-1">
                 <Label>تاريخ بداية الشهر الجديد *</Label>
                 <Input type="date" value={monthStartForm.month_start_date}
-                  onChange={e => setMonthStartForm(f => ({ ...f, month_start_date: e.target.value }))} />
+                  onChange={e => setMonthStartForm(f => ({ ...f, month_start_date: e.target.value }))} disabled={!monthStartForm.branch} />
               </div>
               <div className="space-y-1">
                 <Label>ملاحظات (اختياري)</Label>
-                <Textarea value={monthStartForm.notes} onChange={e => setMonthStartForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="مثل: دورة شهر يونيو..." />
+                <Textarea value={monthStartForm.notes} onChange={e => setMonthStartForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="مثل: دورة شهر يونيو..." disabled={!monthStartForm.branch} />
               </div>
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setMonthStartDialog(null)}>إلغاء</Button>
-              <Button disabled={!monthStartForm.month_start_date || savingMonthStart} onClick={saveMonthStart} className="bg-blue-600 hover:bg-blue-700">
+              <Button disabled={!monthStartForm.branch || !monthStartForm.month_start_date || savingMonthStart} onClick={saveMonthStart} className="bg-blue-600 hover:bg-blue-700">
                 {savingMonthStart ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد بداية الشهر"}
               </Button>
             </DialogFooter>
