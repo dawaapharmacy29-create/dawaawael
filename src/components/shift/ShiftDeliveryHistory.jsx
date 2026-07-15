@@ -4,6 +4,8 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil, Eye, Plus } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
+import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = {
@@ -20,7 +22,9 @@ const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
 export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
   const [detailItem, setDetailItem] = useState(null);
+  const [editItem, setEditItem] = useState(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ShiftDelivery.delete(id),
@@ -132,6 +136,11 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
                             <button onClick={() => setDetailItem(item)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
                               <Eye className="w-3.5 h-3.5" />
                             </button>
+                            {isAdmin && (
+                              <button onClick={() => setEditItem(item)} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="تعديل">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -162,6 +171,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
       })}
 
       {detailItem && <ShiftDeliveryDetail item={detailItem} onClose={() => setDetailItem(null)} />}
+      {editItem && <ShiftDeliveryEditDialog item={editItem} onClose={() => setEditItem(null)} />}
     </div>
   );
 }
