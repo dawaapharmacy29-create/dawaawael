@@ -107,6 +107,9 @@ export default function SupplierBalancesBranch() {
     setDebtDialog({ supplier_name: supplierName, existing });
   };
 
+  const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
   const allSupplierNames = useMemo(() => {
     const names = new Set([
       ...invoices.filter(i => i.payment_type === "آجل").map(i => i.supplier_name),
@@ -188,8 +191,6 @@ export default function SupplierBalancesBranch() {
   }, [invoices, payments, debts, allSupplierNames, monthStarts, branch]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
-  const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
-  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
   const openPayDialog = (invoice) => {
     setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
