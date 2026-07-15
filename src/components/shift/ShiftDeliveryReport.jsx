@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
+import DateRangeFilter from "./DateRangeFilter";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
@@ -14,13 +15,21 @@ const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 export default function ShiftDeliveryReport({ deliveries }) {
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [filterShift, setFilterShift] = useState("الكل");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const filtered = useMemo(() => {
     return deliveries
       .filter((d) => filterBranch === "الكل" || d.branch === filterBranch)
       .filter((d) => filterShift === "الكل" || d.shift_type === filterShift)
+      .filter((d) => {
+        if (!d.shift_date) return false;
+        if (fromDate && d.shift_date < fromDate) return false;
+        if (toDate && d.shift_date > toDate) return false;
+        return true;
+      })
       .sort((a, b) => (a.shift_date < b.shift_date ? 1 : -1));
-  }, [deliveries, filterBranch, filterShift]);
+  }, [deliveries, filterBranch, filterShift, fromDate, toDate]);
 
   const totals = useMemo(() => {
     return {
@@ -55,6 +64,7 @@ export default function ShiftDeliveryReport({ deliveries }) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-bold text-gray-800">تقرير التسليمات</h2>
         <div className="flex items-center gap-2 flex-wrap">
+          <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
           <Select value={filterBranch} onValueChange={setFilterBranch}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>

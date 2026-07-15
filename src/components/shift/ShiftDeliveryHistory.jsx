@@ -6,6 +6,7 @@ import { Trash2, Pencil, Eye, Plus } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
+import DateRangeFilter from "./DateRangeFilter";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = {
@@ -25,6 +26,17 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   const { isAdmin } = useUserRole();
   const [detailItem, setDetailItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const dateFiltered = useMemo(() => {
+    return deliveries.filter((d) => {
+      if (!d.shift_date) return false;
+      if (fromDate && d.shift_date < fromDate) return false;
+      if (toDate && d.shift_date > toDate) return false;
+      return true;
+    });
+  }, [deliveries, fromDate, toDate]);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ShiftDelivery.delete(id),
@@ -34,13 +46,13 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   // Group by date (descending)
   const grouped = useMemo(() => {
     const map = {};
-    for (const d of deliveries) {
+    for (const d of dateFiltered) {
       const key = d.shift_date || "—";
       if (!map[key]) map[key] = [];
       map[key].push(d);
     }
     return Object.entries(map).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [deliveries]);
+  }, [dateFiltered]);
 
   const dateLabel = (dateStr) => {
     if (!dateStr || dateStr === "—") return "تسليمات بدون تاريخ";
@@ -57,14 +69,17 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-bold text-gray-800">سجل التسليمات</h2>
-        <Button onClick={onNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4" /> تسليم جديد
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
+          <Button onClick={onNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+            <Plus className="w-4 h-4" /> تسليم جديد
+          </Button>
+        </div>
       </div>
 
-      {deliveries.length === 0 && (
+      {dateFiltered.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           <p className="text-sm">لا توجد تسليمات بعد</p>
         </div>

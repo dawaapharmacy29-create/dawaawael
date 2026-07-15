@@ -1,17 +1,26 @@
 import { useMemo, useState } from "react";
 import { Calendar, TrendingDown, TrendingUp, BarChart3, Clock, Wallet } from "lucide-react";
 import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
+import DateRangeFilter from "./DateRangeFilter";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
 export default function ShiftDeliveryStats({ deliveries }) {
   const [branch, setBranch] = useState("الكل");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
-  const filtered = useMemo(
-    () => (branch === "الكل" ? deliveries : deliveries.filter((d) => d.branch === branch)),
-    [deliveries, branch]
-  );
+  const filtered = useMemo(() => {
+    return deliveries
+      .filter((d) => branch === "الكل" || d.branch === branch)
+      .filter((d) => {
+        if (!d.shift_date) return false;
+        if (fromDate && d.shift_date < fromDate) return false;
+        if (toDate && d.shift_date > toDate) return false;
+        return true;
+      });
+  }, [deliveries, branch, fromDate, toDate]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -57,18 +66,21 @@ export default function ShiftDeliveryStats({ deliveries }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-bold text-gray-800">لوحة الإحصائيات</h2>
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {["الكل", ...BRANCHES].map((b) => (
-            <button
-              key={b}
-              onClick={() => setBranch(b)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                branch === b ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {b}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {["الكل", ...BRANCHES].map((b) => (
+              <button
+                key={b}
+                onClick={() => setBranch(b)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  branch === b ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
