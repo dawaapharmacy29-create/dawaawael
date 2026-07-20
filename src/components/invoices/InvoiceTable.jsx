@@ -1,10 +1,13 @@
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Eye, MessageSquare } from "lucide-react";
+import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
+
+const PAGE_SIZE = 50;
 
 const statusColor = {
   "انتظار المراجعة": "bg-yellow-100 text-yellow-800",
@@ -25,6 +28,17 @@ const branchColor = {
 
 export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, onView, selectedIds, onToggleSelect, onToggleAll }) {
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.max(Math.ceil(invoices.length / PAGE_SIZE), 1);
+  const safePage = Math.min(currentPage, totalPages);
+  const pageData = useMemo(
+    () => invoices.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [invoices, safePage]
+  );
+
+  // Reset to page 1 when filters change drastically
+  const allSelected = pageData.length > 0 && pageData.every((inv) => selectedIds.includes(inv.id));
 
   if (isLoading) {
     return <Card className="p-8 text-center text-gray-400"><div className="w-8 h-8 border-4 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />جاري التحميل...</Card>;
@@ -33,7 +47,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
     return <Card className="p-12 text-center"><p className="text-gray-400 text-lg">لا توجد فواتير بعد</p></Card>;
   }
 
-  const allSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.includes(inv.id));
+  const handlePageChange = (newPage) => {
+    setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -42,7 +58,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="w-10 text-center">
-                <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, invoices)} />
+                <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, pageData)} />
               </TableHead>
               <TableHead className="text-right">رقم البرنامج</TableHead>
               <TableHead className="text-right">رقم المورد</TableHead>
@@ -59,7 +75,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((inv) => {
+            {pageData.map((inv) => {
               const remaining = (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0);
               const isSelected = selectedIds.includes(inv.id);
               return (
@@ -106,6 +122,26 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50/50">
+          <span className="text-xs text-gray-500">
+            عرض {(safePage - 1) * PAGE_SIZE + 1} - {Math.min(safePage * PAGE_SIZE, invoices.length)} من {invoices.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage <= 1} onClick={() => handlePageChange(safePage - 1)}>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+            <span className="text-xs text-gray-600 font-medium px-2">
+              {safePage} / {totalPages}
+            </span>
+            <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage >= totalPages} onClick={() => handlePageChange(safePage + 1)}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

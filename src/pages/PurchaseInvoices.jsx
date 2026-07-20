@@ -104,9 +104,11 @@ export default function PurchaseInvoices() {
       await logActivity({ action_type: "create", entity_type: "invoice", entity_id: inv?.id, entity_label: data.system_invoice_number, details: `إنشاء فاتورة ${data.system_invoice_number}` });
       return inv;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+    onSuccess: (inv) => {
+      // تحديث ذكي: أضف الفاتورة الجديدة للكاش مباشرة بدلاً من إعادة تحميل الكل
+      queryClient.setQueryData(["purchase-invoices"], (old = []) => [inv, ...old]);
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
       setDialogOpen(false);
     },
   });
@@ -114,9 +116,13 @@ export default function PurchaseInvoices() {
     mutationFn: async ({ id, data }) => {
       await base44.entities.PurchaseInvoice.update(id, data);
       await logActivity({ action_type: "update", entity_type: "invoice", entity_id: id, entity_label: data.system_invoice_number, details: `تعديل فاتورة ${data.system_invoice_number}` });
+      return { id, data };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+    onSuccess: ({ id, data }) => {
+      // تحديث ذكي: عدّل الفاتورة في الكاش مباشرة بدلاً من إعادة تحميل الكل
+      queryClient.setQueryData(["purchase-invoices"], (old = []) =>
+        old.map((inv) => (inv.id === id ? { ...inv, ...data } : inv))
+      );
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       setDialogOpen(false);
       setEditingInvoice(null);
@@ -289,6 +295,7 @@ export default function PurchaseInvoices() {
       )}
 
       <InvoiceTable
+        key={`${filterBranch}-${filterSupplier}-${search}-${dateFrom}-${dateTo}-${sortBy}`}
         invoices={filtered}
         isLoading={isLoading}
         onEdit={handleEdit}
