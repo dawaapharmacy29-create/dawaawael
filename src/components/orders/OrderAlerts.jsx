@@ -47,7 +47,7 @@ export default function OrderAlerts({ orders }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-11 z-50 bg-white rounded-xl border shadow-xl w-80 max-h-80 overflow-y-auto" dir="rtl">
+          <div className="absolute left-0 top-11 z-50 bg-white rounded-xl border shadow-xl w-72 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto" dir="rtl">
             <div className="p-3 border-b bg-gray-50 rounded-t-xl">
               <h3 className="text-sm font-bold text-gray-700">تنبيهات الطلبات ({alerts.length})</h3>
             </div>

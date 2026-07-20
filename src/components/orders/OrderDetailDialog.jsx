@@ -129,14 +129,14 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto px-4 py-5 sm:p-6" dir="rtl">
           <DialogHeader>
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <DialogTitle className="text-gray-800 text-base">
+              <DialogTitle className="text-gray-800 text-sm sm:text-base">
                 طلب #{order.order_number || order.id?.slice(-6)}
               </DialogTitle>
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg}`}>{order.status}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg}`}>{order.status}</span>
                 {isManager && !isCancelled && !isDelivered && (
                   <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} className="gap-1 h-7 text-xs">
                     <Edit2 className="w-3 h-3" /> تعديل
@@ -158,7 +158,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
             {/* ── Progress Bar ── */}
             {!isCancelled && (
               <div className="bg-gray-50 rounded-xl p-3 border">
-                <div className="flex items-center justify-between relative">
+                <div className="flex items-center justify-between relative overflow-x-auto pb-1">
                   {/* Connecting line */}
                   <div className="absolute top-4 right-4 left-4 h-0.5 bg-gray-200 z-0" />
                   <div
@@ -224,7 +224,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
             {/* ══════════════════════════════════════ */}
             <StageCard number={1} title="بيانات الطلب" icon={<span>📋</span>}
               active done={progressIdx > 0 || isDelivered} color="blue">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <InfoItem icon={<User className="w-3.5 h-3.5" />} label="العميل" value={order.customer_name} bold />
                 <InfoItem icon={<Phone className="w-3.5 h-3.5" />} label="الهاتف" value={order.phone} />
                 <InfoItem icon={<Package className="w-3.5 h-3.5" />} label="الصنف" value={order.product_name} bold />
@@ -256,7 +256,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
               color="yellow">
               {isManager && !isCancelled && !isDelivered ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <label className="text-xs text-gray-500">المورد المتوقع</label>
                       <Input value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)}

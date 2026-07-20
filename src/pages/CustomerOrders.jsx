@@ -113,16 +113,16 @@ export default function CustomerOrders() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center shrink-0">
             <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-800">طلبات العملاء</h1>
+              <h1 className="text-lg md:text-xl font-bold text-gray-800">طلبات العملاء</h1>
               {orders.length > 0 && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="w-5 h-5 rounded-full bg-teal-100 hover:bg-teal-200 flex items-center justify-center transition-colors" title="نسب الحالات">
+                    <button className="w-5 h-5 rounded-full bg-teal-100 hover:bg-teal-200 flex items-center justify-center transition-colors shrink-0" title="نسب الحالات">
                       <PieChart className="w-3 h-3 text-teal-600" />
                     </button>
                   </PopoverTrigger>
@@ -148,12 +148,12 @@ export default function CustomerOrders() {
             <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <OrderAlerts orders={orders} />
-          <Button variant="outline" onClick={() => exportOrdersToExcel(filteredOrders)} className="gap-2 border-teal-300 text-teal-700 hover:bg-teal-50">
-            <Download className="w-4 h-4" /> تصدير Excel
+          <Button variant="outline" onClick={() => exportOrdersToExcel(filteredOrders)} className="gap-2 border-teal-300 text-teal-700 hover:bg-teal-50 flex-1 sm:flex-none">
+            <Download className="w-4 h-4" /> <span className="hidden sm:inline">تصدير</span> Excel
           </Button>
-          <Button onClick={() => setShowForm(true)} className="bg-teal-600 hover:bg-teal-700 gap-2">
+          <Button onClick={() => setShowForm(true)} className="bg-teal-600 hover:bg-teal-700 gap-2 flex-1 sm:flex-none">
             <Plus className="w-4 h-4" /> طلب جديد
           </Button>
         </div>
@@ -201,8 +201,8 @@ export default function CustomerOrders() {
           )}
 
           {/* Filters */}
-          <div className="bg-white rounded-xl border p-3 flex flex-wrap gap-2 items-center">
-            <div className="relative flex-1 min-w-[180px]">
+          <div className="bg-white rounded-xl border p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-center">
+            <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
               <Input
                 value={search}
@@ -212,7 +212,7 @@ export default function CustomerOrders() {
               />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40 h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="الحالة" />
               </SelectTrigger>
               <SelectContent>
@@ -221,7 +221,7 @@ export default function CustomerOrders() {
               </SelectContent>
             </Select>
             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-              <SelectTrigger className="w-36 h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="الموظف" />
               </SelectTrigger>
               <SelectContent>
@@ -229,10 +229,10 @@ export default function CustomerOrders() {
                 {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="w-36 h-9 text-sm" placeholder="من تاريخ" />
-            <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="w-36 h-9 text-sm" placeholder="إلى تاريخ" />
+            <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm" placeholder="من تاريخ" />
+            <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="h-9 text-sm" placeholder="إلى تاريخ" />
             {(filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterDateFrom || filterDateTo || search) && (
-              <Button variant="ghost" size="sm" className="text-gray-400 h-9" onClick={() => { setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setSearch(""); }}>
+              <Button variant="ghost" size="sm" className="text-gray-400 h-9 sm:col-span-2 lg:col-span-1" onClick={() => { setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setSearch(""); }}>
                 مسح الفلاتر
               </Button>
             )}
@@ -243,6 +243,7 @@ export default function CustomerOrders() {
 
           {/* Table */}
           <OrderTable
+            key={`${filterBranch}-${filterStatus}-${filterEmployee}-${filterDateFrom}-${filterDateTo}-${search}`}
             orders={filteredOrders}
             isLoading={isLoading}
             onSelect={setSelectedOrder}

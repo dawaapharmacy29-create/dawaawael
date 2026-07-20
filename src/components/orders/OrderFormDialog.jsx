@@ -70,12 +70,12 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto px-4 py-5 sm:p-6" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-teal-700">{editOrder ? "تعديل الطلب" : "طلب عميل جديد"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">اسم العميل *</label>
               <Input value={form.customer_name} onChange={(e) => set("customer_name", e.target.value)} placeholder="اسم العميل" className="h-9 text-sm" />
@@ -97,7 +97,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">مصدر الطلب</label>
               <Select value={form.request_source} onValueChange={(v) => set("request_source", v)}>
@@ -138,7 +138,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">الموظف المسؤول</label>
               <Select value={form.assigned_employee} onValueChange={(v) => set("assigned_employee", v)}>

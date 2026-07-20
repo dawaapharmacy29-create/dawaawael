@@ -10,7 +10,7 @@ const STATS = [
 
 export default function OrderStatCards({ orders, onFilterStatus, activeStatus }) {
   return (
-    <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
       {STATS.map((s) => {
         const count = orders.filter((o) => o.status === s.status).length;
         const isActive = activeStatus === s.status;

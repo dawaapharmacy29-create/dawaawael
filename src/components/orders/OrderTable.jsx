@@ -1,7 +1,9 @@
-import { Loader2, Trash2, Eye, MessageSquare } from "lucide-react";
+import { Loader2, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
+const PAGE_SIZE = 30;
 
 const STATUS_STYLE = {
   "طلب جديد":              "bg-blue-100 text-blue-700",
@@ -34,7 +36,14 @@ const SourceIcon = ({ source }) => {
 
 export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager }) {
   const [confirmId, setConfirmId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const total = orders.length;
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+  const safePage = Math.min(currentPage, totalPages);
+  const pageData = useMemo(
+    () => orders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [orders, safePage]
+  );
 
   if (isLoading) return (
     <div className="flex justify-center py-16">
@@ -70,7 +79,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {orders.map((o) => (
+            {pageData.map((o) => (
               <tr key={o.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onSelect(o)}>
                 <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number || o.id?.slice(-6)}</td>
                 <td className="px-4 py-3">
@@ -112,21 +121,37 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
             ))}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50/50">
+            <span className="text-xs text-gray-500">
+              عرض {(safePage - 1) * PAGE_SIZE + 1} - {Math.min(safePage * PAGE_SIZE, total)} من {total}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage <= 1} onClick={() => setCurrentPage(safePage - 1)}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-xs text-gray-600 font-medium px-2">{safePage} / {totalPages}</span>
+              <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage >= totalPages} onClick={() => setCurrentPage(safePage + 1)}>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
-        {orders.map((o) => (
-          <div key={o.id} className="bg-white rounded-xl border p-4 cursor-pointer" onClick={() => onSelect(o)}>
+        {pageData.map((o) => (
+          <div key={o.id} className="bg-white rounded-xl border p-3 cursor-pointer" onClick={() => onSelect(o)}>
             <div className="flex items-start justify-between mb-2">
-              <div>
-                <div className="font-bold text-gray-800">{o.customer_name}</div>
+              <div className="min-w-0">
+                <div className="font-bold text-gray-800 truncate">{o.customer_name}</div>
                 <div className="text-xs text-gray-400">{o.phone}</div>
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[o.status] || ""}`}>{o.status}</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold shrink-0 ${STATUS_STYLE[o.status] || ""}`}>{o.status}</span>
             </div>
-            <div className="text-sm font-medium text-teal-700 mb-2 flex items-center gap-1.5">🔹 {o.product_name} {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
-            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+            <div className="text-sm font-medium text-teal-700 mb-2 flex items-center gap-1.5 truncate">🔹 {o.product_name} {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-1"><SourceIcon source={o.request_source} /> {o.request_source}</span>
               {o.branch && <span>📍 {o.branch}</span>}
               <span className={`px-1.5 py-0.5 rounded ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
@@ -134,6 +159,22 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
           </div>
         ))}
       </div>
+
+      {/* Pagination (mobile) */}
+      {totalPages > 1 && (
+        <div className="md:hidden flex items-center justify-between py-2">
+          <span className="text-xs text-gray-500">{safePage * PAGE_SIZE > total ? total : safePage * PAGE_SIZE} من {total}</span>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage <= 1} onClick={() => setCurrentPage(safePage - 1)}>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+            <span className="text-xs text-gray-600 font-medium px-1">{safePage} / {totalPages}</span>
+            <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage >= totalPages} onClick={() => setCurrentPage(safePage + 1)}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!confirmId}
