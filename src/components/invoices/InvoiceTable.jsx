@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 const statusColor = {
   "انتظار المراجعة": "bg-yellow-100 text-yellow-800",
