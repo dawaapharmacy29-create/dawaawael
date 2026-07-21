@@ -199,9 +199,9 @@ export default function PurchaseInvoices() {
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">فواتير الشراء</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">فواتير الشراء</h1>
           <p className="text-gray-500 text-sm mt-0.5">{filtered.length} من {invoices.length} فاتورة</p>
         </div>
         {canSaveInvoice && (
@@ -232,32 +232,34 @@ export default function PurchaseInvoices() {
 
       {/* Filters Row */}
       <div className="bg-white rounded-lg border p-3 space-y-3">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="relative flex-1 min-w-48">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-center">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
             <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 h-9" />
           </div>
           <Select value={filterSupplier} onValueChange={setFilterSupplier}>
-            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="كل الموردين" /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue placeholder="كل الموردين" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="الكل">كل الموردين</SelectItem>
               {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-1.5 text-sm text-gray-600">
-            <span>من:</span><Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setActiveMonthOffset(null); }} className="w-32 h-9" />
-            <span>إلى:</span><Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setActiveMonthOffset(null); }} className="w-32 h-9" />
-          </div>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="created_date">الأحدث أولاً</SelectItem>
               <SelectItem value="system_invoice_number">رقم البرنامج</SelectItem>
               <SelectItem value="total_value">أعلى قيمة</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <span className="whitespace-nowrap">من:</span><Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setActiveMonthOffset(null); }} className="h-9 flex-1" />
+          </div>
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <span className="whitespace-nowrap">إلى:</span><Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setActiveMonthOffset(null); }} className="h-9 flex-1" />
+          </div>
           {hasFilters && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap">
+            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap sm:col-span-2 lg:col-span-1">
               مسح الكل
             </button>
           )}
@@ -276,9 +278,9 @@ export default function PurchaseInvoices() {
 
       {/* Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-4 py-2.5">
           <span className="text-sm font-semibold text-teal-700">تم تحديد {selectedIds.length} فاتورة</span>
-          <div className="flex gap-2 mr-auto">
+          <div className="flex gap-2 sm:mr-auto">
             {canSaveInvoice && (
               <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={() => setConfirmSave(true)}>
                 <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"

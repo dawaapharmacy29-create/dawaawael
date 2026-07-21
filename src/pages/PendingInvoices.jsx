@@ -82,13 +82,13 @@ export default function PendingInvoices() {
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-yellow-100 rounded-lg">
+          <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
             <ClipboardList className="w-5 h-5 text-yellow-700" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">فواتير تنتظر المراجعة</h1>
+            <h1 className="text-lg md:text-2xl font-bold text-gray-800">فواتير تنتظر المراجعة</h1>
             <p className="text-gray-500 text-sm mt-0.5">{pending.length} فاتورة في انتظار المراجعة</p>
           </div>
         </div>
@@ -96,12 +96,12 @@ export default function PendingInvoices() {
 
       {/* Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5">
           <span className="text-sm font-semibold text-yellow-700">تم تحديد {selectedIds.length} فاتورة</span>
-          <div className="flex gap-2 mr-auto">
+          <div className="flex gap-2 sm:mr-auto">
             {canSaveInvoice && (
               <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={() => setConfirmSave(true)}>
-                <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"
+                <CheckSquare className="w-3.5 h-3.5" /> <span className="hidden sm:inline">تحويل إلى</span> "يتم الحفظ"
               </Button>
             )}
             {canDeleteInvoice && (

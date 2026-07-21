@@ -140,7 +140,7 @@ export default function Dashboard() {
             <Calendar className="w-4 h-4" /> تحديد الفترة
           </Button>
           {showDateFilter && (
-            <div className="absolute left-0 top-10 z-50 bg-white border rounded-xl shadow-lg p-4 space-y-3 w-64" dir="rtl">
+            <div className="absolute left-0 top-10 z-50 bg-white border rounded-xl shadow-lg p-4 space-y-3 w-64 max-w-[calc(100vw-2rem)]" dir="rtl">
               <p className="text-sm font-semibold text-gray-700">اختر الفترة الزمنية</p>
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">من تاريخ</label>

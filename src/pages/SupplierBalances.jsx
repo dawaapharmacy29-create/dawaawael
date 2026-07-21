@@ -286,7 +286,7 @@ export default function SupplierBalances() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto max-w-full">
         {[
           { key: "balances", label: "الأرصدة", icon: Wallet },
           { key: "statement", label: "كشف حساب", icon: FileText },
@@ -327,30 +327,30 @@ export default function SupplierBalances() {
               <Card key={group.name} className="overflow-hidden">
                 {/* Supplier Header */}
                 <div
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => setExpanded(isExpanded ? null : group.name)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                      {group.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{group.name}</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-xs text-gray-500">
-                          {group.oldInvoices.length + group.newInvoices.length} فاتورة
-                        </p>
-                        {group.monthStartDate && (
-                          <span className="text-xs text-blue-500 flex items-center gap-1">
-                            <CalendarDays className="w-3 h-3" />
-                            بداية الشهر: {group.monthStartDate}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                   className="flex items-center justify-between p-3 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors gap-2"
+                   onClick={() => setExpanded(isExpanded ? null : group.name)}
+                 >
+                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                     <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                       {group.name.charAt(0)}
+                     </div>
+                     <div className="min-w-0">
+                       <p className="font-semibold text-gray-800 truncate">{group.name}</p>
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <p className="text-xs text-gray-500">
+                           {group.oldInvoices.length + group.newInvoices.length} فاتورة
+                         </p>
+                         {group.monthStartDate && (
+                           <span className="text-xs text-blue-500 flex items-center gap-1">
+                             <CalendarDays className="w-3 h-3" />
+                             {group.monthStartDate}
+                           </span>
+                         )}
+                       </div>
+                     </div>
+                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0">
                     {/* Summary mini-cards */}
                     {group.monthStartDate && (
                       <>
