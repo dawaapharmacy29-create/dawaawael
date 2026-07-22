@@ -73,8 +73,9 @@ export const SUPPLIER_CATEGORY_MODE_COLORS = {
 };
 
 export const CATEGORY_SOURCE_LABELS = {
-  supplier_default: "تصنيف المورد",
-  manual: "تعديل يدوي",
+  supplier_default: "تلقائي من المورد",
+  supplier_backfill: "تطبيق رجعي من إعداد المورد",
+  manual: "استثناء يدوي",
   supplier_bulk_apply: "تطبيق إعداد المورد",
   bulk_update: "تعديل جماعي",
   legacy_backfill: "تصحيح بيانات قديمة",
@@ -82,6 +83,7 @@ export const CATEGORY_SOURCE_LABELS = {
 
 export const CATEGORY_SOURCE_COLORS = {
   supplier_default: "bg-teal-100 text-teal-800",
+  supplier_backfill: "bg-cyan-100 text-cyan-800",
   manual: "bg-amber-100 text-amber-800",
   supplier_bulk_apply: "bg-cyan-100 text-cyan-800",
   bulk_update: "bg-purple-100 text-purple-800",
