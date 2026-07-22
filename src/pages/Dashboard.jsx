@@ -9,8 +9,10 @@ import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
-import PurchaseAnalyticsCard from "@/components/dashboard/PurchaseAnalyticsCard";
+import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
+import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
+import { useSearchParams } from "react-router-dom";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -36,6 +38,14 @@ export default function Dashboard() {
   const [targetInput, setTargetInput] = useState("");
   const [dateFilter, setDateFilter] = useState(getStoredDates);
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const branch = searchParams.get("branch") || "all";
+  const setBranch = (b) => {
+    const next = new URLSearchParams(searchParams);
+    if (b === "all") next.delete("branch");
+    else next.set("branch", b);
+    setSearchParams(next, { replace: true });
+  };
   const [tempDate, setTempDate] = useState(getStoredDates);
 
   const applyDateFilter = () => {
@@ -44,7 +54,7 @@ export default function Dashboard() {
     setShowDateFilter(false);
   };
 
-  const { data: invoices = [], refetch: refetchInvoices } = useQuery({
+  const { data: invoices = [], isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
@@ -112,19 +122,21 @@ export default function Dashboard() {
     const d = e.date || e.created_date?.split("T")[0];
     return d && d >= monthStart && d <= monthEnd;
   });
+  const branchMonthInvoices = branch === "all" ? monthInvoices : monthInvoices.filter((i) => i.branch === branch);
+  const branchMonthExpenses = branch === "all" ? monthExpenses : monthExpenses.filter((e) => e.branch === branch);
 
-  const totalInvoiceValue = monthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
-  const totalExpenses = monthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalInvoiceValue = branchMonthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
+  const totalExpenses = branchMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const totalPayments = totalInvoiceValue + totalExpenses;
   const targetAmount = currentTarget?.target_amount || 0;
   const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
-  const pending = invoices.filter((i) => i.status === "انتظار المراجعة").length;
-  const totalCashPurchases = monthInvoices
+  const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
+  const totalCashPurchases = branchMonthInvoices
     .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
     .reduce((s, i) => s + getInvoiceCashAmount(i), 0);
 
   const stats = [
-    { label: "إجمالي الفواتير", value: invoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
+    { label: "فواتير الفترة", value: branchMonthInvoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
     { label: "إجمالي قيمة المدفوعات", value: totalPayments.toLocaleString("ar-EG") + " ج", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "مشتريات الكاش", value: totalCashPurchases.toLocaleString("ar-EG") + " ج", icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "المصروفات", value: totalExpenses.toLocaleString("ar-EG") + " ج", icon: Receipt, color: "text-orange-600", bg: "bg-orange-50" },
@@ -162,6 +174,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <BranchSelector value={branch} onChange={setBranch} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -203,21 +217,29 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Purchase Analytics */}
-      <PurchaseAnalyticsCard invoices={monthInvoices} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
+      {/* Purchase Dashboard */}
+      <PurchaseDashboard
+        invoices={branchMonthInvoices}
+        suppliers={suppliers}
+        branch={branch}
+        onBranchChange={setBranch}
+        dateFilter={dateFilter}
+        isLoading={invoicesLoading}
+      />
 
       {/* Low Stock Alerts */}
       <LowStockAlert />
 
       {/* Budget Alerts */}
-      <BudgetAlert invoices={monthInvoices} expenses={monthExpenses} budgets={budgets} suppliers={suppliers} />
+      <BudgetAlert invoices={branchMonthInvoices} expenses={branchMonthExpenses} budgets={budgets} suppliers={suppliers} />
 
       {/* Branch Budget */}
       <div>
-        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
+        <BranchBudgetCard invoices={branchMonthInvoices} budgets={budgets} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
       </div>
 
-      {/* Branches Summary */}
+      {/* Branches Summary - only when all branches selected */}
+      {branch === "all" && (
       <div>
         <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
           <Building2 className="w-4 h-4" /> ملخص الفروع
@@ -256,6 +278,7 @@ export default function Dashboard() {
           })}
         </div>
       </div>
+      )}
 
       {/* Pending invoices */}
       {pending > 0 && (
