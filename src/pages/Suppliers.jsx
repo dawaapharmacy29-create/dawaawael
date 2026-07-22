@@ -9,9 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban } from "lucide-react";
+import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban, Search, X } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
+import { fuzzyMatch } from "@/lib/fuzzySearch";
 import { SUPPLIER_TYPE_LABELS, BRANCHES, SUPPLIER_CATEGORY_MODE_LABELS, SUPPLIER_CATEGORY_MODE_COLORS, SUPPLIER_DEFAULT_CATEGORY_OPTIONS } from "@/lib/purchaseCalculations";
 import SupplierCategorySettings from "@/components/supplier/SupplierCategorySettings";
 
@@ -32,6 +33,7 @@ export default function Suppliers() {
   const [form, setForm] = useState(emptyForm);
   const [filterType, setFilterType] = useState("الكل");
   const [filterSupplierType, setFilterSupplierType] = useState("الكل");
+  const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -90,7 +92,8 @@ export default function Suppliers() {
   const filtered = suppliers.filter((s) => {
     const payMatch = filterType === "الكل" || s.payment_type === filterType;
     const typeMatch = filterSupplierType === "الكل" || (s.supplier_type || "external_supplier") === filterSupplierType;
-    return payMatch && typeMatch;
+    const searchMatch = !searchQuery || fuzzyMatch(searchQuery, s.name);
+    return payMatch && typeMatch && searchMatch;
   });
 
   return (
@@ -104,6 +107,25 @@ export default function Suppliers() {
           <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
             <Plus className="w-4 h-4" /> إضافة مورد
           </Button>
+        )}
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="ابحث باسم المورد (مثال: مخ، مخ*ن*المع)..."
+          className="w-full h-10 pr-10 pl-10 rounded-lg border border-gray-200 bg-white text-sm shadow-sm outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
         )}
       </div>
 
