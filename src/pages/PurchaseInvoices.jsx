@@ -4,11 +4,13 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Trash2, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Trash2, CheckSquare, ChevronLeft, ChevronRight, Ban, Tag } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
+import BulkExcludeDialog from "@/components/invoices/BulkExcludeDialog";
+import BulkCategoryDialog from "@/components/invoices/BulkCategoryDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
@@ -52,6 +54,8 @@ export default function PurchaseInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
+  const [confirmExclude, setConfirmExclude] = useState(false);
+  const [confirmCategory, setConfirmCategory] = useState(false);
   const [singleDeleteId, setSingleDeleteId] = useState(null);
   const [activeMonthOffset, setActiveMonthOffset] = useState(0); // 0 = الشهر الحالي، -1 = السابق، null = لا يوجد
   const queryClient = useQueryClient();
@@ -187,6 +191,30 @@ export default function PurchaseInvoices() {
       if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" } });
     });
     setSelectedIds([]);
+  };
+
+  const executeBulkExclude = ({ exclusion_reason, exclusion_note }) => {
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, net_purchase_mode: "exclude", exclusion_reason, exclusion_note }
+      });
+    });
+    setSelectedIds([]);
+    setConfirmExclude(false);
+  };
+
+  const executeBulkCategory = ({ purchase_category, purchase_category_source }) => {
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, purchase_category, purchase_category_source }
+      });
+    });
+    setSelectedIds([]);
+    setConfirmCategory(false);
   };
 
   const handleToggleSelect = (id) => {
@@ -331,6 +359,16 @@ export default function PurchaseInvoices() {
                 <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"
               </Button>
             )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50 gap-1.5" onClick={() => setConfirmExclude(true)}>
+                <Ban className="w-3.5 h-3.5" /> استثناء
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-indigo-400 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={() => setConfirmCategory(true)}>
+                <Tag className="w-3.5 h-3.5" /> تغيير التصنيف
+              </Button>
+            )}
             {canDeleteInvoice && (
               <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 gap-1.5" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="w-3.5 h-3.5" /> حذف المحدد
@@ -386,6 +424,20 @@ export default function PurchaseInvoices() {
         onConfirm={executeBulkSave}
         confirmLabel="تحويل"
         confirmClass="bg-green-600 hover:bg-green-700"
+      />
+
+      <BulkExcludeDialog
+        open={confirmExclude}
+        onOpenChange={setConfirmExclude}
+        count={selectedIds.length}
+        onConfirm={executeBulkExclude}
+      />
+
+      <BulkCategoryDialog
+        open={confirmCategory}
+        onOpenChange={setConfirmCategory}
+        count={selectedIds.length}
+        onConfirm={executeBulkCategory}
       />
     </div>
   );
