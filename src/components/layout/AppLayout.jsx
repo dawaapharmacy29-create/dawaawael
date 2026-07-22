@@ -99,18 +99,18 @@ export default function AppLayout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 right-0 left-0 z-50 bg-teal-600 flex items-center justify-between px-4 py-3">
+      <div className="md:hidden fixed top-0 right-0 left-0 z-[60] bg-teal-600 flex items-center justify-between px-4 py-3">
         <p className="text-teal-100 text-sm">مشتريات</p>
         <h1 className="text-white font-bold">صيدليات دواء</h1>
-        <button onClick={() => setOpen(!open)} className="text-white">
-          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        <button onClick={() => setOpen(!open)} className="text-white p-1 -m-1">
+          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
       {/* Mobile Nav */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)}>
-          <div className="absolute top-12 right-0 w-56 bg-white h-full shadow-xl p-3" onClick={(e) => e.stopPropagation()}>
+        <div className="md:hidden fixed top-14 left-0 right-0 bottom-0 z-50 bg-black/30" onClick={() => setOpen(false)}>
+          <div className="absolute top-0 right-0 w-56 bg-white h-full shadow-xl p-3" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1 mt-2">
               {visibleNavItems.map((item) => {
                 const pathOnly = item.path.split("?")[0];
