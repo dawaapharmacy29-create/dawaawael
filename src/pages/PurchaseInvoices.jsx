@@ -12,8 +12,28 @@ import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import InvoiceStats from "@/components/invoices/InvoiceStats";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
+import { CATEGORY_LABELS, TRANSACTION_TYPE_LABELS, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
+
+const CATEGORY_OPTIONS = [
+  { value: "الكل", label: "كل التصنيفات" },
+  { value: "medicines", label: CATEGORY_LABELS.medicines },
+  { value: "supplies_accessories", label: CATEGORY_LABELS.supplies_accessories },
+  { value: "unclassified", label: CATEGORY_LABELS.unclassified },
+];
+
+const TRANSACTION_OPTIONS = [
+  { value: "الكل", label: "كل الأنواع" },
+  { value: "external_purchase", label: TRANSACTION_TYPE_LABELS.external_purchase },
+  { value: "internal_transfer", label: TRANSACTION_TYPE_LABELS.internal_transfer },
+];
+
+const NET_MODE_OPTIONS = [
+  { value: "الكل", label: "الكل (محتسبة + مستثناة)" },
+  { value: "included", label: "محتسبة فقط" },
+  { value: "excluded", label: "مستثناة فقط" },
+];
 
 export default function PurchaseInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -22,6 +42,9 @@ export default function PurchaseInvoices() {
   const [viewOpen, setViewOpen] = useState(false);
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [filterSupplier, setFilterSupplier] = useState("الكل");
+  const [filterCategory, setFilterCategory] = useState("الكل");
+  const [filterTransactionType, setFilterTransactionType] = useState("الكل");
+  const [filterNetMode, setFilterNetMode] = useState("الكل");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -184,18 +207,22 @@ export default function PurchaseInvoices() {
   const filtered = invoices.filter((i) => {
     const branchMatch = filterBranch === "الكل" || i.branch === filterBranch;
     const supplierMatch = filterSupplier === "الكل" || i.supplier_name === filterSupplier;
+    const categoryMatch = filterCategory === "الكل" || (i.purchase_category || "unclassified") === filterCategory;
+    const transactionMatch = filterTransactionType === "الكل" || (i.transaction_type || "external_purchase") === filterTransactionType;
+    const exclusion = isInvoiceExcluded(i, suppliers);
+    const netModeMatch = filterNetMode === "الكل" || (filterNetMode === "excluded" ? exclusion.excluded : !exclusion.excluded);
     const searchMatch = !search || i.system_invoice_number?.includes(search) || i.supplier_name?.includes(search) || i.supplier_invoice_number?.includes(search);
     const dateKey = i.invoice_date || i.created_date?.split("T")[0];
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
-    return branchMatch && supplierMatch && searchMatch && fromMatch && toMatch;
+    return branchMatch && supplierMatch && categoryMatch && transactionMatch && netModeMatch && searchMatch && fromMatch && toMatch;
   }).sort((a, b) => {
     if (sortBy === "total_value") return (b.total_value || 0) - (a.total_value || 0);
     if (sortBy === "system_invoice_number") return (b.system_invoice_number || "").localeCompare(a.system_invoice_number || "", "ar");
     return new Date(b.created_date) - new Date(a.created_date);
   });
 
-  const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || search || dateFrom || dateTo;
+  const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || search || dateFrom || dateTo;
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
@@ -244,6 +271,24 @@ export default function PurchaseInvoices() {
               {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="التصنيف" /></SelectTrigger>
+            <SelectContent>
+              {CATEGORY_OPTIONS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterTransactionType} onValueChange={setFilterTransactionType}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="نوع العملية" /></SelectTrigger>
+            <SelectContent>
+              {TRANSACTION_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterNetMode} onValueChange={setFilterNetMode}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="حالة الصافي" /></SelectTrigger>
+            <SelectContent>
+              {NET_MODE_OPTIONS.map((n) => <SelectItem key={n.value} value={n.value}>{n.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
             <SelectContent>
@@ -259,7 +304,7 @@ export default function PurchaseInvoices() {
             <span className="whitespace-nowrap">إلى:</span><Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setActiveMonthOffset(null); }} className="h-9 flex-1" />
           </div>
           {hasFilters && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap sm:col-span-2 lg:col-span-1">
+            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setFilterCategory("الكل"); setFilterTransactionType("الكل"); setFilterNetMode("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap sm:col-span-2 lg:col-span-1">
               مسح الكل
             </button>
           )}
@@ -297,7 +342,7 @@ export default function PurchaseInvoices() {
       )}
 
       <InvoiceTable
-        key={`${filterBranch}-${filterSupplier}-${search}-${dateFrom}-${dateTo}-${sortBy}`}
+        key={`${filterBranch}-${filterSupplier}-${filterCategory}-${filterTransactionType}-${filterNetMode}-${search}-${dateFrom}-${dateTo}-${sortBy}`}
         invoices={filtered}
         isLoading={isLoading}
         onEdit={handleEdit}

@@ -9,6 +9,7 @@ import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
+import PurchaseAnalyticsCard from "@/components/dashboard/PurchaseAnalyticsCard";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -198,6 +199,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Purchase Analytics */}
+      <PurchaseAnalyticsCard invoices={monthInvoices} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
 
       {/* Low Stock Alerts */}
       <LowStockAlert />

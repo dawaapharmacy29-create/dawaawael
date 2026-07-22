@@ -9,11 +9,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard } from "lucide-react";
+import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
+import { SUPPLIER_TYPE_LABELS, BRANCHES } from "@/lib/purchaseCalculations";
 
-const emptyForm = { name: "", phone: "", address: "", payment_type: "", payment_terms_days: 30, notes: "" };
+const emptyForm = { name: "", phone: "", address: "", payment_type: "", payment_terms_days: 30, notes: "", supplier_type: "external_supplier", linked_branch: "", exclude_from_net_purchases: false };
 
 const paymentTypeColor = {
   "كاش": "bg-emerald-100 text-emerald-800",
@@ -29,6 +30,7 @@ export default function Suppliers() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [filterType, setFilterType] = useState("الكل");
+  const [filterSupplierType, setFilterSupplierType] = useState("الكل");
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -66,7 +68,13 @@ export default function Suppliers() {
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (s) => {
     setEditing(s);
-    setForm({ name: s.name, phone: s.phone || "", address: s.address || "", payment_type: s.payment_type || "", payment_terms_days: s.payment_terms_days || 30, notes: s.notes || "" });
+    setForm({
+      name: s.name, phone: s.phone || "", address: s.address || "",
+      payment_type: s.payment_type || "", payment_terms_days: s.payment_terms_days || 30, notes: s.notes || "",
+      supplier_type: s.supplier_type || "external_supplier",
+      linked_branch: s.linked_branch || "",
+      exclude_from_net_purchases: s.exclude_from_net_purchases || false,
+    });
     setDialogOpen(true);
   };
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }));
@@ -77,7 +85,11 @@ export default function Suppliers() {
     else createMutation.mutate(form);
   };
 
-  const filtered = filterType === "الكل" ? suppliers : suppliers.filter((s) => s.payment_type === filterType);
+  const filtered = suppliers.filter((s) => {
+    const payMatch = filterType === "الكل" || s.payment_type === filterType;
+    const typeMatch = filterSupplierType === "الكل" || (s.supplier_type || "external_supplier") === filterSupplierType;
+    return payMatch && typeMatch;
+  });
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -103,6 +115,16 @@ export default function Suppliers() {
         ))}
       </div>
 
+      {/* Filter by supplier type */}
+      <div className="flex gap-2 flex-wrap">
+        {["الكل", "external_supplier", "internal_branch"].map((t) => (
+          <button key={t} onClick={() => setFilterSupplierType(t)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterSupplierType === t ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}>
+            {t === "الكل" ? "كل الأنواع" : SUPPLIER_TYPE_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="text-center py-12 text-gray-400">جاري التحميل...</div>
       ) : filtered.length === 0 ? (
@@ -114,11 +136,21 @@ export default function Suppliers() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-bold text-gray-800 text-base">{s.name}</h3>
-                  {s.payment_type && (
-                    <Badge className={`${paymentTypeColor[s.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs mt-1`}>
-                      {s.payment_type}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <Badge className={`border-0 text-xs ${(s.supplier_type || "external_supplier") === "internal_branch" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}>
+                      {s.supplier_type === "internal_branch" ? <><Building2 className="w-2.5 h-2.5 ml-0.5" /> فرع داخلي</> : "مورد خارجي"}
                     </Badge>
-                  )}
+                    {s.payment_type && (
+                      <Badge className={`${paymentTypeColor[s.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs`}>
+                        {s.payment_type}
+                      </Badge>
+                    )}
+                    {s.exclude_from_net_purchases && (
+                      <Badge className="bg-red-100 text-red-800 border-0 text-xs gap-0.5">
+                        <Ban className="w-2.5 h-2.5" /> مستثنى من الصافي
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 {isManager && (
                   <div className="flex gap-1">
@@ -141,14 +173,41 @@ export default function Suppliers() {
           <DialogHeader><DialogTitle className="text-right">{editing ? "تعديل مورد" : "إضافة مورد"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1"><Label>اسم المورد *</Label><Input value={form.name} onChange={(e) => set("name", e.target.value)} required /></div>
-            <div className="space-y-1">
-              <Label>نوع التعامل</Label>
-              <Select value={form.payment_type} onValueChange={(v) => set("payment_type", v)}>
-                <SelectTrigger><SelectValue placeholder="اختر نوع التعامل" /></SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label>نوع المورد</Label>
+                <Select value={form.supplier_type} onValueChange={(v) => set("supplier_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="external_supplier">مورد خارجي</SelectItem>
+                    <SelectItem value="internal_branch">فرع داخلي</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>نوع التعامل</Label>
+                <Select value={form.payment_type} onValueChange={(v) => set("payment_type", v)}>
+                  <SelectTrigger><SelectValue placeholder="اختر نوع التعامل" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {form.supplier_type === "internal_branch" && (
+              <div className="space-y-1">
+                <Label>الفرع المرتبط</Label>
+                <Select value={form.linked_branch} onValueChange={(v) => set("linked_branch", v)}>
+                  <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                  <SelectContent>
+                    {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50">
+              <input type="checkbox" id="exclude_net" checked={form.exclude_from_net_purchases} onChange={(e) => set("exclude_from_net_purchases", e.target.checked)} className="w-4 h-4 accent-red-600" />
+              <label htmlFor="exclude_net" className="text-sm text-gray-700 cursor-pointer">استثناء فواتير هذا المورد من صافي المشتريات افتراضيًا</label>
             </div>
             <div className="space-y-1"><Label>رقم الهاتف</Label><Input value={form.phone} onChange={(e) => set("phone", e.target.value)} /></div>
             <div className="space-y-1"><Label>العنوان</Label><Input value={form.address} onChange={(e) => set("address", e.target.value)} /></div>
