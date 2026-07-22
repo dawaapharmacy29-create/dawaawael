@@ -9,6 +9,8 @@ import { useUserRole } from "@/lib/useUserRole";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
+  CATEGORY_SOURCE_LABELS,
+  CATEGORY_SOURCE_COLORS,
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_COLORS,
 } from "@/lib/purchaseCalculations";
@@ -113,6 +115,11 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                       <Badge className={`${CATEGORY_COLORS[inv.purchase_category || "unclassified"]} border-0 text-xs`}>
                         {CATEGORY_LABELS[inv.purchase_category || "unclassified"]}
                       </Badge>
+                      {inv.purchase_category_source && inv.purchase_category_source !== "supplier_default" && (
+                        <Badge className={`${CATEGORY_SOURCE_COLORS[inv.purchase_category_source] || "bg-gray-100 text-gray-600"} border-0 text-xs`} title={CATEGORY_SOURCE_LABELS[inv.purchase_category_source] || inv.purchase_category_source}>
+                          {CATEGORY_SOURCE_LABELS[inv.purchase_category_source] || inv.purchase_category_source}
+                        </Badge>
+                      )}
                       {(inv.transaction_type || "external_purchase") === "internal_transfer" && (
                         <Badge className="bg-purple-100 text-purple-800 border-0 text-xs gap-0.5" title={TRANSACTION_TYPE_LABELS[inv.transaction_type]}>
                           <ArrowRightLeft className="w-2.5 h-2.5" /> تحويل
@@ -187,6 +194,11 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                 <Badge className={`${CATEGORY_COLORS[inv.purchase_category || "unclassified"]} border-0 text-xs`}>
                   {CATEGORY_LABELS[inv.purchase_category || "unclassified"]}
                 </Badge>
+                {inv.purchase_category_source && inv.purchase_category_source !== "supplier_default" && (
+                  <Badge className={`${CATEGORY_SOURCE_COLORS[inv.purchase_category_source] || "bg-gray-100 text-gray-600"} border-0 text-xs`}>
+                    {CATEGORY_SOURCE_LABELS[inv.purchase_category_source] || inv.purchase_category_source}
+                  </Badge>
+                )}
                 {(inv.transaction_type || "external_purchase") === "internal_transfer" && (
                   <Badge className="bg-purple-100 text-purple-800 border-0 text-xs gap-0.5">
                     <ArrowRightLeft className="w-2.5 h-2.5" /> تحويل

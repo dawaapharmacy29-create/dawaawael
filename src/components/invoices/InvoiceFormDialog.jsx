@@ -87,6 +87,7 @@ const emptyForm = {
   status: "انتظار المراجعة",
   notes: "",
   purchase_category: "",
+  purchase_category_source: "",
   transaction_type: "external_purchase",
   net_purchase_mode: "inherit",
   exclusion_reason: "",
@@ -119,6 +120,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         status: invoice.status || "انتظار المراجعة",
         notes: invoice.notes || "",
         purchase_category: invoice.purchase_category || "",
+        purchase_category_source: invoice.purchase_category_source || "",
         transaction_type: invoice.transaction_type || "external_purchase",
         net_purchase_mode: invoice.net_purchase_mode || "inherit",
         exclusion_reason: invoice.exclusion_reason || "",
@@ -138,14 +140,26 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const selectedSupplier = suppliers.find((s) => s.name === form.supplier_name);
   const supplierExcluded = selectedSupplier?.exclude_from_net_purchases;
 
-  // When supplier changes, auto-fill payment_type from supplier's payment_type
+  // When supplier changes, auto-fill payment_type + auto-classify from supplier's default
   const handleSupplierChange = (supplierName) => {
     set("supplier_name", supplierName);
     const supplier = suppliers.find((s) => s.name === supplierName);
     if (supplier?.payment_type) {
       set("payment_type", supplier.payment_type);
     }
+    const mode = supplier?.default_purchase_category;
+    if (mode === "medicines") {
+      set("purchase_category", "medicines");
+      set("purchase_category_source", "supplier_default");
+    } else if (mode === "supplies_accessories") {
+      set("purchase_category", "supplies_accessories");
+      set("purchase_category_source", "supplier_default");
+    }
+    // mixed or none: don't auto-set, user must choose manually
   };
+
+  const supplierMode = selectedSupplier?.default_purchase_category || "none";
+  const isAutoClassified = supplierMode === "medicines" || supplierMode === "supplies_accessories";
 
   const remaining = () => {
     const total = parseFloat(form.total_value) || 0;
@@ -246,6 +260,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       total_value: totalVal,
       returned_value: returnedVal,
       cash_amount: isMixed ? cashAmt : 0,
+      purchase_category_source: form.purchase_category_source || (form.purchase_category ? "manual" : ""),
       paid_value: isCash ? totalVal - returnedVal : (form.payment_type === "آجل" ? currentPaid : (isMixed ? cashAmt : 0)),
       net_purchase_mode: finalNetMode,
       ...exclusionData,
@@ -357,19 +372,25 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => set("purchase_category", "medicines")}
+                  onClick={() => { set("purchase_category", "medicines"); set("purchase_category_source", "manual"); }}
                   className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "medicines" ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-300 hover:border-teal-400"}`}
                 >
                   💊 أدوية
                 </button>
                 <button
                   type="button"
-                  onClick={() => set("purchase_category", "supplies_accessories")}
+                  onClick={() => { set("purchase_category", "supplies_accessories"); set("purchase_category_source", "manual"); }}
                   className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "supplies_accessories" ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"}`}
                 >
                   📦 مستلزمات وإكسسوار
                 </button>
               </div>
+              {isAutoClassified && form.purchase_category_source === "supplier_default" && (
+                <p className="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded">✓ تم تحديد تصنيف الفاتورة تلقائيًا من إعداد المورد</p>
+              )}
+              {(supplierMode === "mixed" || supplierMode === "none") && !form.purchase_category && (
+                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">⚠ هذا المورد مختلط، برجاء اختيار تصنيف الفاتورة يدويًا</p>
+              )}
             </div>
 
             {/* نوع العملية */}

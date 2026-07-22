@@ -52,14 +52,30 @@ export const SUPPLIER_TYPE_LABELS = {
 };
 
 export const SUPPLIER_DEFAULT_CATEGORY_OPTIONS = [
-  { value: "none", label: "بدون تصنيف افتراضي" },
+  { value: "none", label: "غير محدد" },
   { value: "medicines", label: "أدوية" },
   { value: "supplies_accessories", label: "مستلزمات وإكسسوار" },
+  { value: "mixed", label: "مختلط (أدوية + مستلزمات)" },
 ];
+
+export const SUPPLIER_CATEGORY_MODE_LABELS = {
+  medicines: "أدوية",
+  supplies_accessories: "مستلزمات وإكسسوار",
+  mixed: "مختلط (أدوية + مستلزمات)",
+  none: "غير محدد",
+};
+
+export const SUPPLIER_CATEGORY_MODE_COLORS = {
+  medicines: "bg-teal-100 text-teal-800",
+  supplies_accessories: "bg-indigo-100 text-indigo-800",
+  mixed: "bg-amber-100 text-amber-800",
+  none: "bg-gray-100 text-gray-600",
+};
 
 export const CATEGORY_SOURCE_LABELS = {
   supplier_default: "تصنيف المورد",
   manual: "تعديل يدوي",
+  supplier_bulk_apply: "تطبيق إعداد المورد",
   bulk_update: "تعديل جماعي",
   legacy_backfill: "تصحيح بيانات قديمة",
 };
@@ -67,6 +83,7 @@ export const CATEGORY_SOURCE_LABELS = {
 export const CATEGORY_SOURCE_COLORS = {
   supplier_default: "bg-teal-100 text-teal-800",
   manual: "bg-amber-100 text-amber-800",
+  supplier_bulk_apply: "bg-cyan-100 text-cyan-800",
   bulk_update: "bg-purple-100 text-purple-800",
   legacy_backfill: "bg-blue-100 text-blue-800",
 };

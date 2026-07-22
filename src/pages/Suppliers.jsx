@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
-import { SUPPLIER_TYPE_LABELS, BRANCHES } from "@/lib/purchaseCalculations";
+import { SUPPLIER_TYPE_LABELS, BRANCHES, SUPPLIER_CATEGORY_MODE_LABELS, SUPPLIER_CATEGORY_MODE_COLORS, SUPPLIER_DEFAULT_CATEGORY_OPTIONS } from "@/lib/purchaseCalculations";
+import SupplierCategorySettings from "@/components/supplier/SupplierCategorySettings";
 
-const emptyForm = { name: "", phone: "", address: "", payment_type: "", payment_terms_days: 30, notes: "", supplier_type: "external_supplier", linked_branch: "", exclude_from_net_purchases: false };
+const emptyForm = { name: "", phone: "", address: "", payment_type: "", payment_terms_days: 30, notes: "", supplier_type: "external_supplier", linked_branch: "", exclude_from_net_purchases: false, default_purchase_category: "none" };
 
 const paymentTypeColor = {
   "كاش": "bg-emerald-100 text-emerald-800",
@@ -74,6 +75,7 @@ export default function Suppliers() {
       supplier_type: s.supplier_type || "external_supplier",
       linked_branch: s.linked_branch || "",
       exclude_from_net_purchases: s.exclude_from_net_purchases || false,
+      default_purchase_category: s.default_purchase_category || "none",
     });
     setDialogOpen(true);
   };
@@ -153,12 +155,18 @@ export default function Suppliers() {
                   </div>
                 </div>
                 {isManager && (
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                  </div>
-                )}
-              </div>
+                       <div className="flex gap-1">
+                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                         <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                       </div>
+                     )}
+                   </div>
+                   {s.default_purchase_category && s.default_purchase_category !== "none" && (
+                     <Badge className={`${SUPPLIER_CATEGORY_MODE_COLORS[s.default_purchase_category]} border-0 text-xs`}>
+                       {SUPPLIER_CATEGORY_MODE_LABELS[s.default_purchase_category]}
+                     </Badge>
+                   )}
+                   {isManager && <SupplierCategorySettings supplier={s} />}
               {s.phone && <p className="text-sm text-gray-600 flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{s.phone}</p>}
               {s.address && <p className="text-sm text-gray-600 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{s.address}</p>}
               {s.payment_terms_days && s.payment_type === "آجل" && <p className="text-sm text-gray-600 flex items-center gap-1"><Clock className="w-3.5 h-3.5" />شروط الدفع: {s.payment_terms_days} يوم</p>}
@@ -205,6 +213,15 @@ export default function Suppliers() {
                 </Select>
               </div>
             )}
+            <div className="space-y-1">
+              <Label>تصنيف المورد</Label>
+              <Select value={form.default_purchase_category} onValueChange={(v) => set("default_purchase_category", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SUPPLIER_DEFAULT_CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50">
               <input type="checkbox" id="exclude_net" checked={form.exclude_from_net_purchases} onChange={(e) => set("exclude_from_net_purchases", e.target.checked)} className="w-4 h-4 accent-red-600" />
               <label htmlFor="exclude_net" className="text-sm text-gray-700 cursor-pointer">استثناء فواتير هذا المورد من صافي المشتريات افتراضيًا</label>
