@@ -7,9 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import {
+  BRANCHES,
+  EXCLUSION_REASONS,
+} from "@/lib/purchaseCalculations";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -69,8 +74,6 @@ function SearchableSelect({ value, onChange, options, placeholder, className = "
   );
 }
 
-const BRANCHES = ["دواء شكري", "دواء الشامي"];
-
 const emptyForm = {
   system_invoice_number: "",
   supplier_invoice_number: "",
@@ -83,6 +86,14 @@ const emptyForm = {
   payment_type: "",
   status: "انتظار المراجعة",
   notes: "",
+  purchase_category: "",
+  transaction_type: "external_purchase",
+  net_purchase_mode: "inherit",
+  exclusion_reason: "",
+  exclusion_note: "",
+  source_branch: "",
+  destination_branch: "",
+  cash_amount: "",
 };
 
 export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, allInvoices = [] }) {
@@ -107,6 +118,14 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         payment_type: invoice.payment_type || "",
         status: invoice.status || "انتظار المراجعة",
         notes: invoice.notes || "",
+        purchase_category: invoice.purchase_category || "",
+        transaction_type: invoice.transaction_type || "external_purchase",
+        net_purchase_mode: invoice.net_purchase_mode || "inherit",
+        exclusion_reason: invoice.exclusion_reason || "",
+        exclusion_note: invoice.exclusion_note || "",
+        source_branch: invoice.source_branch || "",
+        destination_branch: invoice.destination_branch || "",
+        cash_amount: invoice.cash_amount !== undefined ? invoice.cash_amount : "",
       });
     } else {
       setForm(emptyForm);
@@ -115,6 +134,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   }, [invoice, open]);
 
   const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const selectedSupplier = suppliers.find((s) => s.name === form.supplier_name);
+  const supplierExcluded = selectedSupplier?.exclude_from_net_purchases;
 
   // When supplier changes, auto-fill payment_type from supplier's payment_type
   const handleSupplierChange = (supplierName) => {
@@ -131,12 +153,55 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     return (total - ret).toFixed(2);
   };
 
+  const isInternalTransfer = form.transaction_type === "internal_transfer";
+  const isExcluded = form.net_purchase_mode === "exclude";
+  const isMixed = form.payment_type === "مختلط";
+  const isOtherReason = form.exclusion_reason === "other";
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.branch) {
       setDupError("يجب اختيار الفرع");
       return;
     }
+    // التحقق من التصنيف للفواتير الجديدة
+    if (!invoice && !form.purchase_category) {
+      setDupError("يجب اختيار تصنيف الفاتورة (أدوية / مستلزمات وإكسسوار)");
+      return;
+    }
+    // التحقق من سبب الاستثناء
+    if (isExcluded && !form.exclusion_reason) {
+      setDupError("يجب اختيار سبب الاستثناء");
+      return;
+    }
+    // التحقق من ملاحظة "أخرى"
+    if (isExcluded && isOtherReason && !form.exclusion_note?.trim()) {
+      setDupError("يجب كتابة ملاحظة عند اختيار سبب 'أخرى'");
+      return;
+    }
+    // التحقق من التحويل الداخلي
+    if (isInternalTransfer) {
+      if (!form.source_branch || !form.destination_branch) {
+        setDupError("يجب تحديد الفرع المصدر والفرع المستلم للتحويل الداخلي");
+        return;
+      }
+      if (form.source_branch === form.destination_branch) {
+        setDupError("لا يمكن أن يكون الفرع المصدر هو نفسه الفرع المستلم");
+        return;
+      }
+    }
+    // التحقق من مبلغ الكاش
+    if (isMixed) {
+      const totalVal = parseFloat(form.total_value) || 0;
+      const returnedVal = parseFloat(form.returned_value) || 0;
+      const netTotal = totalVal - returnedVal;
+      const cashAmt = parseFloat(form.cash_amount) || 0;
+      if (cashAmt > netTotal) {
+        setDupError("المبلغ المدفوع كاش لا يمكن أن يتجاوز إجمالي الفاتورة");
+        return;
+      }
+    }
+
     // Check duplicate system_invoice_number per branch
     const isDuplicate = allInvoices.some(
       (inv) =>
@@ -149,22 +214,48 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       return;
     }
     setDupError("");
+
     const totalVal = parseFloat(form.total_value) || 0;
     const returnedVal = parseFloat(form.returned_value) || 0;
+    const cashAmt = parseFloat(form.cash_amount) || 0;
     const isCash = ["كاش", "انستا", "فودافون"].includes(form.payment_type);
     const currentPaid = parseFloat(invoice?.paid_value) || 0;
+
+    // بيانات الاستثناء
+    const exclusionData = {};
+    if (form.net_purchase_mode === "exclude") {
+      exclusionData.excluded_by = invoice?.excluded_by || "";
+      // إذا كان استثناء جديد، نسجل الوقت (سيُحدث في الـ mutation)
+      exclusionData.excluded_at = new Date().toISOString();
+    } else {
+      // مسح بيانات الاستثناء عند الإلغاء
+      exclusionData.excluded_by = "";
+      exclusionData.excluded_at = "";
+      exclusionData.exclusion_reason = "";
+      exclusionData.exclusion_note = "";
+    }
+
+    // للتحويل الداخلي، نجعل net_purchase_mode = exclude تلقائيًا إذا كان inherit
+    let finalNetMode = form.net_purchase_mode;
+    if (isInternalTransfer && form.net_purchase_mode === "inherit") {
+      finalNetMode = "inherit"; // يبقى inherit لكن isInvoiceExcluded سيعالجه عبر transaction_type
+    }
+
     onSubmit({
       ...form,
       total_value: totalVal,
       returned_value: returnedVal,
-      paid_value: isCash ? totalVal - returnedVal : (form.payment_type === "آجل" ? currentPaid : 0),
+      cash_amount: isMixed ? cashAmt : 0,
+      paid_value: isCash ? totalVal - returnedVal : (form.payment_type === "آجل" ? currentPaid : (isMixed ? cashAmt : 0)),
+      net_purchase_mode: finalNetMode,
+      ...exclusionData,
       ...(!invoice && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right text-base font-bold">
             {invoice ? "تعديل الفاتورة" : "إضافة فاتورة شراء"}
@@ -206,13 +297,20 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
+          {/* Supplier exclusion warning */}
+          {supplierExcluded && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <p className="text-xs text-amber-700">هذا المورد مستثنى افتراضيًا من صافي المشتريات. يمكنك تجاوز الاستثناء باختيار "محتسبة يدويًا".</p>
+            </div>
+          )}
+
           {/* Date */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">تاريخ الفاتورة</Label>
               <Input type="date" value={form.invoice_date} onChange={(e) => set("invoice_date", e.target.value)} className="h-8 text-sm" />
             </div>
-            {/* Entered By */}
             {form.branch && (
               <div className="space-y-1">
                 <Label className="text-xs">مدخل الفاتورة</Label>
@@ -244,6 +342,123 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
+          {/* ===== قسم التصنيف والحسابات ===== */}
+          <div className="border rounded-lg p-3 bg-slate-50/50 space-y-3">
+            <p className="text-sm font-bold text-slate-700 border-b pb-1.5">التصنيف والحسابات</p>
+
+            {/* تصنيف الفاتورة */}
+            <div className="space-y-1">
+              <Label className="text-xs">
+                تصنيف الفاتورة {!invoice && "*"}
+                {invoice && !form.purchase_category && (
+                  <span className="text-amber-600 mr-1">(غير مصنفة — يرجى التصنيف)</span>
+                )}
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("purchase_category", "medicines")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "medicines" ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-300 hover:border-teal-400"}`}
+                >
+                  💊 أدوية
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("purchase_category", "supplies_accessories")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "supplies_accessories" ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"}`}
+                >
+                  📦 مستلزمات وإكسسوار
+                </button>
+              </div>
+            </div>
+
+            {/* نوع العملية */}
+            <div className="space-y-1">
+              <Label className="text-xs">نوع العملية</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("transaction_type", "external_purchase")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.transaction_type === "external_purchase" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+                >
+                  🏪 شراء من مورد خارجي
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("transaction_type", "internal_transfer")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.transaction_type === "internal_transfer" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-300 hover:border-purple-400"}`}
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" /> تحويل داخلي
+                </button>
+              </div>
+            </div>
+
+            {/* التحويل الداخلي — فروع */}
+            {isInternalTransfer && (
+              <div className="grid grid-cols-2 gap-2 bg-purple-50/50 p-2 rounded-md">
+                <div className="space-y-1">
+                  <Label className="text-xs">الفرع المصدر *</Label>
+                  <Select value={form.source_branch} onValueChange={(v) => set("source_branch", v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر الفرع المصدر" /></SelectTrigger>
+                    <SelectContent>
+                      {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">الفرع المستلم *</Label>
+                  <Select value={form.destination_branch} onValueChange={(v) => set("destination_branch", v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر الفرع المستلم" /></SelectTrigger>
+                    <SelectContent>
+                      {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.source_branch && form.destination_branch && form.source_branch === form.destination_branch && (
+                  <p className="col-span-2 text-xs text-red-500">⚠️ لا يمكن أن يكون الفرع المصدر هو نفسه الفرع المستلم</p>
+                )}
+              </div>
+            )}
+
+            {/* طريقة احتساب الصافي */}
+            <div className="space-y-1">
+              <Label className="text-xs">طريقة احتساب الفاتورة في صافي المشتريات</Label>
+              <Select value={form.net_purchase_mode} onValueChange={(v) => set("net_purchase_mode", v)}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inherit">اتباع إعداد المورد</SelectItem>
+                  <SelectItem value="include">محتسبة يدويًا</SelectItem>
+                  <SelectItem value="exclude">مستثناة يدويًا</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* سبب الاستثناء */}
+            {isExcluded && (
+              <div className="space-y-2 bg-red-50/50 p-2 rounded-md">
+                <div className="space-y-1">
+                  <Label className="text-xs">سبب الاستثناء *</Label>
+                  <Select value={form.exclusion_reason} onValueChange={(v) => set("exclusion_reason", v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر السبب" /></SelectTrigger>
+                    <SelectContent>
+                      {EXCLUSION_REASONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ملاحظات الاستثناء {isOtherReason && "*"}</Label>
+                  <Textarea
+                    value={form.exclusion_note}
+                    onChange={(e) => set("exclusion_note", e.target.value)}
+                    rows={2}
+                    placeholder={isOtherReason ? "اكتب تفاصيل سبب الاستثناء..." : "ملاحظات إضافية (اختياري)"}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Payment & Status */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
@@ -253,6 +468,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                 <SelectContent>
                   <SelectItem value="كاش">💵 كاش</SelectItem>
                   <SelectItem value="آجل">📋 آجل</SelectItem>
+                  <SelectItem value="مختلط">🔀 مختلط</SelectItem>
                   <SelectItem value="انستا">📱 انستا</SelectItem>
                   <SelectItem value="فودافون">📱 فودافون</SelectItem>
                 </SelectContent>
@@ -270,6 +486,27 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               </Select>
             </div>
           </div>
+
+          {/* مبلغ الكاش للفواتير المختلطة */}
+          {isMixed && (
+            <div className="grid grid-cols-2 gap-2 bg-emerald-50/50 p-2 rounded-md">
+              <div className="space-y-1">
+                <Label className="text-xs">المبلغ المدفوع كاش *</Label>
+                <Input type="number" step="0.01" min="0" value={form.cash_amount} onChange={(e) => set("cash_amount", e.target.value)} placeholder="0.00" className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">المبلغ الآجل (متبقي)</Label>
+                <div className="h-8 px-3 rounded-md border bg-gray-50 text-sm font-semibold text-gray-700 flex items-center">
+                  {(() => {
+                    const total = parseFloat(form.total_value) || 0;
+                    const ret = parseFloat(form.returned_value) || 0;
+                    const cash = parseFloat(form.cash_amount) || 0;
+                    return Math.max(total - ret - cash, 0).toFixed(2);
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label className="text-xs">ملاحظات</Label>

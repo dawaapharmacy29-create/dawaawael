@@ -2,10 +2,16 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight, ArrowRightLeft, Ban } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_COLORS,
+  TRANSACTION_TYPE_LABELS,
+  TRANSACTION_TYPE_COLORS,
+} from "@/lib/purchaseCalculations";
 
 const PAGE_SIZE = 50;
 
@@ -18,6 +24,7 @@ const statusIcon = { "انتظار المراجعة": "⏳", "يتم الحفظ"
 const paymentColor = {
   "كاش": "bg-emerald-100 text-emerald-800",
   "آجل": "bg-orange-100 text-orange-800",
+  "مختلط": "bg-teal-100 text-teal-800",
   "انستا": "bg-pink-100 text-pink-800",
   "فودافون": "bg-red-100 text-red-800",
 };
@@ -66,6 +73,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               <TableHead className="text-right">المورد</TableHead>
               <TableHead className="text-right">التاريخ</TableHead>
               <TableHead className="text-right">الفرع</TableHead>
+              <TableHead className="text-right">التصنيف</TableHead>
               <TableHead className="text-right">القيمة</TableHead>
               <TableHead className="text-right">المرتجع</TableHead>
               <TableHead className="text-right">المتبقي</TableHead>
@@ -99,6 +107,23 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                   </TableCell>
                   <TableCell>
                     {inv.branch ? <Badge className={`${branchColor[inv.branch]} border-0 text-xs`}>{inv.branch}</Badge> : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge className={`${CATEGORY_COLORS[inv.purchase_category || "unclassified"]} border-0 text-xs`}>
+                        {CATEGORY_LABELS[inv.purchase_category || "unclassified"]}
+                      </Badge>
+                      {(inv.transaction_type || "external_purchase") === "internal_transfer" && (
+                        <Badge className="bg-purple-100 text-purple-800 border-0 text-xs gap-0.5" title={TRANSACTION_TYPE_LABELS[inv.transaction_type]}>
+                          <ArrowRightLeft className="w-2.5 h-2.5" /> تحويل
+                        </Badge>
+                      )}
+                      {inv.net_purchase_mode === "exclude" && (
+                        <Badge className="bg-red-100 text-red-800 border-0 text-xs gap-0.5" title="مستثناة من الصافي">
+                          <Ban className="w-2.5 h-2.5" /> مستثناة
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-semibold">{(inv.total_value || 0).toLocaleString("ar-EG")}</TableCell>
                   <TableCell className="text-red-600">{inv.returned_value ? inv.returned_value.toLocaleString("ar-EG") : "—"}</TableCell>
@@ -159,6 +184,19 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {inv.branch && <Badge className={`${branchColor[inv.branch]} border-0 text-xs`}>{inv.branch}</Badge>}
+                <Badge className={`${CATEGORY_COLORS[inv.purchase_category || "unclassified"]} border-0 text-xs`}>
+                  {CATEGORY_LABELS[inv.purchase_category || "unclassified"]}
+                </Badge>
+                {(inv.transaction_type || "external_purchase") === "internal_transfer" && (
+                  <Badge className="bg-purple-100 text-purple-800 border-0 text-xs gap-0.5">
+                    <ArrowRightLeft className="w-2.5 h-2.5" /> تحويل
+                  </Badge>
+                )}
+                {inv.net_purchase_mode === "exclude" && (
+                  <Badge className="bg-red-100 text-red-800 border-0 text-xs gap-0.5">
+                    <Ban className="w-2.5 h-2.5" /> مستثناة
+                  </Badge>
+                )}
                 <Badge className={`${paymentColor[inv.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs`}>{inv.payment_type}</Badge>
                 <Badge className={`${statusColor[inv.status]} border-0 text-xs`}>{statusIcon[inv.status]} {inv.status}</Badge>
               </div>
