@@ -110,7 +110,7 @@ export default function AppLayout() {
 
       {/* Mobile Nav Sheet */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-72 p-0" dir="rtl">
+        <SheetContent side="right" className="w-72 p-0 data-[state=open]:duration-150 data-[state=closed]:duration-150" dir="rtl">
           <div className="p-4 border-b bg-teal-600">
             <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
             <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
