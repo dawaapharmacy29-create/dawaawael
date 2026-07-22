@@ -1,11 +1,12 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, X, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
 import SmartAlerts from "@/components/layout/SmartAlerts";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
@@ -102,62 +103,64 @@ export default function AppLayout() {
       <div className="md:hidden fixed top-0 right-0 left-0 z-[60] bg-teal-600 flex items-center justify-between px-4 py-3">
         <p className="text-teal-100 text-sm">مشتريات</p>
         <h1 className="text-white font-bold">صيدليات دواء</h1>
-        <button onClick={() => setOpen(!open)} className="text-white p-1 -m-1">
-          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <button onClick={() => setOpen(true)} className="text-white p-2 -m-2 active:bg-teal-500 rounded-lg">
+          <Menu className="w-6 h-6" />
         </button>
       </div>
 
-      {/* Mobile Nav */}
-      {open && (
-        <div className="md:hidden fixed top-14 left-0 right-0 bottom-0 z-50 bg-black/30" onClick={() => setOpen(false)}>
-          <div className="absolute top-0 right-0 w-56 bg-white h-full shadow-xl p-3" onClick={(e) => e.stopPropagation()}>
-            <nav className="space-y-1 mt-2">
-              {visibleNavItems.map((item) => {
-                const pathOnly = item.path.split("?")[0];
-                const isActive = location.pathname === pathOnly && (item.path === pathOnly || location.search === `?${item.path.split("?")[1] || ""}`);
-                return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
-                    item.indent ? "px-2 py-2 mr-3" : "px-3 py-2.5",
-                    item.gold
-                      ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
-                      : item.pink
-                      ? "bg-pink-50 text-pink-700 border border-pink-200"
-                      : item.dark
-                        ? "bg-gray-900 text-white border border-gray-700"
-                        : item.teal
-                        ? "bg-teal-600 text-white border border-teal-700"
-                        : item.cyan
-                        ? "bg-cyan-600 text-white border border-cyan-700"
-                        : item.violet
-                         ? "bg-violet-600 text-white border border-violet-700"
-                         : item.emerald
-                         ? "bg-emerald-600 text-white border border-emerald-700"
-                         : item.purple
-                         ? "bg-purple-600 text-white border border-purple-700"
-                         : isActive
-                         ? "bg-teal-50 text-teal-700"
-                         : item.indent
-                         ? "text-gray-500 hover:bg-gray-100 text-xs"
-                         : "text-gray-600 hover:bg-gray-100"
-                        )}
-                        >
-                        <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
-                  <span className="flex-1">{item.label}</span>
-                  {item.badge && pendingCount > 0 && (
-                    <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
-                  )}
-                </Link>
-                );
-              })}
-            </nav>
+      {/* Mobile Nav Sheet */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-72 p-0" dir="rtl">
+          <div className="p-4 border-b bg-teal-600">
+            <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
+            <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
           </div>
-        </div>
-      )}
+          <nav className="flex-1 overflow-y-auto p-3 space-y-1 h-[calc(100vh-64px)]">
+            {visibleNavItems.map((item) => {
+              const pathOnly = item.path.split("?")[0];
+              const isActive = location.pathname === pathOnly && (item.path === pathOnly || location.search === `?${item.path.split("?")[1] || ""}`);
+              return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                  item.indent ? "px-2 py-2 mr-3" : "px-3 py-2.5",
+                  item.gold
+                    ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
+                    : item.pink
+                    ? "bg-pink-50 text-pink-700 border border-pink-200"
+                    : item.dark
+                      ? "bg-gray-900 text-white border border-gray-700"
+                      : item.teal
+                      ? "bg-teal-600 text-white border border-teal-700"
+                      : item.cyan
+                      ? "bg-cyan-600 text-white border border-cyan-700"
+                      : item.violet
+                       ? "bg-violet-600 text-white border border-violet-700"
+                       : item.emerald
+                       ? "bg-emerald-600 text-white border border-emerald-700"
+                       : item.purple
+                       ? "bg-purple-600 text-white border border-purple-700"
+                       : isActive
+                       ? "bg-teal-50 text-teal-700"
+                       : item.indent
+                       ? "text-gray-500 hover:bg-gray-100 text-xs"
+                       : "text-gray-600 hover:bg-gray-100"
+                      )}
+                      >
+                      <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
+                <span className="flex-1">{item.label}</span>
+                {item.badge && pendingCount > 0 && (
+                  <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                )}
+              </Link>
+              );
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content */}
       <main className="flex-1 md:overflow-auto pt-14 md:pt-0 flex flex-col">
