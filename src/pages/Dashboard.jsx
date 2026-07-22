@@ -10,6 +10,7 @@ import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
 import PurchaseAnalyticsCard from "@/components/dashboard/PurchaseAnalyticsCard";
+import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -112,13 +113,15 @@ export default function Dashboard() {
     return d && d >= monthStart && d <= monthEnd;
   });
 
-  const totalInvoiceValue = monthInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalInvoiceValue = monthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalExpenses = monthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const totalPayments = totalInvoiceValue + totalExpenses;
   const targetAmount = currentTarget?.target_amount || 0;
   const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة").length;
-  const totalCashPurchases = monthInvoices.filter((i) => i.payment_type === "كاش").reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalCashPurchases = monthInvoices
+    .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
+    .reduce((s, i) => s + getInvoiceCashAmount(i), 0);
 
   const stats = [
     { label: "إجمالي الفواتير", value: invoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
@@ -207,11 +210,11 @@ export default function Dashboard() {
       <LowStockAlert />
 
       {/* Budget Alerts */}
-      <BudgetAlert invoices={monthInvoices} expenses={monthExpenses} budgets={budgets} />
+      <BudgetAlert invoices={monthInvoices} expenses={monthExpenses} budgets={budgets} suppliers={suppliers} />
 
       {/* Branch Budget */}
       <div>
-        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} startDate={monthStart} endDate={monthEnd} />
+        <BranchBudgetCard invoices={monthInvoices} budgets={budgets} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
       </div>
 
       {/* Branches Summary */}
@@ -222,7 +225,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {BRANCHES.map((branch) => {
             const branchInvoices = monthInvoices.filter((i) => i.branch === branch);
-            const branchTotal = branchInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+            const branchNetInvoices = branchInvoices.filter((i) => !isInvoiceExcluded(i, suppliers).excluded);
+            const branchTotal = branchNetInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
             const branchPaid = branchInvoices.reduce((s, i) => s + (i.paid_value || 0), 0);
             const branchExpenses = monthExpenses.filter((e) => e.branch === branch);
             const branchExpTotal = branchExpenses.reduce((s, e) => s + (e.amount || 0), 0);
@@ -231,11 +235,11 @@ export default function Dashboard() {
                 <h3 className="font-bold text-base mb-3">{branch}</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span>عدد الفواتير</span>
-                    <span className="font-semibold">{branchInvoices.length}</span>
+                    <span>عدد الفواتير (صافي)</span>
+                    <span className="font-semibold">{branchNetInvoices.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>قيمة المشتريات</span>
+                    <span>صافي المشتريات</span>
                     <span className="font-semibold">{branchTotal.toLocaleString("ar-EG")} ج</span>
                   </div>
                   <div className="flex justify-between">

@@ -8,6 +8,7 @@ import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicato
 import { useUserRole } from "@/lib/useUserRole";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -16,7 +17,7 @@ const branchColor = {
   "دواء الشامي": { bar: "bg-purple-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
 };
 
-export default function BranchBudgetCard({ invoices, budgets, startDate, endDate }) {
+export default function BranchBudgetCard({ invoices, budgets, suppliers = [], startDate, endDate }) {
   const { canSetBudget } = useUserRole();
   const [editOpen, setEditOpen] = useState(false);
   const [limits, setLimits] = useState({});
@@ -66,7 +67,7 @@ export default function BranchBudgetCard({ invoices, budgets, startDate, endDate
           const c = branchColor[branch];
           const budget = budgets.find((b) => b.branch === branch);
           const limit = budget?.budget_limit || 0;
-          const spent = invoices.filter((i) => i.branch === branch).reduce((s, i) => s + (i.total_value || 0), 0);
+          const spent = invoices.filter((i) => i.branch === branch).reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
           const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
           const remaining = limit - spent;
           const isOver = spent > limit && limit > 0;

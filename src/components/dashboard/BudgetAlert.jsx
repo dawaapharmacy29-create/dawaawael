@@ -1,15 +1,16 @@
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, Bell } from "lucide-react";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
-export default function BudgetAlert({ invoices, expenses, budgets }) {
+export default function BudgetAlert({ invoices, expenses, budgets, suppliers = [] }) {
   const alerts = BRANCHES.map((branch) => {
     const budget = budgets.find((b) => b.branch === branch);
     if (!budget) return null;
     const spent = invoices
       .filter((i) => i.branch === branch)
-      .reduce((s, i) => s + (i.total_value || 0), 0);
+      .reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
     const pct = budget.budget_limit > 0 ? (spent / budget.budget_limit) * 100 : 0;
     if (pct < 80) return null;
     return { branch, spent, limit: budget.budget_limit, pct: Math.round(pct) };
