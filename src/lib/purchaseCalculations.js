@@ -51,6 +51,38 @@ export const SUPPLIER_TYPE_LABELS = {
   internal_branch: "فرع داخلي",
 };
 
+export const SUPPLIER_DEFAULT_CATEGORY_OPTIONS = [
+  { value: "none", label: "بدون تصنيف افتراضي" },
+  { value: "medicines", label: "أدوية" },
+  { value: "supplies_accessories", label: "مستلزمات وإكسسوار" },
+];
+
+export const CATEGORY_SOURCE_LABELS = {
+  supplier_default: "تصنيف المورد",
+  manual: "تعديل يدوي",
+  bulk_update: "تعديل جماعي",
+  legacy_backfill: "تصحيح بيانات قديمة",
+};
+
+export const CATEGORY_SOURCE_COLORS = {
+  supplier_default: "bg-teal-100 text-teal-800",
+  manual: "bg-amber-100 text-amber-800",
+  bulk_update: "bg-purple-100 text-purple-800",
+  legacy_backfill: "bg-blue-100 text-blue-800",
+};
+
+export const TRANSACTION_TYPE_SOURCE_LABELS = {
+  manual: "يدوي",
+  supplier_auto: "تلقائي من المورد",
+  legacy_backfill: "تصحيح بيانات قديمة",
+};
+
+export const TRANSACTION_TYPE_SOURCE_COLORS = {
+  manual: "bg-amber-100 text-amber-800",
+  supplier_auto: "bg-teal-100 text-teal-800",
+  legacy_backfill: "bg-blue-100 text-blue-800",
+};
+
 export function getExclusionReasonLabel(reason) {
   const found = EXCLUSION_REASONS.find((r) => r.value === reason);
   return found ? found.label : reason || "—";
@@ -89,8 +121,9 @@ export function isInvoiceExcluded(invoice, suppliers = []) {
     return { excluded: false, reason: null, source: "manual_include" };
   }
 
-  // وضع inherit — يتبع إعداد المورد
-  const supplier = suppliers.find((s) => s.name === invoice.supplier_name);
+  // وضع inherit — يتبع إعداد المورد (يفضل الربط بـ supplier_id، ويرجع للاسم كبديل)
+  const supplier = (invoice.supplier_id && suppliers.find((s) => s.id === invoice.supplier_id))
+    || suppliers.find((s) => s.name === invoice.supplier_name);
   if (supplier?.exclude_from_net_purchases) {
     return {
       excluded: true,
@@ -258,7 +291,8 @@ export function calculatePurchaseSummary(invoices, suppliers = [], filters = {})
   const supplierNames = [...new Set(filtered.map((inv) => inv.supplier_name).filter(Boolean))];
   const supplier_breakdown = supplierNames.map((name) => {
     const sd = invoiceData.filter((d) => d.invoice.supplier_name === name);
-    const supplierInfo = suppliers.find((s) => s.name === name);
+    const supplierInfo = suppliers.find((s) => s.id === sd[0]?.invoice.supplier_id)
+      || suppliers.find((s) => s.name === name);
     return {
       supplier_name: name,
       supplier_type: supplierInfo?.supplier_type || "external_supplier",
