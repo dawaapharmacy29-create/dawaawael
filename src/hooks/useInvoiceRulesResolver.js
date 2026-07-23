@@ -29,15 +29,6 @@ export function useInvoiceRulesResolver({
     // requestId لمنع Race Condition: فقط أحدث طلب يطبّق نتيجته
     const currentRequestId = ++requestIdRef.current;
 
-    // TEMP DEBUG: أضف console.log مؤقت للتشخيص
-    console.log("[RULES_RESOLVER_START]", {
-      supplierId,
-      branch,
-      categorySource,
-      currentCategory,
-      requestId: currentRequestId,
-    });
-
     setIsLoading(true);
 
     base44.functions
@@ -50,16 +41,6 @@ export function useInvoiceRulesResolver({
         preserve_manual_override: true,
       })
       .then((res) => {
-        // TEMP DEBUG
-        console.log("[RULES_RESOLVER_RESPONSE]", {
-          requestId: currentRequestId,
-          latestRequestId: requestIdRef.current,
-          isLatest: currentRequestId === requestIdRef.current,
-          resType: typeof res,
-          resKeys: res ? Object.keys(res) : [],
-          rawRes: res,
-        });
-
         // Normalize: استخرج كائن النتيجة بغض النظر عن مستوى التغليف
         let result = null;
         if (res && res.resolved_purchase_category !== undefined) {
@@ -72,7 +53,6 @@ export function useInvoiceRulesResolver({
 
         // فقط أحدث طلب يطبّق نتيجته
         if (currentRequestId !== requestIdRef.current) {
-          console.log("[RULES_RESOLVER_STALE]", { requestId: currentRequestId, latest: requestIdRef.current });
           return;
         }
 
@@ -80,7 +60,7 @@ export function useInvoiceRulesResolver({
         setIsLoading(false);
       })
       .catch((err) => {
-        console.log("[RULES_RESOLVER_ERROR]", { requestId: currentRequestId, error: err?.message || err });
+        console.error("[InvoiceRulesResolver]", err?.message || err);
         if (currentRequestId === requestIdRef.current) {
           setResolution(null);
           setIsLoading(false);
