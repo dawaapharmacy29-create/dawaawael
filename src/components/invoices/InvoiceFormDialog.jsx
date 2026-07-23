@@ -155,25 +155,55 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
 
   // تطبيق نتيجة القواعد على الفورم (مع الحفاظ على الاستثناء اليدوي)
   useEffect(() => {
-    if (!resolution || !form.supplier_id || !form.branch) return;
+    // TEMP DEBUG
+    console.log("[FORM_RULES_EFFECT] firing", {
+      hasResolution: !!resolution,
+      resolution,
+      supplierId: form.supplier_id,
+      branch: form.branch,
+      currentCat: form.purchase_category,
+      currentSrc: form.purchase_category_source,
+    });
+
+    if (!resolution || !form.supplier_id || !form.branch) {
+      console.log("[FORM_RULES_EFFECT] early return", {
+        noResolution: !resolution,
+        noSupplier: !form.supplier_id,
+        noBranch: !form.branch,
+      });
+      return;
+    }
 
     // إذا كان الاستثناء يدويًا محفوظًا، لا نغير التصنيف
     const isManualOverride = form.purchase_category_source === "manual";
+
+    // TEMP DEBUG
+    console.log("[FORM_RULES_EFFECT] applying", {
+      isManualOverride,
+      resolvedCat: resolution.resolved_purchase_category,
+      resolvedSrc: resolution.resolved_purchase_category_source,
+      resolvedTxn: resolution.resolved_transaction_type,
+      sourceBranch: resolution.source_branch,
+      destBranch: resolution.destination_branch,
+    });
 
     if (!isManualOverride) {
       // تطبيق التصنيف التلقائي من المورد
       if (resolution.resolved_purchase_category && resolution.resolved_purchase_category !== "unclassified") {
         if (form.purchase_category !== resolution.resolved_purchase_category) {
+          console.log("[FORM_RULES_EFFECT] setting purchase_category", resolution.resolved_purchase_category);
           set("purchase_category", resolution.resolved_purchase_category);
         }
       }
       if (resolution.resolved_purchase_category_source && form.purchase_category_source !== resolution.resolved_purchase_category_source) {
+        console.log("[FORM_RULES_EFFECT] setting purchase_category_source", resolution.resolved_purchase_category_source);
         set("purchase_category_source", resolution.resolved_purchase_category_source);
       }
     }
 
     // تطبيق نوع العملية (تحويل داخلي / شراء خارجي)
     if (resolution.resolved_transaction_type && form.transaction_type !== resolution.resolved_transaction_type) {
+      console.log("[FORM_RULES_EFFECT] setting transaction_type", resolution.resolved_transaction_type);
       set("transaction_type", resolution.resolved_transaction_type);
     }
     if (resolution.source_branch !== undefined && form.source_branch !== resolution.source_branch) {
@@ -214,6 +244,10 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     e.preventDefault();
     if (!form.branch) {
       setDupError("يجب اختيار الفرع");
+      return;
+    }
+    if (!form.payment_type) {
+      setDupError("يجب اختيار طريقة الدفع");
       return;
     }
     // التحقق من التصنيف للفواتير الجديدة

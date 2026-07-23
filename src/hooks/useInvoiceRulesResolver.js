@@ -18,7 +18,7 @@ export function useInvoiceRulesResolver({
 }) {
   const [resolution, setResolution] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const lastAppliedKey = useRef("");
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || !supplierId || !branch) {
@@ -26,11 +26,17 @@ export function useInvoiceRulesResolver({
       return;
     }
 
-    let cancelled = false;
-    const requestKey = `${supplierId}|${branch}|${categorySource || ""}|${currentCategory || ""}`;
-    // منع التكرار إذا لم تتغير القيم المفتاحية
-    if (requestKey === lastAppliedKey.current) return;
-    lastAppliedKey.current = requestKey;
+    // requestId لمنع Race Condition: فقط أحدث طلب يطبّق نتيجته
+    const currentRequestId = ++requestIdRef.current;
+
+    // TEMP DEBUG: أضف console.log مؤقت للتشخيص
+    console.log("[RULES_RESOLVER_START]", {
+      supplierId,
+      branch,
+      categorySource,
+      currentCategory,
+      requestId: currentRequestId,
+    });
 
     setIsLoading(true);
 
@@ -44,21 +50,42 @@ export function useInvoiceRulesResolver({
         preserve_manual_override: true,
       })
       .then((res) => {
-        if (!cancelled) {
-          setResolution(res);
-          setIsLoading(false);
+        // TEMP DEBUG
+        console.log("[RULES_RESOLVER_RESPONSE]", {
+          requestId: currentRequestId,
+          latestRequestId: requestIdRef.current,
+          isLatest: currentRequestId === requestIdRef.current,
+          resType: typeof res,
+          resKeys: res ? Object.keys(res) : [],
+          rawRes: res,
+        });
+
+        // Normalize: استخرج كائن النتيجة بغض النظر عن مستوى التغليف
+        let result = null;
+        if (res && res.resolved_purchase_category !== undefined) {
+          result = res;
+        } else if (res?.data?.resolved_purchase_category !== undefined) {
+          result = res.data;
+        } else if (res?.data?.data?.resolved_purchase_category !== undefined) {
+          result = res.data.data;
         }
+
+        // فقط أحدث طلب يطبّق نتيجته
+        if (currentRequestId !== requestIdRef.current) {
+          console.log("[RULES_RESOLVER_STALE]", { requestId: currentRequestId, latest: requestIdRef.current });
+          return;
+        }
+
+        setResolution(result);
+        setIsLoading(false);
       })
-      .catch(() => {
-        if (!cancelled) {
+      .catch((err) => {
+        console.log("[RULES_RESOLVER_ERROR]", { requestId: currentRequestId, error: err?.message || err });
+        if (currentRequestId === requestIdRef.current) {
           setResolution(null);
           setIsLoading(false);
         }
       });
-
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId, branch, categorySource, currentCategory, enabled]);
 
