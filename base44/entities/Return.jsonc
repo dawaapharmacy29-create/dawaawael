@@ -182,9 +182,7 @@
           }
         },
         {
-          "record_condition": {
-            "created_by": "{{user.email}}"
-          }
+          "created_by_id": "{{user.id}}"
         }
       ]
     },
