@@ -6,6 +6,10 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      return Response.json({ error: 'Forbidden: requires admin or manager role' }, { status: 403 });
+    }
+
     const { branch, products } = await req.json();
     if (!branch || !products?.length) return Response.json({ error: 'branch and products required' }, { status: 400 });
 
@@ -46,6 +50,20 @@ Deno.serve(async (req) => {
       }));
       await base44.asServiceRole.entities.InventoryProduct.bulkCreate(chunk);
       inserted += chunk.length;
+    }
+
+    try {
+      await base44.asServiceRole.entities.ActivityLog.create({
+        action_type: 'create',
+        entity_type: 'supplier',
+        entity_id: branch,
+        entity_label: `مخزون فرع ${branch}`,
+        user_email: user.email || '',
+        user_name: user.full_name || '',
+        details: `تحديث مخزون فرع ${branch}: حذف ${allIds.length} صنف، إضافة ${inserted} صنف جديد`,
+      });
+    } catch (e) {
+      // silent fail for logging
     }
 
     return Response.json({ deleted: allIds.length, inserted });
