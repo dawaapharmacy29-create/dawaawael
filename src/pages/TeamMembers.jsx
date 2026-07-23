@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { logActivity } from "@/lib/activityLogger";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const branchColor = {
@@ -43,7 +44,17 @@ export default function TeamMembers() {
   });
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.TeamMember.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["team-members"] }),
+    onSuccess: (_data, id) => {
+      const member = members.find(m => m.id === id);
+      logActivity({
+        action_type: "delete",
+        entity_type: "supplier",
+        entity_id: id,
+        entity_label: member ? `عضو فريق: ${member.name}` : id,
+        details: "حذف عضو من فريق العمل",
+      });
+      qc.invalidateQueries({ queryKey: ["team-members"] });
+    },
   });
 
   const openAdd = () => { setEditingMember(null); setForm(emptyForm); setDialogOpen(true); };

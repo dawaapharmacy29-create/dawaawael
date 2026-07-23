@@ -13,6 +13,7 @@ import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import PharmacyOrderFormDialog from "@/components/orders/PharmacyOrderFormDialog";
 import PharmacyOrderDetailDialog from "@/components/orders/PharmacyOrderDetailDialog";
+import { logActivity } from "@/lib/activityLogger";
 
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -76,7 +77,17 @@ export default function PharmacyOrders() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.PharmacyOrder.delete(id),
-    onSuccess: () => qc.invalidateQueries(["pharmacy-orders"]),
+    onSuccess: (_data, id) => {
+      const order = orders.find(o => o.id === id);
+      logActivity({
+        action_type: "delete",
+        entity_type: "invoice",
+        entity_id: id,
+        entity_label: order ? `طلب صيدلية: ${order.customer_name} - ${order.product_name}` : id,
+        details: "حذف طلب صيدلية",
+      });
+      qc.invalidateQueries(["pharmacy-orders"]);
+    },
   });
 
   const userBranch = user?.branch;

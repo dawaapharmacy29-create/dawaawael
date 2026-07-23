@@ -7,6 +7,9 @@ import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
 import { CheckCircle, XCircle, Clock, Send, RotateCcw, Loader2, ZoomIn, MessageSquare, Trash2, Edit2, PauseCircle, Save, Printer } from "lucide-react";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
+import { logActivity } from "@/lib/activityLogger";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 const STATUS_CONFIG = {
   Pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -39,6 +42,13 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
   const handleDelete = async () => {
     setDeleting(true);
     await base44.entities.Return.delete(returnData.id);
+    await logActivity({
+      action_type: "delete",
+      entity_type: "invoice",
+      entity_id: returnData.id,
+      entity_label: `مرتجع: ${returnData.return_number || returnData.invoice_number}`,
+      details: `حذف مرتجع رقم ${returnData.return_number || returnData.invoice_number}`,
+    });
     setDeleting(false);
     onOpenChange(false);
     onDeleted?.();
@@ -100,8 +110,8 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
 
   const handlePrint = () => {
     const STATUS_LABELS = { Pending: "في الانتظار", "Under Review": "جاري المراجعة", Approved: "معتمد", Returned: "تم التنفيذ", Rejected: "مرفوض" };
-    const itemsHtml = (returnData.items || []).map(it => `<tr><td>${it.product_name || ""}</td><td>${it.quantity || ""}</td><td>${it.item_reason || "—"}</td></tr>`).join("");
-    const historyHtml = (returnData.status_history || []).map(h => `<tr><td>${STATUS_LABELS[h.status] || h.status}</td><td>${h.changed_by || ""}</td><td>${h.changed_at ? new Date(h.changed_at).toLocaleDateString("ar-EG") : ""}</td><td>${h.note || ""}</td></tr>`).join("");
+    const itemsHtml = (returnData.items || []).map(it => `<tr><td>${esc(it.product_name)}</td><td>${it.quantity || ""}</td><td>${esc(it.item_reason) || "—"}</td></tr>`).join("");
+    const historyHtml = (returnData.status_history || []).map(h => `<tr><td>${STATUS_LABELS[h.status] || esc(h.status)}</td><td>${esc(h.changed_by)}</td><td>${h.changed_at ? new Date(h.changed_at).toLocaleDateString("ar-EG") : ""}</td><td>${esc(h.note)}</td></tr>`).join("");
     const w = window.open("", "_blank");
     w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقرير مرتجع ${returnData.return_number}</title>
     <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{color:#0d9488;font-size:18px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:8px;text-align:right;font-size:13px}th{background:#f0fdfa;color:#0d9488}
