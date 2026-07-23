@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -30,6 +30,7 @@ const navItems = [
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true },
+  { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck },
 ];

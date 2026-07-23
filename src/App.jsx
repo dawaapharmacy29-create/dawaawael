@@ -27,6 +27,7 @@ import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
 import ReplenishmentPage from './pages/ReplenishmentPage';
 import ShiftDelivery from './pages/ShiftDelivery';
 import SecurityAuditPage from './pages/SecurityAuditPage';
+import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
+        <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
