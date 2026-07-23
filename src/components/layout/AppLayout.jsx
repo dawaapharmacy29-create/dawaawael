@@ -29,7 +29,8 @@ const navItems = [
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList },
-  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: ShieldCheck },
+  { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true },
+  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck },
 ];
 
@@ -37,7 +38,7 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const { isAdmin } = useUserRole();
-  const visibleNavItems = navItems.filter(item => item.path !== "/user-management" || isAdmin);
+  const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   const { data: pendingInvoices = [] } = useQuery({
     queryKey: ["pending-invoices-count"],
