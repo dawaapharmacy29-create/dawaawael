@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,8 +16,36 @@ import {
   NET_MODE_LABELS,
   NET_MODE_COLORS,
 } from "@/lib/purchaseCalculations";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import {
+  INVOICE_STATUS_ORDER,
+  PAYMENT_STATUS_ORDER,
+  CATEGORY_ORDER,
+  TRANSACTION_ORDER,
+  NET_MODE_ORDER,
+} from "@/lib/sortUtils";
 
 const PAGE_SIZE = 50;
+
+// قائمة الأعمدة المسموح بترتيبها (Allowlist)
+const SORT_COLUMNS = [
+  { field: "system_invoice_number", label: "رقم البرنامج", type: "number" },
+  { field: "supplier_invoice_number", label: "رقم المورد", type: "text" },
+  { field: "supplier_name", label: "المورد", type: "text" },
+  { field: "invoice_date", label: "التاريخ", type: "date" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "purchase_category", label: "التصنيف", type: "status", statusMap: CATEGORY_ORDER },
+  { field: "transaction_type", label: "نوع العملية", type: "status", statusMap: TRANSACTION_ORDER },
+  { field: "net_purchase_mode", label: "حالة الصافي", type: "status", statusMap: NET_MODE_ORDER },
+  { field: "total_value", label: "القيمة", type: "currency" },
+  { field: "returned_value", label: "المرتجع", type: "number" },
+  { field: "remaining", label: "المتبقي", type: "number", getValue: (inv) => (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0) },
+  { field: "payment_type", label: "الدفع", type: "status", statusMap: PAYMENT_STATUS_ORDER },
+  { field: "status", label: "الحالة", type: "status", statusMap: INVOICE_STATUS_ORDER },
+  { field: "created_date", label: "وقت الإضافة", type: "date" },
+];
 
 const statusColor = {
   "انتظار المراجعة": "bg-yellow-100 text-yellow-800",
@@ -40,12 +68,22 @@ const branchColor = {
 export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, onView, selectedIds, onToggleSelect, onToggleAll }) {
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
   const [currentPage, setCurrentPage] = useState(1);
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData, isActive } = useTableSorting({
+    columns: SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "inv",
+  });
 
-  const totalPages = Math.max(Math.ceil(invoices.length / PAGE_SIZE), 1);
+  // إعادة الصفحة للأولى عند تغيير الترتيب
+  useEffect(() => { setCurrentPage(1); }, [sortField, sortDirection]);
+
+  // الترتيب يطبّق على كل البيانات المفلترة قبل التقسيم للصفحات
+  const sorted = useMemo(() => sortData(invoices), [invoices, sortData]);
+  const totalPages = Math.max(Math.ceil(sorted.length / PAGE_SIZE), 1);
   const safePage = Math.min(currentPage, totalPages);
   const pageData = useMemo(
-    () => invoices.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [invoices, safePage]
+    () => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sorted, safePage]
   );
 
   // Reset to page 1 when filters change drastically
@@ -64,6 +102,18 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
 
   return (
     <Card className="overflow-hidden">
+      {/* Sort controls + mobile menu */}
+      <div className="flex items-center justify-end px-4 py-1.5 border-b bg-gray-50/50">
+        <SortControls
+          columns={SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
+      </div>
+
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <Table>
@@ -72,20 +122,20 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               <TableHead className="w-10 text-center">
                 <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, pageData)} />
               </TableHead>
-              <TableHead className="text-right">رقم البرنامج</TableHead>
-              <TableHead className="text-right">رقم المورد</TableHead>
-              <TableHead className="text-right">المورد</TableHead>
-              <TableHead className="text-right">التاريخ</TableHead>
-              <TableHead className="text-right">الفرع</TableHead>
-              <TableHead className="text-right">التصنيف</TableHead>
-              <TableHead className="text-right">نوع العملية</TableHead>
+              <SortableHeader field="system_invoice_number" label="رقم البرنامج" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="supplier_invoice_number" label="رقم المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="invoice_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="purchase_category" label="التصنيف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="transaction_type" label="نوع العملية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
               <TableHead className="text-right">مسار التحويل</TableHead>
-              <TableHead className="text-right">حالة الصافي</TableHead>
-              <TableHead className="text-right">القيمة</TableHead>
-              <TableHead className="text-right">المرتجع</TableHead>
-              <TableHead className="text-right">المتبقي</TableHead>
-              <TableHead className="text-right">الدفع</TableHead>
-              <TableHead className="text-right">الحالة</TableHead>
+              <SortableHeader field="net_purchase_mode" label="حالة الصافي" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="total_value" label="القيمة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="returned_value" label="المرتجع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="remaining" label="المتبقي" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="payment_type" label="الدفع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHeader field="status" label="الحالة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
               <TableHead className="text-right">إجراءات</TableHead>
             </TableRow>
           </TableHeader>

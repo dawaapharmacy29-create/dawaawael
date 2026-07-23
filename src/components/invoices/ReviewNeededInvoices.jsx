@@ -11,6 +11,10 @@ import {
   CATEGORY_COLORS,
   TRANSACTION_TYPE_LABELS,
 } from "@/lib/purchaseCalculations";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import { CATEGORY_ORDER, TRANSACTION_ORDER } from "@/lib/sortUtils";
 import { useUserRole } from "@/lib/useUserRole";
 
 const REVIEW_REASONS = [
@@ -22,10 +26,25 @@ const REVIEW_REASONS = [
   { key: "invalid_supplier_id", label: "فاتورة بلا معرف مورد صالح", color: "bg-gray-100 text-gray-800" },
 ];
 
+const SORT_COLUMNS = [
+  { field: "system_invoice_number", label: "رقم الفاتورة", type: "number" },
+  { field: "supplier_name", label: "المورد", type: "text" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "purchase_category", label: "التصنيف", type: "status", statusMap: CATEGORY_ORDER },
+  { field: "transaction_type", label: "نوع العملية", type: "status", statusMap: TRANSACTION_ORDER },
+  { field: "total_value", label: "القيمة", type: "currency" },
+  { field: "created_date", label: "التاريخ", type: "date" },
+];
+
 export default function ReviewNeededInvoices() {
   const { canSaveInvoice } = useUserRole();
   const [search, setSearch] = useState("");
   const [activeReason, setActiveReason] = useState("all");
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "rev",
+  });
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -93,7 +112,7 @@ export default function ReviewNeededInvoices() {
       .filter((inv) => inv.reviewReasons.length > 0);
   }, [invoices, suppliers]);
 
-  const filtered = reviewList.filter((inv) => {
+  const filteredRaw = reviewList.filter((inv) => {
     if (activeReason !== "all" && !inv.reviewReasons.includes(activeReason)) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -102,6 +121,7 @@ export default function ReviewNeededInvoices() {
     }
     return true;
   });
+  const filtered = sortData(filteredRaw);
 
   const countByReason = (key) => reviewList.filter((inv) => inv.reviewReasons.includes(key)).length;
 
@@ -134,10 +154,20 @@ export default function ReviewNeededInvoices() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
-        <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 h-9" />
+      {/* Search + Sort */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[200px]">
+          <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+          <Input placeholder="بحث برقم الفاتورة أو المورد..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-9 h-9" />
+        </div>
+        <SortControls
+          columns={SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
       </div>
 
       {isLoading ? (
@@ -155,13 +185,13 @@ export default function ReviewNeededInvoices() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr className="text-right text-gray-500">
-                  <th className="p-3">رقم الفاتورة</th>
-                  <th className="p-3">المورد</th>
-                  <th className="p-3">الفرع</th>
-                  <th className="p-3">التصنيف</th>
-                  <th className="p-3">نوع العملية</th>
+                  <SortableHeader field="system_invoice_number" label="رقم الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                  <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                  <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                  <SortableHeader field="purchase_category" label="التصنيف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                  <SortableHeader field="transaction_type" label="نوع العملية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
                   <th className="p-3">المسار</th>
-                  <th className="p-3">القيمة</th>
+                  <SortableHeader field="total_value" label="القيمة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
                   <th className="p-3">أسباب المراجعة</th>
                 </tr>
               </thead>

@@ -54,7 +54,6 @@ export default function PurchaseInvoices() {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [sortBy, setSortBy] = useState("created_date");
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
@@ -376,10 +375,6 @@ export default function PurchaseInvoices() {
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
     return branchMatch && supplierMatch && categoryMatch && transactionMatch && netModeMatch && sourceBranchMatch && destBranchMatch && manualExceptionMatch && reviewNeededMatch && searchMatch && fromMatch && toMatch;
-  }).sort((a, b) => {
-    if (sortBy === "total_value") return (b.total_value || 0) - (a.total_value || 0);
-    if (sortBy === "system_invoice_number") return (b.system_invoice_number || "").localeCompare(a.system_invoice_number || "", "ar");
-    return new Date(b.created_date) - new Date(a.created_date);
   });
 
   const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || filterSourceBranch !== "الكل" || filterDestBranch !== "الكل" || filterManualException || filterReviewNeeded || search || dateFrom || dateTo;
@@ -477,14 +472,7 @@ export default function PurchaseInvoices() {
               تحتاج مراجعة
             </button>
           </div>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_date">الأحدث أولاً</SelectItem>
-              <SelectItem value="system_invoice_number">رقم البرنامج</SelectItem>
-              <SelectItem value="total_value">أعلى قيمة</SelectItem>
-            </SelectContent>
-          </Select>
+
           <div className="flex items-center gap-1.5 text-sm text-gray-600">
             <span className="whitespace-nowrap">من:</span><Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setActiveMonthOffset(null); }} className="h-9 flex-1" />
           </div>
@@ -589,7 +577,7 @@ export default function PurchaseInvoices() {
       )}
 
       <InvoiceTable
-        key={`${filterBranch}-${filterSupplier}-${filterCategory}-${filterTransactionType}-${filterNetMode}-${search}-${dateFrom}-${dateTo}-${sortBy}`}
+        key={`${filterBranch}-${filterSupplier}-${filterCategory}-${filterTransactionType}-${filterNetMode}-${search}-${dateFrom}-${dateTo}`}
         invoices={filtered}
         isLoading={isLoading}
         onEdit={handleEdit}
