@@ -25,7 +25,25 @@
         "role": "admin"
       }
     },
-    "read": {},
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "viewer"
+          }
+        }
+      ]
+    },
     "update": {
       "user_condition": {
         "role": "admin"
