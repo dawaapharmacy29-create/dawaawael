@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { logActivity } from "@/lib/activityLogger";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+
+const TEAM_SORT_COLUMNS = [
+  { field: "name", label: "الاسم", type: "text" },
+  { field: "role", label: "الدور", type: "text" },
+  { field: "phone", label: "الهاتف", type: "text" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const branchColor = {
@@ -32,6 +40,11 @@ export default function TeamMembers() {
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members"],
     queryFn: () => base44.entities.TeamMember.list("name"),
+  });
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: TEAM_SORT_COLUMNS,
+    defaultSort: { field: "name", direction: "asc" },
+    paramPrefix: "team",
   });
 
   const createMutation = useMutation({
@@ -77,24 +90,35 @@ export default function TeamMembers() {
     }));
   };
 
-  // Group by branch (member can appear in multiple)
-  const byBranch = BRANCHES.map((b) => ({
+  // Group by branch (member can appear in multiple) — مع الترتيب الموحد
+  const byBranch = useMemo(() => BRANCHES.map((b) => ({
     branch: b,
-    members: members.filter((m) => (m.branches || []).includes(b)),
-  }));
+    members: sortData(members.filter((m) => (m.branches || []).includes(b))),
+  })), [members, sortData]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">فريق العمل</h1>
           <p className="text-gray-500 text-sm mt-0.5">{members.length} عضو في جميع الفروع</p>
         </div>
-        {canManageTeam && (
-          <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Plus className="w-4 h-4" /> إضافة عضو
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <SortControls
+            columns={TEAM_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+            cardMode
+          />
+          {canManageTeam && (
+            <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+              <Plus className="w-4 h-4" /> إضافة عضو
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

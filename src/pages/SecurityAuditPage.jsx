@@ -7,7 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield, Search, Download, AlertTriangle, CheckCircle, XCircle, Lock } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
 import * as XLSX from "xlsx";
+
+const AUDIT_SORT_COLUMNS = [
+  { field: "created_date", label: "التاريخ", type: "date" },
+  { field: "user_name", label: "المستخدم", type: "text" },
+  { field: "action_type", label: "العملية", type: "text" },
+  { field: "entity_label", label: "الوصف", type: "text" },
+  { field: "status", label: "الحالة", type: "text" },
+];
 
 const ACTION_LABELS = {
   create: { label: "إنشاء", color: "bg-green-100 text-green-700" },
@@ -49,6 +60,13 @@ export default function SecurityAuditPage() {
       return true;
     });
   }, [logs, search, filterAction, filterStatus, filterEntityType]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: AUDIT_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "aud",
+  });
+  const sortedLogs = useMemo(() => sortData(filtered), [filtered, sortData]);
 
   const stats = useMemo(() => {
     const total = logs.length;
@@ -151,6 +169,14 @@ export default function SecurityAuditPage() {
             <SelectItem value="order">طلبات</SelectItem>
           </SelectContent>
         </Select>
+        <SortControls
+          columns={AUDIT_SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
       </div>
 
       {/* Logs Table */}
@@ -159,13 +185,13 @@ export default function SecurityAuditPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr className="text-right text-xs text-gray-500">
-                <th className="p-3 font-medium">التاريخ</th>
-                <th className="p-3 font-medium">المستخدم</th>
-                <th className="p-3 font-medium">العملية</th>
-                <th className="p-3 font-medium">الوصف</th>
+                <SortableHeader field="created_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                <SortableHeader field="user_name" label="المستخدم" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                <SortableHeader field="action_type" label="العملية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
+                <SortableHeader field="entity_label" label="الوصف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
                 <th className="p-3 font-medium">القيمة القديمة</th>
                 <th className="p-3 font-medium">القيمة الجديدة</th>
-                <th className="p-3 font-medium">الحالة</th>
+                <SortableHeader field="status" label="الحالة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="p-3" />
               </tr>
             </thead>
             <tbody>
@@ -174,7 +200,7 @@ export default function SecurityAuditPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="p-8 text-center text-gray-400">لا توجد سجلات</td></tr>
               ) : (
-                filtered.slice(0, 100).map((log) => (
+                sortedLogs.slice(0, 100).map((log) => (
                   <tr key={log.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 text-xs text-gray-500 whitespace-nowrap">
                       {log.created_date ? new Date(log.created_date).toLocaleString("ar-EG") : "—"}

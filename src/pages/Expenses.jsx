@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,20 @@ import { Plus, Pencil, Trash2, BarChart2, List } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import ExpensesReport from "@/components/expenses/ExpensesReport";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+
+const EXPENSE_SORT_COLUMNS = [
+  { field: "description", label: "الوصف", type: "text" },
+  { field: "amount", label: "المبلغ", type: "currency" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "category", label: "النوع", type: "text" },
+  { field: "date", label: "التاريخ", type: "date" },
+  { field: "payment_method", label: "الدفع", type: "text" },
+  { field: "team_member_name", label: "العضو", type: "text" },
+  { field: "created_date", label: "وقت الإضافة", type: "date" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const CATEGORIES = ["طباعة", "كهرباء", "مياه", "رواتب", "صيانة", "نت", "نثريات", "نظافة", "أخرى"];
@@ -95,7 +109,13 @@ export default function Expenses() {
     else createMutation.mutate(data);
   };
 
-  const filtered = filterBranch === "الكل" ? expenses : expenses.filter((e) => e.branch === filterBranch);
+  const filteredRaw = filterBranch === "الكل" ? expenses : expenses.filter((e) => e.branch === filterBranch);
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: EXPENSE_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "exp",
+  });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
   const total = filtered.reduce((s, e) => s + (e.amount || 0), 0);
 
   return (
@@ -137,6 +157,15 @@ export default function Expenses() {
         ))}
       </div>
 
+      <SortControls
+        columns={EXPENSE_SORT_COLUMNS}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onToggle={toggleSort}
+        onSet={setSort}
+        onReset={resetSort}
+      />
+
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="text-center py-12 text-gray-400">جاري التحميل...</div>
@@ -147,13 +176,13 @@ export default function Expenses() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
-                  <TableHead className="text-right">الوصف</TableHead>
-                  <TableHead className="text-right">المبلغ</TableHead>
-                  <TableHead className="text-right">الفرع</TableHead>
-                  <TableHead className="text-right">النوع</TableHead>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead className="text-right">الدفع</TableHead>
-                  <TableHead className="text-right">العضو</TableHead>
+                  <SortableHeader field="description" label="الوصف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="amount" label="المبلغ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="category" label="النوع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="payment_method" label="الدفع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
+                  <SortableHeader field="team_member_name" label="العضو" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
                   <TableHead className="text-right">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>

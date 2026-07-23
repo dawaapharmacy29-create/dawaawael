@@ -9,6 +9,20 @@ import { Plus, Search, Eye, RefreshCw, RotateCcw, AlertTriangle } from "lucide-r
 import { useUserRole } from "@/lib/useUserRole";
 import ReturnFormDialog from "@/components/returns/ReturnFormDialog";
 import ReturnDetailDialog from "@/components/returns/ReturnDetailDialog";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import { RETURN_STATUS_ORDER } from "@/lib/sortUtils";
+
+const RETURN_SORT_COLUMNS = [
+  { field: "return_number", label: "رقم المرتجع", type: "number" },
+  { field: "invoice_number", label: "رقم الفاتورة", type: "text" },
+  { field: "supplier_name", label: "المورد", type: "text" },
+  { field: "branch_name", label: "الفرع", type: "text" },
+  { field: "employee_name", label: "الموظف", type: "text" },
+  { field: "status", label: "الحالة", type: "status", statusMap: RETURN_STATUS_ORDER },
+  { field: "created_date", label: "التاريخ", type: "date" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -32,6 +46,11 @@ export default function Returns() {
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
   const { isManager, user } = useUserRole();
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: RETURN_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "ret",
+  });
 
   useEffect(() => {
     const unsub = base44.entities.Return.subscribe(() => {
@@ -46,7 +65,7 @@ export default function Returns() {
     staleTime: 20000,
   });
 
-  const filtered = allReturns.filter((r) => {
+  const filteredRaw = allReturns.filter((r) => {
     const statusMatch = filterStatus === "الكل" || r.status === filterStatus;
     const branchMatch = filterBranch === "الكل" || r.branch_name === filterBranch;
     const searchMatch =
@@ -57,11 +76,12 @@ export default function Returns() {
       r.employee_name?.includes(search);
     return statusMatch && branchMatch && searchMatch;
   });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [filterStatus, filterBranch, search]);
+  useEffect(() => { setPage(1); }, [filterStatus, filterBranch, search, sortField, sortDirection]);
 
   const handleView = (ret) => { setSelectedReturn(ret); setDetailOpen(true); };
 
@@ -151,7 +171,7 @@ export default function Returns() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           {["الكل", ...BRANCHES].map((b) => (
             <button
               key={b}
@@ -163,6 +183,16 @@ export default function Returns() {
               {b}
             </button>
           ))}
+          <div className="mr-auto">
+            <SortControls
+              columns={RETURN_SORT_COLUMNS}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onToggle={toggleSort}
+              onSet={setSort}
+              onReset={resetSort}
+            />
+          </div>
         </div>
       </div>
 
@@ -182,14 +212,14 @@ export default function Returns() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600">رقم المرتجع</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600">رقم الفاتورة</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600">المورد</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">الفرع</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">الموظف</th>
+                  <SortableHeader field="return_number" label="رقم المرتجع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                  <SortableHeader field="invoice_number" label="رقم الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                  <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                  <SortableHeader field="branch_name" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 hidden md:table-cell" />
+                  <SortableHeader field="employee_name" label="الموظف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 hidden md:table-cell" />
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">سبب المرتجع</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600">الحالة</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">التاريخ</th>
+                  <SortableHeader field="status" label="الحالة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                  <SortableHeader field="created_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 hidden md:table-cell" />
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>

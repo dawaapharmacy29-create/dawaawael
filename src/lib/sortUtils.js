@@ -24,6 +24,15 @@ export const CATEGORY_ORDER = { medicines: 1, supplies_accessories: 2, unclassif
 export const TRANSACTION_ORDER = { external_purchase: 1, internal_transfer: 2 };
 export const NET_MODE_ORDER = { inherit: 1, include: 2, exclude: 3 };
 export const SUPPLIER_TYPE_ORDER = { external_supplier: 1, internal_branch: 2 };
+export const RETURN_STATUS_ORDER = { Pending: 1, "Under Review": 2, Approved: 3, Returned: 4, Rejected: 5 };
+export const SUPPLIER_CATEGORY_MODE_ORDER = { none: 1, medicines: 2, supplies_accessories: 3, mixed: 4 };
+export const ORDER_STATUS_ORDER = {
+  "طلب جديد": 1, "جاري البحث": 2, "تم الطلب": 3, "النواقص": 4,
+  "تم توفير الصنف": 5, "تم توفير بديل": 6, "تم التوصيل": 7,
+  "الصنف غير متوفر حاليا": 8, "تم الإلغاء": 9,
+};
+export const PRIORITY_ORDER = { "عاجل": 1, "متوسط": 2, "عادي": 3 };
+export const USER_ROLE_ORDER = { admin: 1, manager: 2, viewer: 3 };
 
 // إزالة التشكيل وتوحيد الحروف العربية (أ/إ/آ→ا، ى→ي، ة→ه) للمقارنة فقط
 function normalizeArabic(text) {

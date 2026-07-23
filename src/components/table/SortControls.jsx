@@ -6,14 +6,15 @@ import { cn } from "@/lib/utils";
 /**
  * أدوات الترتيب: زر إلغاء الترتيب (كل الشاشات) + قائمة "ترتيب حسب" للموبايل.
  */
-export function SortControls({ columns, sortField, sortDirection, onToggle, onSet, onReset, activeLabel }) {
+export function SortControls({ columns, sortField, sortDirection, onToggle, onSet, onReset, activeLabel, cardMode = false }) {
   const isActive = sortField && sortDirection;
   const DirIcon = sortDirection === "desc" ? ArrowDown : ArrowUp;
+  const menuWrapper = cardMode ? "flex items-center gap-1.5" : "md:hidden flex items-center gap-1.5";
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {/* الموبايل: قائمة اختيار العمود */}
-      <div className="md:hidden flex items-center gap-1.5">
+      {/* قائمة اختيار العمود (موبايل دائمًا / الكل في صفحات البطاقات) */}
+      <div className={menuWrapper}>
         <Select
           value={sortField || "__default"}
           onValueChange={(v) => {

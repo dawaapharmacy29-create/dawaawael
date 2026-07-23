@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ClipboardList, Eye, XCircle } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+
+const LOG_SORT_COLUMNS = [
+  { field: "created_date", label: "التاريخ", type: "date" },
+  { field: "action_type", label: "نوع العملية", type: "text" },
+  { field: "entity_type", label: "النوع", type: "text" },
+  { field: "entity_label", label: "السجل", type: "text" },
+  { field: "user_name", label: "المستخدم", type: "text" },
+];
 
 const ACTION_LABELS = {
   create: { label: "إضافة", color: "bg-green-100 text-green-700" },
@@ -27,6 +37,11 @@ export default function ActivityLog() {
   const queryClient = useQueryClient();
   const { isManager } = useUserRole();
   const [selected, setSelected] = useState(null);
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: LOG_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "log",
+  });
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["activity-logs"],
@@ -78,14 +93,27 @@ export default function ActivityLog() {
     return [{ key: null, value: details }];
   };
 
+  const sortedLogs = useMemo(() => sortData(logs), [logs, sortData]);
+
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <ClipboardList className="w-6 h-6 text-teal-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">سجل العمليات</h1>
-          <p className="text-gray-500 text-sm mt-0.5">جميع العمليات المنفذة في النظام</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <ClipboardList className="w-6 h-6 text-teal-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">سجل العمليات</h1>
+            <p className="text-gray-500 text-sm mt-0.5">جميع العمليات المنفذة في النظام</p>
+          </div>
         </div>
+        <SortControls
+          columns={LOG_SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+          cardMode
+        />
       </div>
 
       {isLoading ? (
@@ -97,7 +125,7 @@ export default function ActivityLog() {
         <Card className="p-12 text-center text-gray-400">لا توجد عمليات مسجلة بعد</Card>
       ) : (
         <div className="space-y-2">
-          {logs.map((log) => {
+          {sortedLogs.map((log) => {
             const action = ACTION_LABELS[log.action_type] || { label: log.action_type, color: "bg-gray-100 text-gray-700" };
             const isCancelled = log.action_type === "cancelled";
             return (

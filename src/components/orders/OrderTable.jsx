@@ -1,7 +1,24 @@
 import { Loader2, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
-import { useState, useMemo } from "react";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import { ORDER_STATUS_ORDER, PRIORITY_ORDER } from "@/lib/sortUtils";
+
+const ORDER_SORT_COLUMNS = [
+  { field: "order_number", label: "رقم الطلب", type: "text" },
+  { field: "customer_name", label: "العميل", type: "text" },
+  { field: "product_name", label: "الصنف", type: "text" },
+  { field: "request_source", label: "المصدر", type: "text" },
+  { field: "priority", label: "الأولوية", type: "status", statusMap: PRIORITY_ORDER },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "assigned_employee", label: "الموظف", type: "text" },
+  { field: "request_date", label: "التاريخ", type: "date" },
+  { field: "status", label: "الحالة", type: "status", statusMap: ORDER_STATUS_ORDER },
+  { field: "created_date", label: "وقت الإضافة", type: "date" },
+];
+import { useState, useMemo, useEffect } from "react";
 
 const PAGE_SIZE = 30;
 
@@ -37,12 +54,19 @@ const SourceIcon = ({ source }) => {
 export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager }) {
   const [confirmId, setConfirmId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const total = orders.length;
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: ORDER_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "ord",
+  });
+  useEffect(() => { setCurrentPage(1); }, [sortField, sortDirection]);
+  const sorted = useMemo(() => sortData(orders), [orders, sortData]);
+  const total = sorted.length;
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
   const safePage = Math.min(currentPage, totalPages);
   const pageData = useMemo(
-    () => orders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [orders, safePage]
+    () => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sorted, safePage]
   );
 
   if (isLoading) return (
@@ -62,19 +86,29 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
     <>
       {/* Desktop Table */}
       <div className="hidden md:block bg-white rounded-xl border overflow-hidden">
+        <div className="flex items-center justify-end px-4 py-1.5 border-b bg-gray-50/50">
+          <SortControls
+            columns={ORDER_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+          />
+        </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 text-xs">
             <tr>
-              <th className="px-4 py-3 text-right font-medium">رقم الطلب</th>
-              <th className="px-4 py-3 text-right font-medium">العميل</th>
-              <th className="px-4 py-3 text-right font-medium">الصنف</th>
-              <th className="px-4 py-3 text-right font-medium">المصدر</th>
-              <th className="px-4 py-3 text-right font-medium">الأولوية</th>
-              <th className="px-4 py-3 text-right font-medium">الفرع</th>
-              <th className="px-4 py-3 text-right font-medium">الموظف</th>
-              <th className="px-4 py-3 text-right font-medium">التاريخ</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-400">وقت الإضافة</th>
-              <th className="px-4 py-3 text-right font-medium">الحالة</th>
+              <SortableHeader field="order_number" label="رقم الطلب" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="customer_name" label="العميل" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="product_name" label="الصنف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="request_source" label="المصدر" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="priority" label="الأولوية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="assigned_employee" label="الموظف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="request_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="created_date" label="وقت الإضافة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+              <SortableHeader field="status" label="الحالة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
               <th className="px-4 py-3 text-right font-medium"></th>
             </tr>
           </thead>

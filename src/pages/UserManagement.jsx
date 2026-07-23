@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,16 @@ import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
 import { logActivity } from "@/lib/activityLogger";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+import { USER_ROLE_ORDER } from "@/lib/sortUtils";
+
+const USER_SORT_COLUMNS = [
+  { field: "full_name", label: "الاسم", type: "text" },
+  { field: "email", label: "البريد", type: "text" },
+  { field: "role", label: "الدور", type: "status", statusMap: USER_ROLE_ORDER },
+  { field: "created_date", label: "تاريخ الإضافة", type: "date" },
+];
 
 const ROLE_CONFIG = {
   admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
@@ -37,6 +47,12 @@ export default function UserManagement() {
     queryKey: ["users"],
     queryFn: () => base44.entities.User.list(),
   });
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: USER_SORT_COLUMNS,
+    defaultSort: { field: "full_name", direction: "asc" },
+    paramPrefix: "usr",
+  });
+  const sortedUsers = useMemo(() => sortData(users), [users, sortData]);
 
   const updateRole = useMutation({
     mutationFn: async ({ id, role, oldRole, userEmail }) => {
@@ -101,9 +117,20 @@ export default function UserManagement() {
             <p className="text-gray-500 text-sm mt-0.5">تحديد أدوار وصلاحيات المستخدمين</p>
           </div>
         </div>
-        <Button onClick={() => setInviteDialog(true)} className="bg-teal-600 hover:bg-teal-700 gap-2">
-          <UserPlus className="w-4 h-4" /> دعوة مستخدم
-        </Button>
+        <div className="flex items-center gap-2">
+          <SortControls
+            columns={USER_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+            cardMode
+          />
+          <Button onClick={() => setInviteDialog(true)} className="bg-teal-600 hover:bg-teal-700 gap-2">
+            <UserPlus className="w-4 h-4" /> دعوة مستخدم
+          </Button>
+        </div>
       </div>
 
       {/* Roles Legend */}
@@ -125,7 +152,7 @@ export default function UserManagement() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {users.map((user) => {
+          {sortedUsers.map((user) => {
             const role = user.role || "viewer";
             const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.viewer;
             return (

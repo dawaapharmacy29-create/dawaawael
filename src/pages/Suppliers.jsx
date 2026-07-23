@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,17 @@ import { useUserRole } from "@/lib/useUserRole";
 import { fuzzyMatch } from "@/lib/fuzzySearch";
 import { SUPPLIER_TYPE_LABELS, BRANCHES, SUPPLIER_CATEGORY_MODE_LABELS, SUPPLIER_CATEGORY_MODE_COLORS, SUPPLIER_DEFAULT_CATEGORY_OPTIONS } from "@/lib/purchaseCalculations";
 import SupplierCategorySettings from "@/components/supplier/SupplierCategorySettings";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+import { SUPPLIER_TYPE_ORDER, PAYMENT_STATUS_ORDER, SUPPLIER_CATEGORY_MODE_ORDER } from "@/lib/sortUtils";
+
+const SUPPLIER_SORT_COLUMNS = [
+  { field: "name", label: "اسم المورد", type: "text" },
+  { field: "supplier_type", label: "نوع المورد", type: "status", statusMap: SUPPLIER_TYPE_ORDER },
+  { field: "default_purchase_category", label: "تصنيف المورد", type: "status", statusMap: SUPPLIER_CATEGORY_MODE_ORDER },
+  { field: "payment_type", label: "طريقة الدفع", type: "status", statusMap: PAYMENT_STATUS_ORDER },
+  { field: "created_date", label: "تاريخ الإضافة", type: "date" },
+];
 
 const emptyForm = { name: "", phone: "", address: "", payment_type: "", payment_terms_days: 30, notes: "", supplier_type: "external_supplier", linked_branch: "", exclude_from_net_purchases: false, default_purchase_category: "none" };
 
@@ -95,6 +106,12 @@ export default function Suppliers() {
     const searchMatch = !searchQuery || fuzzyMatch(searchQuery, s.name);
     return payMatch && typeMatch && searchMatch;
   });
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: SUPPLIER_SORT_COLUMNS,
+    defaultSort: { field: "name", direction: "asc" },
+    paramPrefix: "sup",
+  });
+  const sorted = useMemo(() => sortData(filtered), [filtered, sortData]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -129,6 +146,17 @@ export default function Suppliers() {
         )}
       </div>
 
+      {/* Sort controls */}
+      <SortControls
+        columns={SUPPLIER_SORT_COLUMNS}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onToggle={toggleSort}
+        onSet={setSort}
+        onReset={resetSort}
+        cardMode
+      />
+
       {/* Filter by payment type */}
       <div className="flex gap-2 flex-wrap">
         {["الكل", ...PAYMENT_TYPES].map((t) => (
@@ -155,7 +183,7 @@ export default function Suppliers() {
         <Card className="p-12 text-center text-gray-400">لا يوجد موردين بعد</Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((s) => (
+          {sorted.map((s) => (
             <Card key={s.id} className="p-4 space-y-2">
               <div className="flex items-start justify-between">
                 <div>
