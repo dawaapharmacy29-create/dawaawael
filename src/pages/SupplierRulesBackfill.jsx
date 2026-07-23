@@ -225,7 +225,7 @@ export default function SupplierRulesBackfill() {
               <AlertTriangle className="w-5 h-5" />
               <span>سيتم تطبيق التغييرات على <strong>{preview.total_will_change}</strong> فاتورة. لن تتغير أي قيم مالية أو حالات مراجعة أو حفظ.</span>
             </div>
-            <Button onClick={() => setConfirmOpen(true)} className="bg-amber-600 hover:bg-amber-700 gap-2 shrink-0">
+            <Button onClick={() => setConfirmOpen(true)} disabled={!preview.category_stats_valid} className="bg-amber-600 hover:bg-amber-700 gap-2 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
               <Shield className="w-4 h-4" /> تأكيد التطبيق
             </Button>
           </div>
