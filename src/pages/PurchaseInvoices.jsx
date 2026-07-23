@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Trash2, CheckSquare, ChevronLeft, ChevronRight, Ban, Tag } from "lucide-react";
+import { Plus, Search, Trash2, CheckSquare, ChevronLeft, ChevronRight, Ban, Tag, ArrowRightLeft, Store, Pill } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
@@ -47,6 +47,10 @@ export default function PurchaseInvoices() {
   const [filterCategory, setFilterCategory] = useState("الكل");
   const [filterTransactionType, setFilterTransactionType] = useState("الكل");
   const [filterNetMode, setFilterNetMode] = useState("الكل");
+  const [filterSourceBranch, setFilterSourceBranch] = useState("الكل");
+  const [filterDestBranch, setFilterDestBranch] = useState("الكل");
+  const [filterManualException, setFilterManualException] = useState(false);
+  const [filterReviewNeeded, setFilterReviewNeeded] = useState(false);
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -250,6 +254,91 @@ export default function PurchaseInvoices() {
     setConfirmCategory(false);
   };
 
+  // تصنيف جماعي كأدوية
+  const executeBulkMedicines = () => {
+    const batchId = `bulk-medicines-${Date.now()}`;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, purchase_category: "medicines", purchase_category_source: "bulk_update" },
+        batch_id: batchId,
+        change_type: "category_change",
+        reason: "تصنيف جماعي كأدوية",
+      });
+    });
+    setSelectedIds([]);
+  };
+
+  // تصنيف جماعي كمستلزمات
+  const executeBulkSupplies = () => {
+    const batchId = `bulk-supplies-${Date.now()}`;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, purchase_category: "supplies_accessories", purchase_category_source: "bulk_update" },
+        batch_id: batchId,
+        change_type: "category_change",
+        reason: "تصنيف جماعي كمستلزمات",
+      });
+    });
+    setSelectedIds([]);
+  };
+
+  // تطبيق إعداد المورد جماعيًا
+  const executeBulkApplySupplierDefault = () => {
+    const batchId = `bulk-supplier-default-${Date.now()}`;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (!inv) return;
+      const supplier = (inv.supplier_id && suppliers.find((s) => s.id === inv.supplier_id)) || suppliers.find((s) => s.name === inv.supplier_name);
+      const defaultCat = supplier?.default_purchase_category;
+      if (defaultCat === "medicines" || defaultCat === "supplies_accessories") {
+        updateMutation.mutate({
+          id,
+          data: { ...inv, purchase_category: defaultCat, purchase_category_source: "supplier_bulk_apply" },
+          batch_id: batchId,
+          change_type: "category_change",
+          reason: "تطبيق إعداد المورد جماعيًا",
+        });
+      }
+    });
+    setSelectedIds([]);
+  };
+
+  // تحويل جماعي لشراء خارجي
+  const executeBulkExternal = () => {
+    const batchId = `bulk-external-${Date.now()}`;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, transaction_type: "external_purchase", source_branch: "", destination_branch: "" },
+        batch_id: batchId,
+        change_type: "update",
+        reason: "تحويل جماعي لشراء خارجي",
+      });
+    });
+    setSelectedIds([]);
+  };
+
+  // إلغاء الاستبعاد جماعيًا
+  const executeBulkInclude = () => {
+    const batchId = `bulk-include-${Date.now()}`;
+    selectedIds.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv) updateMutation.mutate({
+        id,
+        data: { ...inv, net_purchase_mode: "include", exclusion_reason: "", exclusion_note: "", excluded_by: "", excluded_at: "" },
+        batch_id: batchId,
+        change_type: "exclusion_change",
+        reason: "إلغاء الاستبعاد جماعيًا",
+      });
+    });
+    setSelectedIds([]);
+  };
+
   const handleToggleSelect = (id) => {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]);
   };
@@ -272,18 +361,28 @@ export default function PurchaseInvoices() {
     const transactionMatch = filterTransactionType === "الكل" || (i.transaction_type || "external_purchase") === filterTransactionType;
     const exclusion = isInvoiceExcluded(i, suppliers);
     const netModeMatch = filterNetMode === "الكل" || (filterNetMode === "excluded" ? exclusion.excluded : !exclusion.excluded);
+    const sourceBranchMatch = filterSourceBranch === "الكل" || i.source_branch === filterSourceBranch;
+    const destBranchMatch = filterDestBranch === "الكل" || i.destination_branch === filterDestBranch;
+    const manualExceptionMatch = !filterManualException || i.purchase_category_source === "manual";
+    // review needed: source=dest, or incomplete transfer, or mixed supplier unclassified
+    const supplier = (i.supplier_id && suppliers.find((s) => s.id === i.supplier_id)) || suppliers.find((s) => s.name === i.supplier_name);
+    const reviewNeeded = (i.source_branch && i.destination_branch && i.source_branch === i.destination_branch)
+      || (i.transaction_type === "internal_transfer" && (!i.source_branch || !i.destination_branch))
+      || (supplier?.default_purchase_category === "mixed" && (!i.purchase_category || i.purchase_category === "unclassified"))
+      || (!i.supplier_id || !supplier);
+    const reviewNeededMatch = !filterReviewNeeded || reviewNeeded;
     const searchMatch = !search || i.system_invoice_number?.includes(search) || i.supplier_name?.includes(search) || i.supplier_invoice_number?.includes(search);
     const dateKey = i.invoice_date || i.created_date?.split("T")[0];
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
-    return branchMatch && supplierMatch && categoryMatch && transactionMatch && netModeMatch && searchMatch && fromMatch && toMatch;
+    return branchMatch && supplierMatch && categoryMatch && transactionMatch && netModeMatch && sourceBranchMatch && destBranchMatch && manualExceptionMatch && reviewNeededMatch && searchMatch && fromMatch && toMatch;
   }).sort((a, b) => {
     if (sortBy === "total_value") return (b.total_value || 0) - (a.total_value || 0);
     if (sortBy === "system_invoice_number") return (b.system_invoice_number || "").localeCompare(a.system_invoice_number || "", "ar");
     return new Date(b.created_date) - new Date(a.created_date);
   });
 
-  const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || search || dateFrom || dateTo;
+  const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || filterSourceBranch !== "الكل" || filterDestBranch !== "الكل" || filterManualException || filterReviewNeeded || search || dateFrom || dateTo;
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
@@ -350,6 +449,34 @@ export default function PurchaseInvoices() {
               {NET_MODE_OPTIONS.map((n) => <SelectItem key={n.value} value={n.value}>{n.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterSourceBranch} onValueChange={setFilterSourceBranch}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="الفرع المصدر" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="الكل">كل المصادر</SelectItem>
+              {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterDestBranch} onValueChange={setFilterDestBranch}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="الفرع المستلم" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="الكل">كل المستلمين</SelectItem>
+              {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              onClick={() => setFilterManualException(!filterManualException)}
+              className={`px-3 py-1.5 rounded-full font-medium border transition-colors ${filterManualException ? "bg-amber-600 text-white border-amber-600" : "bg-white text-gray-600 border-gray-200 hover:border-amber-300"}`}
+            >
+              استثناء يدوي
+            </button>
+            <button
+              onClick={() => setFilterReviewNeeded(!filterReviewNeeded)}
+              className={`px-3 py-1.5 rounded-full font-medium border transition-colors ${filterReviewNeeded ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-200 hover:border-red-300"}`}
+            >
+              تحتاج مراجعة
+            </button>
+          </div>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="h-9"><SelectValue placeholder="ترتيب حسب" /></SelectTrigger>
             <SelectContent>
@@ -365,7 +492,7 @@ export default function PurchaseInvoices() {
             <span className="whitespace-nowrap">إلى:</span><Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setActiveMonthOffset(null); }} className="h-9 flex-1" />
           </div>
           {hasFilters && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setFilterCategory("الكل"); setFilterTransactionType("الكل"); setFilterNetMode("الكل"); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap sm:col-span-2 lg:col-span-1">
+            <button onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setFilterBranch("الكل"); setFilterSupplier("الكل"); setFilterCategory("الكل"); setFilterTransactionType("الكل"); setFilterNetMode("الكل"); setFilterSourceBranch("الكل"); setFilterDestBranch("الكل"); setFilterManualException(false); setFilterReviewNeeded(false); setActiveMonthOffset(null); }} className="text-xs text-red-500 hover:underline whitespace-nowrap sm:col-span-2 lg:col-span-1">
               مسح الكل
             </button>
           )}
@@ -386,10 +513,54 @@ export default function PurchaseInvoices() {
       {selectedIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-4 py-2.5">
           <span className="text-sm font-semibold text-teal-700">تم تحديد {selectedIds.length} فاتورة</span>
-          <div className="flex gap-2 sm:mr-auto">
+          <div className="flex gap-2 sm:mr-auto flex-wrap">
             {canSaveInvoice && (
-              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={() => setConfirmSave(true)}>
-                <CheckSquare className="w-3.5 h-3.5" /> تحويل إلى "يتم الحفظ"
+              <Button size="sm" variant="outline" className="border-teal-400 text-teal-700 hover:bg-teal-50 gap-1.5" onClick={executeBulkMedicines} title="تصنيف كأدوية">
+                <Pill className="w-3.5 h-3.5" /> أدوية
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-indigo-400 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={executeBulkSupplies} title="تصنيف كمستلزمات">
+                <Tag className="w-3.5 h-3.5" /> مستلزمات
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-cyan-400 text-cyan-700 hover:bg-cyan-50 gap-1.5" onClick={executeBulkApplySupplierDefault} title="تطبيق إعداد المورد">
+                <Store className="w-3.5 h-3.5" /> إعداد المورد
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-purple-400 text-purple-700 hover:bg-purple-50 gap-1.5" onClick={() => {
+                const batchId = `bulk-internal-${Date.now()}`;
+                selectedIds.forEach((id) => {
+                  const inv = invoices.find((i) => i.id === id);
+                  if (inv) {
+                    const supplier = (inv.supplier_id && suppliers.find((s) => s.id === inv.supplier_id)) || suppliers.find((s) => s.name === inv.supplier_name);
+                    const linked = supplier?.linked_branch;
+                    if (supplier?.supplier_type === "internal_branch" && linked && linked !== inv.branch) {
+                      updateMutation.mutate({
+                        id,
+                        data: { ...inv, transaction_type: "internal_transfer", source_branch: linked, destination_branch: inv.branch, transaction_type_source: "supplier_auto" },
+                        batch_id: batchId,
+                        change_type: "update",
+                        reason: "تحويل جماعي لتحويل داخلي",
+                      });
+                    }
+                  }
+                });
+                setSelectedIds([]);
+              }} title="تحويل إلى تحويل داخلي">
+                <ArrowRightLeft className="w-3.5 h-3.5" /> تحويل داخلي
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-blue-400 text-blue-700 hover:bg-blue-50 gap-1.5" onClick={executeBulkExternal} title="تحويل إلى شراء خارجي">
+                <Store className="w-3.5 h-3.5" /> شراء خارجي
+              </Button>
+            )}
+            {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={executeBulkInclude} title="إلغاء الاستبعاد">
+                <CheckSquare className="w-3.5 h-3.5" /> إدراج
               </Button>
             )}
             {canSaveInvoice && (
@@ -398,13 +569,18 @@ export default function PurchaseInvoices() {
               </Button>
             )}
             {canSaveInvoice && (
+              <Button size="sm" variant="outline" className="border-green-400 text-green-700 hover:bg-green-50 gap-1.5" onClick={() => setConfirmSave(true)}>
+                <CheckSquare className="w-3.5 h-3.5" /> حفظ
+              </Button>
+            )}
+            {canSaveInvoice && (
               <Button size="sm" variant="outline" className="border-indigo-400 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={() => setConfirmCategory(true)}>
-                <Tag className="w-3.5 h-3.5" /> تغيير التصنيف
+                <Tag className="w-3.5 h-3.5" /> تصنيف
               </Button>
             )}
             {canDeleteInvoice && (
               <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 gap-1.5" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="w-3.5 h-3.5" /> حذف المحدد
+                <Trash2 className="w-3.5 h-3.5" /> حذف
               </Button>
             )}
             <button className="text-xs text-gray-500 hover:underline" onClick={() => setSelectedIds([])}>إلغاء</button>

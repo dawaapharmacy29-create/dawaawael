@@ -54,6 +54,7 @@ function resolveRules(supplier, branch, currentCat, currentSource, preserveManua
         resolved_source = 'manual';
       }
     } else {
+      // none
       resolved_cat = 'unclassified';
       resolved_source = currentSource || 'manual';
     }
@@ -88,7 +89,6 @@ Deno.serve(async (req) => {
 
     // Only admin can run backfill
     if (user.role !== 'admin') {
-      // Log rejected attempt
       try {
         await base44.asServiceRole.entities.ActivityLog.create({
           action_type: 'bulk_update',
@@ -117,6 +117,9 @@ Deno.serve(async (req) => {
     }
     const supplierMap = new Map(allSuppliers.map(s => [s.id, s]));
 
+    // Count mixed suppliers
+    const mixedSupplierCount = allSuppliers.filter(s => s.default_purchase_category === 'mixed').length;
+
     // Fetch all invoices >= start_date
     let allInvoices = [];
     let iPage = 0;
@@ -140,6 +143,8 @@ Deno.serve(async (req) => {
 
       const catWillChange = apply_category &&
         resolved.resolved_cat !== (inv.purchase_category || 'unclassified');
+      const sourceWillChange_cat = apply_category &&
+        resolved.resolved_source !== (inv.purchase_category_source || '');
       const typeWillChange = apply_transaction_type &&
         resolved.resolved_transaction_type !== (inv.transaction_type || 'external_purchase');
       const sourceWillChange = apply_transaction_type &&
@@ -147,7 +152,7 @@ Deno.serve(async (req) => {
       const destWillChange = apply_transaction_type &&
         resolved.destination_branch !== (inv.destination_branch || '');
 
-      const willChange = catWillChange || typeWillChange || sourceWillChange || destWillChange;
+      const willChange = catWillChange || sourceWillChange_cat || typeWillChange || sourceWillChange || destWillChange;
       const isManualPreserved = inv.purchase_category_source === 'manual' && preserveManual && catWillChange;
 
       return {
@@ -187,6 +192,7 @@ Deno.serve(async (req) => {
 
     const medicinesChanged = catChanges.filter(r => r.resolved_category === 'medicines').length;
     const suppliesChanged = catChanges.filter(r => r.resolved_category === 'supplies_accessories').length;
+    const unclassifiedChanged = catChanges.filter(r => r.resolved_category === 'unclassified').length;
     const internalTransfers = results.filter(r => r.resolved_transaction_type === 'internal_transfer').length;
     const newInternalTransfers = typeChanges.filter(r => r.resolved_transaction_type === 'internal_transfer').length;
 
@@ -213,6 +219,10 @@ Deno.serve(async (req) => {
     const oldestDate = dates[0] || null;
     const newestDate = dates[dates.length - 1] || null;
 
+    // === Validation: category_changes must equal medicines + supplies + unclassified ===
+    const categoryChangesSum = medicinesChanged + suppliesChanged + unclassifiedChanged;
+    const categoryStatsValid = categoryChangesSum === catChanges.length;
+
     const preview = {
       start_date: effectiveStart,
       total_invoices_reviewed: eligible.length,
@@ -220,6 +230,10 @@ Deno.serve(async (req) => {
       category_changes: catChanges.length,
       medicines_changed: medicinesChanged,
       supplies_changed: suppliesChanged,
+      unclassified_changed: unclassifiedChanged,
+      category_stats_valid: categoryStatsValid,
+      category_stats_sum: categoryChangesSum,
+      mixed_supplier_count: mixedSupplierCount,
       transaction_type_changes: typeChanges.length,
       new_internal_transfers: newInternalTransfers,
       total_internal_transfers: internalTransfers,
@@ -248,7 +262,7 @@ Deno.serve(async (req) => {
         user_role: user.role || '',
         status: 'success',
         reason: 'preview_backfill',
-        details: `معاينة التطبيق الرجعي من ${effectiveStart}: ${toChange.length} فاتورة ستتغير من أصل ${eligible.length} | قيمة: ${totalValue} | تحويلات داخلية جديدة: ${newInternalTransfers} | تحتاج مراجعة: ${requiresReview.length}`,
+        details: `معاينة التطبيق الرجعي من ${effectiveStart}: ${toChange.length} فاتورة ستتغير من أصل ${eligible.length} | أدوية: ${medicinesChanged} | مستلزمات: ${suppliesChanged} | غير مصنفة: ${unclassifiedChanged} | تحويلات داخلية جديدة: ${newInternalTransfers} | تحتاج مراجعة: ${requiresReview.length}`,
       });
     } catch (e) {}
 
@@ -256,10 +270,20 @@ Deno.serve(async (req) => {
       return Response.json({ preview, applied: false, sample_changes: toChange.slice(0, 10) });
     }
 
-    // === APPLY ===
+    // === Validation gate: do not apply if category stats are invalid ===
+    if (!categoryStatsValid) {
+      return Response.json({
+        error: 'category_stats_mismatch',
+        details: `category_changes (${catChanges.length}) ≠ medicines (${medicinesChanged}) + supplies (${suppliesChanged}) + unclassified (${unclassifiedChanged}) = ${categoryChangesSum}`,
+        preview,
+      }, { status: 400 });
+    }
+
+    // === APPLY with per-invoice success/failure tracking ===
     const batchId = `backfill-rules-${Date.now()}`;
-    let updatedCount = 0;
-    let failedCount = 0;
+    const updatedInvoiceIds = [];
+    const failedInvoiceIds = [];
+    const failureReasons = {};
 
     const updateData = toChange.map(r => {
       const update = { id: r.id };
@@ -277,18 +301,30 @@ Deno.serve(async (req) => {
       if (r.destination_branch !== undefined && apply_transaction_type) {
         update.destination_branch = r.destination_branch;
       }
-      return update;
+      return { update, record: r };
     });
 
     for (let start = 0; start < updateData.length; start += BATCH_SIZE) {
       const batch = updateData.slice(start, start + BATCH_SIZE);
+      const batchUpdates = batch.map(b => b.update);
       try {
-        await base44.asServiceRole.entities.PurchaseInvoice.bulkUpdate(batch);
-        updatedCount += batch.length;
+        await base44.asServiceRole.entities.PurchaseInvoice.bulkUpdate(batchUpdates);
+        batch.forEach(b => updatedInvoiceIds.push(b.record.id));
       } catch (e) {
-        failedCount += batch.length;
+        batch.forEach(b => {
+          failedInvoiceIds.push(b.record.id);
+          failureReasons[b.record.id] = e.message || 'bulk_update_failed';
+        });
       }
     }
+
+    const updatedCount = updatedInvoiceIds.length;
+    const failedCount = failedInvoiceIds.length;
+
+    // Determine overall status
+    let overallStatus = 'success';
+    if (failedCount > 0 && updatedCount > 0) overallStatus = 'partial_success';
+    if (failedCount > 0 && updatedCount === 0) overallStatus = 'failed';
 
     // Log applied activity
     try {
@@ -298,22 +334,29 @@ Deno.serve(async (req) => {
         user_email: user.email || '',
         user_name: user.full_name || '',
         user_role: user.role || '',
-        status: 'success',
+        status: overallStatus === 'success' ? 'success' : 'failed',
         batch_id: batchId,
         reason: 'apply_backfill_rules',
-        details: `تطبيق رجعي لقواعد الموردين والتحويلات من ${effectiveStart} | تم تحديث: ${updatedCount} | فشل: ${failedCount} | قيمة: ${totalValue} | تحويلات داخلية جديدة: ${newInternalTransfers} | Batch: ${batchId}`,
+        details: `تطبيق رجعي لقواعد الموردين والتحويلات من ${effectiveStart} | الحالة: ${overallStatus} | تم تحديث: ${updatedCount} | فشل: ${failedCount} | أدوية: ${medicinesChanged} | مستلزمات: ${suppliesChanged} | قيمة: ${totalValue} | تحويلات داخلية جديدة: ${newInternalTransfers} | Batch: ${batchId}`,
       });
     } catch (e) {}
 
     return Response.json({
       applied: true,
+      status: overallStatus,
       batch_id: batchId,
       updated_count: updatedCount,
       failed_count: failedCount,
+      updated_invoice_ids: updatedInvoiceIds,
+      failed_invoice_ids: failedInvoiceIds,
+      failure_reasons: failureReasons,
       total_value: totalValue,
       new_internal_transfers: newInternalTransfers,
       manual_preserved: manualPreserved.length,
       requires_review: requiresReview.length,
+      medicines_changed: medicinesChanged,
+      supplies_changed: suppliesChanged,
+      unclassified_changed: unclassifiedChanged,
       start_date: effectiveStart,
       performed_by: user.full_name || user.email,
       timestamp: new Date().toISOString(),

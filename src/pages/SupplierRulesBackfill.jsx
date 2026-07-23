@@ -126,6 +126,13 @@ export default function SupplierRulesBackfill() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="تغييرات التصنيف" value={preview.category_changes} color="text-cyan-600" bg="bg-cyan-50" />
+            <StatCard label="ستصبح أدوية" value={preview.medicines_changed} color="text-teal-600" bg="bg-teal-50" />
+            <StatCard label="ستصبح مستلزمات" value={preview.supplies_changed} color="text-indigo-600" bg="bg-indigo-50" />
+            <StatCard label="ستظل غير مصنفة" value={preview.unclassified_changed} color="text-gray-600" bg="bg-gray-50" />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="تحويلات داخلية (إجمالي)" value={preview.total_internal_transfers} color="text-purple-600" bg="bg-purple-50" icon={<ArrowRightLeft className="w-4 h-4" />} />
             <StatCard label="تحويلات جديدة" value={preview.new_internal_transfers} color="text-violet-600" bg="bg-violet-50" />
             <StatCard label="شكري ← الشامي" value={preview.shukri_to_shami} color="text-indigo-600" bg="bg-indigo-50" />
@@ -133,10 +140,26 @@ export default function SupplierRulesBackfill() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <StatCard label="موردين مختلطين" value={preview.mixed_supplier_count} color="text-amber-600" bg="bg-amber-50" />
             <StatCard label="تحتاج تصنيف يدوي" value={preview.requires_manual_category_count} color="text-amber-600" bg="bg-amber-50" icon={<AlertTriangle className="w-4 h-4" />} />
             <StatCard label="تحتاج مراجعة" value={preview.requires_review_count} color="text-red-600" bg="bg-red-50" icon={<AlertTriangle className="w-4 h-4" />} />
-            <StatCard label="تغييرات التصنيف" value={preview.category_changes} color="text-cyan-600" bg="bg-cyan-50" />
           </div>
+
+          {/* Validation check */}
+          {!preview.category_stats_valid && (
+            <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div className="text-sm text-red-700">
+                <strong>تعارض في إحصائيات التصنيف!</strong> مجموع التغييرات ({preview.medicines_changed} + {preview.supplies_changed} + {preview.unclassified_changed} = {preview.category_stats_sum}) لا يساوي إجمالي تغييرات التصنيف ({preview.category_changes}). لن يُسمح بالتطبيق حتى يتم إصلاح المنطق.
+              </div>
+            </div>
+          )}
+          {preview.category_stats_valid && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-green-700">إحصائيات التصنيف متطابقة: {preview.medicines_changed} + {preview.supplies_changed} + {preview.unclassified_changed} = {preview.category_changes} ✓</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="p-4">

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight, ArrowRightLeft, Ban } from "lucide-react";
+import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight, ArrowRightLeft, Ban, AlertTriangle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
@@ -13,6 +13,8 @@ import {
   CATEGORY_SOURCE_COLORS,
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_COLORS,
+  NET_MODE_LABELS,
+  NET_MODE_COLORS,
 } from "@/lib/purchaseCalculations";
 
 const PAGE_SIZE = 50;
@@ -76,12 +78,14 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               <TableHead className="text-right">التاريخ</TableHead>
               <TableHead className="text-right">الفرع</TableHead>
               <TableHead className="text-right">التصنيف</TableHead>
+              <TableHead className="text-right">نوع العملية</TableHead>
+              <TableHead className="text-right">مسار التحويل</TableHead>
+              <TableHead className="text-right">حالة الصافي</TableHead>
               <TableHead className="text-right">القيمة</TableHead>
               <TableHead className="text-right">المرتجع</TableHead>
               <TableHead className="text-right">المتبقي</TableHead>
               <TableHead className="text-right">الدفع</TableHead>
               <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-right text-xs text-gray-400">وقت الإضافة</TableHead>
               <TableHead className="text-right">إجراءات</TableHead>
             </TableRow>
           </TableHeader>
@@ -120,17 +124,29 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                           {CATEGORY_SOURCE_LABELS[inv.purchase_category_source] || inv.purchase_category_source}
                         </Badge>
                       )}
-                      {(inv.transaction_type || "external_purchase") === "internal_transfer" && (
-                        <Badge className="bg-purple-100 text-purple-800 border-0 text-xs gap-0.5" title={TRANSACTION_TYPE_LABELS[inv.transaction_type]}>
-                          <ArrowRightLeft className="w-2.5 h-2.5" /> تحويل
-                        </Badge>
-                      )}
-                      {inv.net_purchase_mode === "exclude" && (
-                        <Badge className="bg-red-100 text-red-800 border-0 text-xs gap-0.5" title="مستثناة من الصافي">
-                          <Ban className="w-2.5 h-2.5" /> مستثناة
-                        </Badge>
-                      )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`${TRANSACTION_TYPE_COLORS[inv.transaction_type || "external_purchase"]} border-0 text-xs gap-0.5`}>
+                      {(inv.transaction_type || "external_purchase") === "internal_transfer" && <ArrowRightLeft className="w-2.5 h-2.5" />}
+                      {TRANSACTION_TYPE_LABELS[inv.transaction_type || "external_purchase"]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-gray-600">
+                    {inv.source_branch && inv.destination_branch ? (
+                      <span className="flex items-center gap-1">
+                        <Badge className="bg-gray-100 text-gray-700 border-0 text-xs">{inv.source_branch}</Badge>
+                        ←
+                        <Badge className="bg-gray-100 text-gray-700 border-0 text-xs">{inv.destination_branch}</Badge>
+                      </span>
+                    ) : inv.transaction_type === "internal_transfer" ? (
+                      <Badge className="bg-red-50 text-red-600 border-0 text-xs gap-0.5"><AlertTriangle className="w-2.5 h-2.5" /> ناقص</Badge>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`${NET_MODE_COLORS[inv.net_purchase_mode || "inherit"]} border-0 text-xs`}>
+                      {NET_MODE_LABELS[inv.net_purchase_mode || "inherit"]}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-semibold">{(inv.total_value || 0).toLocaleString("ar-EG")}</TableCell>
                   <TableCell className="text-red-600">{inv.returned_value ? inv.returned_value.toLocaleString("ar-EG") : "—"}</TableCell>

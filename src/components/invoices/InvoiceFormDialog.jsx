@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { ChevronDown, X, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { ChevronDown, X, AlertTriangle, ArrowRightLeft, Info, Loader2 } from "lucide-react";
 import {
   BRANCHES,
   EXCLUSION_REASONS,
 } from "@/lib/purchaseCalculations";
+import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -78,6 +79,7 @@ const emptyForm = {
   system_invoice_number: "",
   supplier_invoice_number: "",
   supplier_name: "",
+  supplier_id: "",
   branch: "",
   entered_by: "",
   invoice_date: new Date().toISOString().split("T")[0],
@@ -111,6 +113,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         system_invoice_number: invoice.system_invoice_number || "",
         supplier_invoice_number: invoice.supplier_invoice_number || "",
         supplier_name: invoice.supplier_name || "",
+        supplier_id: invoice.supplier_id || "",
         branch: invoice.branch || "",
         entered_by: invoice.entered_by || "",
         invoice_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
@@ -140,22 +143,57 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const selectedSupplier = suppliers.find((s) => s.name === form.supplier_name);
   const supplierExcluded = selectedSupplier?.exclude_from_net_purchases;
 
-  // When supplier changes, auto-fill payment_type + auto-classify from supplier's default
+  // استدعاء قواعد الموردين من الـ Backend عند تغيير المورد أو الفرع
+  const { resolution, isLoading: isResolving } = useInvoiceRulesResolver({
+    supplierId: form.supplier_id,
+    branch: form.branch,
+    currentCategory: form.purchase_category,
+    categorySource: form.purchase_category_source,
+    currentTransactionType: form.transaction_type,
+    enabled: open,
+  });
+
+  // تطبيق نتيجة القواعد على الفورم (مع الحفاظ على الاستثناء اليدوي)
+  useEffect(() => {
+    if (!resolution || !form.supplier_id || !form.branch) return;
+
+    // إذا كان الاستثناء يدويًا محفوظًا، لا نغير التصنيف
+    const isManualOverride = form.purchase_category_source === "manual";
+
+    if (!isManualOverride) {
+      // تطبيق التصنيف التلقائي من المورد
+      if (resolution.resolved_purchase_category && resolution.resolved_purchase_category !== "unclassified") {
+        if (form.purchase_category !== resolution.resolved_purchase_category) {
+          set("purchase_category", resolution.resolved_purchase_category);
+        }
+      }
+      if (resolution.resolved_purchase_category_source && form.purchase_category_source !== resolution.resolved_purchase_category_source) {
+        set("purchase_category_source", resolution.resolved_purchase_category_source);
+      }
+    }
+
+    // تطبيق نوع العملية (تحويل داخلي / شراء خارجي)
+    if (resolution.resolved_transaction_type && form.transaction_type !== resolution.resolved_transaction_type) {
+      set("transaction_type", resolution.resolved_transaction_type);
+    }
+    if (resolution.source_branch !== undefined && form.source_branch !== resolution.source_branch) {
+      set("source_branch", resolution.source_branch || "");
+    }
+    if (resolution.destination_branch !== undefined && form.destination_branch !== resolution.destination_branch) {
+      set("destination_branch", resolution.destination_branch || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolution]);
+
+  // When supplier changes, set supplier_id + payment_type
   const handleSupplierChange = (supplierName) => {
-    set("supplier_name", supplierName);
     const supplier = suppliers.find((s) => s.name === supplierName);
+    set("supplier_name", supplierName);
+    set("supplier_id", supplier?.id || "");
     if (supplier?.payment_type) {
       set("payment_type", supplier.payment_type);
     }
-    const mode = supplier?.default_purchase_category;
-    if (mode === "medicines") {
-      set("purchase_category", "medicines");
-      set("purchase_category_source", "supplier_default");
-    } else if (mode === "supplies_accessories") {
-      set("purchase_category", "supplies_accessories");
-      set("purchase_category_source", "supplier_default");
-    }
-    // mixed or none: don't auto-set, user must choose manually
+    // تصنيف الفاتورة سيُحدد تلقائيًا عبر resolveInvoiceSupplierRules
   };
 
   const supplierMode = selectedSupplier?.default_purchase_category || "none";
@@ -374,8 +412,10 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                   type="button"
                   onClick={() => {
                     const defaultCat = selectedSupplier?.default_purchase_category;
+                    // إذا اختار نفس تصنيف المورد → source=supplier_default، وإلا → manual (استثناء يدوي محفوظ)
+                    const isMatchingDefault = defaultCat === "medicines";
                     set("purchase_category", "medicines");
-                    set("purchase_category_source", defaultCat === "medicines" ? "supplier_default" : "manual");
+                    set("purchase_category_source", isMatchingDefault ? "supplier_default" : "manual");
                   }}
                   className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "medicines" ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-300 hover:border-teal-400"}`}
                 >
@@ -385,8 +425,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                   type="button"
                   onClick={() => {
                     const defaultCat = selectedSupplier?.default_purchase_category;
+                    const isMatchingDefault = defaultCat === "supplies_accessories";
                     set("purchase_category", "supplies_accessories");
-                    set("purchase_category_source", defaultCat === "supplies_accessories" ? "supplier_default" : "manual");
+                    set("purchase_category_source", isMatchingDefault ? "supplier_default" : "manual");
                   }}
                   className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.purchase_category === "supplies_accessories" ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"}`}
                 >
@@ -394,13 +435,29 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                 </button>
               </div>
               {form.purchase_category && form.purchase_category_source === "supplier_default" && (
-                <p className="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded">✓ تم اختيار تصنيف الفاتورة تلقائيًا بناءً على تصنيف المورد.</p>
+                <p className="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded">✓ تم تصنيف الفاتورة تلقائيًا كـ{form.purchase_category === "medicines" ? "أدوية" : "مستلزمات وإكسسوار"} بناءً على إعداد المورد.</p>
               )}
               {form.purchase_category && form.purchase_category_source === "manual" && isAutoClassified && (
-                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">⚠ تم تغيير تصنيف هذه الفاتورة يدويًا عن التصنيف الافتراضي للمورد.</p>
+                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">⚠ تم تغيير تصنيف هذه الفاتورة يدويًا عن التصنيف الافتراضي للمورد. سيظل هذا الاستثناء محفوظًا.</p>
               )}
               {!form.purchase_category && (supplierMode === "mixed" || supplierMode === "none") && (
-                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">⚠ هذا المورد مختلط، برجاء اختيار تصنيف الفاتورة يدويًا.</p>
+                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">⚠ هذا المورد مختلط؛ يجب اختيار تصنيف الفاتورة يدويًا.</p>
+              )}
+              {/* رسائل قواعد المورد من الـ Backend */}
+              {isResolving && form.supplier_id && form.branch && (
+                <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> جاري تطبيق قواعد المورد...</p>
+              )}
+              {resolution?.auto_transfer_message && (
+                <p className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded flex items-center gap-1"><ArrowRightLeft className="w-3 h-3" /> {resolution.auto_transfer_message}</p>
+              )}
+              {resolution?.warning_message && resolution?.requires_review && (
+                <p className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {resolution.warning_message}</p>
+              )}
+              {resolution?.warning_message && !resolution?.requires_review && resolution?.requires_manual_category && (
+                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {resolution.warning_message}</p>
+              )}
+              {resolution?.manual_override_preserved && (
+                <p className="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded flex items-center gap-1"><Info className="w-3 h-3" /> تم الحفاظ على الاستثناء اليدوي للتصنيف.</p>
               )}
             </div>
 
