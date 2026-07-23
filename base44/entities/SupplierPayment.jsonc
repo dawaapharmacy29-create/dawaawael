@@ -52,7 +52,7 @@
         },
         {
           "user_condition": {
-            "can_save_invoice": true
+            "data.can_save_invoice": true
           }
         }
       ]
@@ -71,7 +71,7 @@
         },
         {
           "user_condition": {
-            "can_save_invoice": true
+            "data.can_save_invoice": true
           }
         }
       ]
@@ -90,7 +90,7 @@
         },
         {
           "user_condition": {
-            "can_save_invoice": true
+            "data.can_save_invoice": true
           }
         }
       ]
@@ -109,7 +109,7 @@
         },
         {
           "user_condition": {
-            "can_save_invoice": true
+            "data.can_save_invoice": true
           }
         }
       ]
