@@ -6,6 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText } from "lucide-react";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+
+const STMT_SORT_COLUMNS = [
+  { field: "system_invoice_number", label: "رقم الفاتورة", type: "text" },
+  { field: "invoice_date", label: "تاريخ الفاتورة", type: "date" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "payment_type", label: "طريقة الدفع", type: "text" },
+  { field: "total_value", label: "القيمة", type: "number" },
+  { field: "returned_value", label: "المرتجع", type: "number" },
+  { field: "paid_value", label: "المدفوع", type: "number" },
+  { field: "remaining", label: "المتبقي", type: "number" },
+];
 
 export default function SupplierInvoiceStatement() {
   const today = new Date().toISOString().split("T")[0];
@@ -55,6 +69,15 @@ export default function SupplierInvoiceStatement() {
   const totalPaid = periodPayments.reduce((s, p) => s + (p.amount || 0), 0);
   const totalRemaining = filtered?.reduce((s, i) => s + Math.max(0, (i.total_value || 0) - (i.returned_value || 0) - (i.paid_value || 0)), 0) || 0;
 
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: STMT_SORT_COLUMNS,
+    defaultSort: { field: "invoice_date", direction: "desc" },
+    paramPrefix: "stmt",
+  });
+  const sortedFiltered = useMemo(() => sortData(
+    (filtered || []).map(inv => ({ ...inv, remaining: Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)) }))
+  ), [filtered, sortData]);
+
   return (
     <div dir="rtl" className="space-y-4">
       {/* Filters */}
@@ -81,6 +104,15 @@ export default function SupplierInvoiceStatement() {
           </div>
         </div>
       </Card>
+
+      <SortControls
+        columns={STMT_SORT_COLUMNS}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onToggle={toggleSort}
+        onSet={setSort}
+        onReset={resetSort}
+      />
 
       {filtered === null ? (
         <Card className="p-10 text-center text-gray-400">
@@ -127,18 +159,18 @@ export default function SupplierInvoiceStatement() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
-                    <TableHead className="text-right text-xs">تاريخ الفاتورة</TableHead>
-                    <TableHead className="text-right text-xs">الفرع</TableHead>
-                    <TableHead className="text-right text-xs">طريقة الدفع</TableHead>
-                    <TableHead className="text-right text-xs">القيمة</TableHead>
-                    <TableHead className="text-right text-xs">المرتجع</TableHead>
-                    <TableHead className="text-right text-xs">المدفوع</TableHead>
-                    <TableHead className="text-right text-xs">المتبقي</TableHead>
+                    <SortableHeader field="system_invoice_number" label="رقم الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="invoice_date" label="تاريخ الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="payment_type" label="طريقة الدفع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="total_value" label="القيمة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="returned_value" label="المرتجع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="paid_value" label="المدفوع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                    <SortableHeader field="remaining" label="المتبقي" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(inv => {
+                  {sortedFiltered.map(inv => {
                     const net = (inv.total_value || 0) - (inv.returned_value || 0);
                     const remaining = Math.max(0, net - (inv.paid_value || 0));
                     return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Plus, Trash2, PackageSearch, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useToast } from "@/components/ui/use-toast";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import { REPLENISH_STATUS_ORDER } from "@/lib/sortUtils";
+
+const REPL_SORT_COLUMNS = [
+  { field: "product_name", label: "اسم الصنف", type: "text" },
+  { field: "product_code", label: "الكود", type: "text" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "actual_balance", label: "الرصيد الفعلي", type: "number" },
+  { field: "requested_quantity", label: "الكمية المطلوبة", type: "number" },
+  { field: "order_status", label: "الحالة", type: "status", statusMap: REPLENISH_STATUS_ORDER },
+  { field: "created_date", label: "وقت الإضافة", type: "date" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -100,11 +114,18 @@ export default function ReplenishmentList() {
     });
   };
 
-  const filtered = items.filter((item) => {
+  const filteredRaw = useMemo(() => items.filter((item) => {
     if (filterBranch !== "all" && item.branch !== filterBranch) return false;
     if (filterOrdered !== "all" && getStatus(item) !== filterOrdered) return false;
     return true;
+  }), [items, filterBranch, filterOrdered]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: REPL_SORT_COLUMNS,
+    defaultSort: { field: "created_date", direction: "desc" },
+    paramPrefix: "repl",
   });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
   const orderedCount = items.filter((i) => getStatus(i) === "ordered").length;
   const shortageCount = items.filter((i) => getStatus(i) === "shortage").length;
@@ -171,6 +192,14 @@ export default function ReplenishmentList() {
             {f.label}
           </button>
         ))}
+        <SortControls
+          columns={REPL_SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
       </div>
 
       {/* Table */}
@@ -181,14 +210,14 @@ export default function ReplenishmentList() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600 text-xs">
               <tr>
-                <th className="px-4 py-3 text-right font-medium">اسم الصنف</th>
-                <th className="px-4 py-3 text-right font-medium">الكود</th>
-                <th className="px-4 py-3 text-right font-medium">الفرع</th>
-                <th className="px-4 py-3 text-center font-medium">الرصيد الفعلي</th>
-                <th className="px-4 py-3 text-center font-medium">الكمية المطلوبة</th>
-                <th className="px-4 py-3 text-center font-medium">تم الطلب؟</th>
+                <SortableHeader field="product_name" label="اسم الصنف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="product_code" label="الكود" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="actual_balance" label="الرصيد الفعلي" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
+                <SortableHeader field="requested_quantity" label="الكمية المطلوبة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
+                <SortableHeader field="order_status" label="تم الطلب؟" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
                 <th className="px-4 py-3 text-center font-medium">ملاحظات</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-400">وقت الإضافة</th>
+                <SortableHeader field="created_date" label="وقت الإضافة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
                 <th className="px-4 py-3 text-center font-medium">حذف</th>
               </tr>
             </thead>

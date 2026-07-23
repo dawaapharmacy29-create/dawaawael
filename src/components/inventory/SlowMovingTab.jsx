@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,19 @@ import { Plus, Trash2, ArrowRightLeft, RotateCcw, AlertTriangle, Search, X, Chec
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { format, differenceInDays } from "date-fns";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+import { SLOW_STATUS_ORDER } from "@/lib/sortUtils";
+
+const SLOW_SORT_COLUMNS = [
+  { field: "item_name", label: "اسم الصنف", type: "text" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "quantity", label: "العدد", type: "number" },
+  { field: "price", label: "السعر", type: "number" },
+  { field: "expiry_date", label: "تاريخ الصلاحية", type: "date" },
+  { field: "status", label: "الحالة", type: "status", statusMap: SLOW_STATUS_ORDER },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -45,13 +58,20 @@ export default function SlowMovingTab() {
     queryFn: () => base44.entities.SlowMovingItem.list(),
   });
 
-  const sortedItems = [...items]
+  const filteredItems = useMemo(() => [...items]
     .filter(i => i.status === "راكد" || i.status === "منتظر التحويل")
     .filter(i => !search || i.item_name.includes(search))
     .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
     .filter(i => !filterFrom || i.expiry_date >= filterFrom)
     .filter(i => !filterTo || i.expiry_date <= filterTo)
-    .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+  , [items, search, filterBranch, filterFrom, filterTo]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: SLOW_SORT_COLUMNS,
+    defaultSort: { field: "expiry_date", direction: "asc" },
+    paramPrefix: "slow",
+  });
+  const sortedItems = useMemo(() => sortData(filteredItems), [filteredItems, sortData]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.SlowMovingItem.create(data),
@@ -207,6 +227,14 @@ export default function SlowMovingTab() {
         </div>
         <Input type="month" className="w-36" placeholder="من" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
         <Input type="month" className="w-36" placeholder="إلى" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+        <SortControls
+          columns={SLOW_SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
         {(filterFrom || filterTo) && (
           <Button size="sm" variant="ghost" className="text-gray-400 text-xs" onClick={() => { setFilterFrom(""); setFilterTo(""); }}>
             <X className="w-3 h-3" /> مسح
@@ -243,12 +271,12 @@ export default function SlowMovingTab() {
                   <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
                 </th>
               )}
-              <th className="px-3 py-2 text-right">اسم الصنف</th>
-              <th className="px-3 py-2 text-right">الفرع</th>
-              <th className="px-3 py-2 text-right">العدد</th>
-              <th className="px-3 py-2 text-right">السعر</th>
-              <th className="px-3 py-2 text-right">تاريخ الصلاحية</th>
-              <th className="px-3 py-2 text-right">الحالة</th>
+              <SortableHeader field="item_name" label="اسم الصنف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
+              <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
+              <SortableHeader field="quantity" label="العدد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
+              <SortableHeader field="price" label="السعر" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
+              <SortableHeader field="expiry_date" label="تاريخ الصلاحية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
+              <SortableHeader field="status" label="الحالة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-3 py-2" />
               {canAct && <th className="px-3 py-2 text-right">إجراءات</th>}
             </tr>
           </thead>

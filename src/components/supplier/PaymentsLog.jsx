@@ -6,6 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreditCard } from "lucide-react";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+
+const PAY_SORT_COLUMNS = [
+  { field: "payment_date", label: "التاريخ", type: "date" },
+  { field: "supplier_name", label: "المورد", type: "text" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "invoice_number", label: "رقم الفاتورة", type: "text" },
+  { field: "amount", label: "المبلغ", type: "number" },
+];
 
 export default function PaymentsLog() {
   const today = new Date().toISOString().split("T")[0];
@@ -34,15 +45,22 @@ export default function PaymentsLog() {
     return [...new Set([...fromSuppliers, ...fromPayments])].sort();
   }, [payments, suppliers]);
 
-  const filtered = useMemo(() => {
+  const filteredRaw = useMemo(() => {
     return payments.filter(p => {
       const d = (p.payment_date || "").slice(0, 10);
       const matchSupplier = !selectedSupplier || p.supplier_name === selectedSupplier;
       const matchFrom = !dateFrom || d >= dateFrom;
       const matchTo = !dateTo || d <= dateTo;
       return matchSupplier && matchFrom && matchTo;
-    }).sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || ""));
+    });
   }, [payments, selectedSupplier, dateFrom, dateTo]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: PAY_SORT_COLUMNS,
+    defaultSort: { field: "payment_date", direction: "desc" },
+    paramPrefix: "pay",
+  });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
   const totalAmount = filtered.reduce((s, p) => s + (p.amount || 0), 0);
 
@@ -73,6 +91,15 @@ export default function PaymentsLog() {
         </div>
       </Card>
 
+      <SortControls
+        columns={PAY_SORT_COLUMNS}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onToggle={toggleSort}
+        onSet={setSort}
+        onReset={resetSort}
+      />
+
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4 bg-green-50 border-green-100 text-center">
@@ -100,12 +127,12 @@ export default function PaymentsLog() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
-                  <TableHead className="text-right text-xs">التاريخ</TableHead>
-                  <TableHead className="text-right text-xs">المورد</TableHead>
-                  <TableHead className="text-right text-xs">الفرع</TableHead>
-                  <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
+                  <SortableHeader field="payment_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                  <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                  <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
+                  <SortableHeader field="invoice_number" label="رقم الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
-                  <TableHead className="text-right text-xs">المبلغ</TableHead>
+                  <SortableHeader field="amount" label="المبلغ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                 </TableRow>
               </TableHeader>
               <TableBody>

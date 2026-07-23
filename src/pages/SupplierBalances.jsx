@@ -13,6 +13,15 @@ import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2,
 import { useUserRole } from "@/lib/useUserRole";
 import SupplierInvoiceStatement from "@/components/supplier/SupplierInvoiceStatement";
 import PaymentsLog from "@/components/supplier/PaymentsLog";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+
+const SBAL_SORT_COLUMNS = [
+  { field: "name", label: "اسم المورد", type: "text" },
+  { field: "totalNet", label: "الإجمالي", type: "number" },
+  { field: "oldDebt", label: "مديونية قديمة", type: "number" },
+  { field: "newDebt", label: "مديونية جديدة", type: "number" },
+];
 
 export default function SupplierBalances() {
   const qc = useQueryClient();
@@ -254,6 +263,13 @@ export default function SupplierBalances() {
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
 
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: SBAL_SORT_COLUMNS,
+    defaultSort: { field: "totalNet", direction: "desc" },
+    paramPrefix: "sbal",
+  });
+  const sortedGroups = useMemo(() => sortData(supplierGroups), [supplierGroups, sortData]);
+
   const openPayDialog = (invoice) => {
     setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "", branch: invoice.branch || "" });
     setPayDialog({ invoice });
@@ -273,9 +289,20 @@ export default function SupplierBalances() {
           <h1 className="text-2xl font-bold text-gray-800">أرصدة الموردين</h1>
           <p className="text-gray-500 text-sm mt-0.5">تتبع الحسابات الدائنة والمدفوعات</p>
         </div>
-        <Button onClick={() => setGeneralPayDialog(true)} className="bg-green-600 hover:bg-green-700 gap-2">
-          <PlusCircle className="w-4 h-4" /> تسديد دفعة
-        </Button>
+        <div className="flex items-center gap-2">
+          <SortControls
+            columns={SBAL_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+            cardMode
+          />
+          <Button onClick={() => setGeneralPayDialog(true)} className="bg-green-600 hover:bg-green-700 gap-2">
+            <PlusCircle className="w-4 h-4" /> تسديد دفعة
+          </Button>
+        </div>
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
           <Wallet className="w-5 h-5 text-red-500" />
           <div>
@@ -321,7 +348,7 @@ export default function SupplierBalances() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {supplierGroups.map((group) => {
+          {sortedGroups.map((group) => {
             const isExpanded = expanded === group.name;
             return (
               <Card key={group.name} className="overflow-hidden">

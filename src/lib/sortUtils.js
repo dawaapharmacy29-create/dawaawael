@@ -33,6 +33,14 @@ export const ORDER_STATUS_ORDER = {
 };
 export const PRIORITY_ORDER = { "عاجل": 1, "متوسط": 2, "عادي": 3 };
 export const USER_ROLE_ORDER = { admin: 1, manager: 2, viewer: 3 };
+export const SLOW_STATUS_ORDER = {
+  "راكد": 1, "منتظر التحويل": 2, "تم النقل": 3, "تم الإرجاع للشركة": 4, "تم التحويل لمنتهي": 5,
+};
+export const EXPIRED_STATUS_ORDER = {
+  "منتهي": 1, "تم الإرجاع للشركة": 2, "تم التبديل / التصريف": 3,
+};
+export const SHIFT_TYPE_ORDER = { "صباحي": 1, "مسائي": 2, "ليلي": 3 };
+export const REPLENISH_STATUS_ORDER = { pending: 1, shortage: 2, ordered: 3 };
 
 // إزالة التشكيل وتوحيد الحروف العربية (أ/إ/آ→ا، ى→ي، ة→ه) للمقارنة فقط
 function normalizeArabic(text) {

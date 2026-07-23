@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Save, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortableHeader } from "@/components/table/SortableHeader";
+import { SortControls } from "@/components/table/SortControls";
+
+const REORDER_SORT_COLUMNS = [
+  { field: "product_name", label: "اسم الصنف", type: "text" },
+  { field: "company", label: "الشركة", type: "text" },
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "stock_quantity", label: "الكمية الحالية", type: "number" },
+  { field: "reorder_point", label: "حد الطلب", type: "number" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -43,7 +54,7 @@ export default function ReorderPointsTab() {
 
   const activeProducts = products.filter((p) => p.is_active !== false);
 
-  const filtered = activeProducts.filter((p) => {
+  const filteredRaw = useMemo(() => activeProducts.filter((p) => {
     if (filterBranch !== "all" && p.branch !== filterBranch) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -54,7 +65,14 @@ export default function ReorderPointsTab() {
       );
     }
     return true;
+  }), [activeProducts, filterBranch, search]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: REORDER_SORT_COLUMNS,
+    defaultSort: { field: "product_name", direction: "asc" },
+    paramPrefix: "reord",
   });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
   const lowCount = filtered.filter(
     (p) => p.reorder_point > 0 && (p.stock_quantity || 0) <= p.reorder_point
@@ -96,6 +114,14 @@ export default function ReorderPointsTab() {
             </button>
           ))}
         </div>
+        <SortControls
+          columns={REORDER_SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
       </div>
 
       {/* Table */}
@@ -106,11 +132,11 @@ export default function ReorderPointsTab() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600 text-xs">
               <tr>
-                <th className="px-4 py-3 text-right font-medium">اسم الصنف</th>
-                <th className="px-4 py-3 text-right font-medium">الشركة</th>
-                <th className="px-4 py-3 text-right font-medium">الفرع</th>
-                <th className="px-4 py-3 text-center font-medium">الكمية الحالية</th>
-                <th className="px-4 py-3 text-center font-medium">حد الطلب</th>
+                <SortableHeader field="product_name" label="اسم الصنف" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="company" label="الشركة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
+                <SortableHeader field="stock_quantity" label="الكمية الحالية" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
+                <SortableHeader field="reorder_point" label="حد الطلب" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
                 <th className="px-4 py-3 text-center font-medium">الحالة</th>
                 <th className="px-4 py-3 text-center font-medium">حفظ</th>
               </tr>

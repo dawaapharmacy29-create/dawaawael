@@ -11,6 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+
+const MBAL_SORT_COLUMNS = [
+  { field: "branch", label: "الفرع", type: "text" },
+  { field: "week_label", label: "الفترة", type: "text" },
+  { field: "week_start", label: "تاريخ البداية", type: "date" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const TODAY = new Date().toISOString().split("T")[0];
@@ -139,11 +147,18 @@ export default function MedicineBalanceTab() {
     updateMutation.mutate({ id: editRecord.id, data: { ...editRecord, sales: cleaned } });
   };
 
-  const filtered = useMemo(() => {
+  const filteredRaw = useMemo(() => {
     return allRecords.filter((s) =>
       filterBranch === "الكل" || s.branch === filterBranch
     );
   }, [allRecords, filterBranch]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: MBAL_SORT_COLUMNS,
+    defaultSort: { field: "week_start", direction: "desc" },
+    paramPrefix: "mbal",
+  });
+  const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
   return (
     <div className="space-y-4">
@@ -163,11 +178,22 @@ export default function MedicineBalanceTab() {
             </button>
           ))}
         </div>
-        {canAdd && (
-          <Button onClick={openAddDialog} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Plus className="w-4 h-4" /> إضافة رصيد أسبوعي
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <SortControls
+            columns={MBAL_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+            cardMode
+          />
+          {canAdd && (
+            <Button onClick={openAddDialog} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+              <Plus className="w-4 h-4" /> إضافة رصيد أسبوعي
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Records */}

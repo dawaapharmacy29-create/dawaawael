@@ -7,6 +7,17 @@ import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
 import DateRangeFilter from "./DateRangeFilter";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import { SortControls } from "@/components/table/SortControls";
+import { SHIFT_TYPE_ORDER } from "@/lib/sortUtils";
+
+const SHIFT_SORT_COLUMNS = [
+  { field: "shift_type", label: "نوع الشفت", type: "status", statusMap: SHIFT_TYPE_ORDER },
+  { field: "submitted_by", label: "الموظف", type: "text" },
+  { field: "total_sales", label: "المبيعات", type: "number" },
+  { field: "total_expenses", label: "المصروفات", type: "number" },
+  { field: "net_amount", label: "الصافي", type: "number" },
+];
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = {
@@ -29,7 +40,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const dateFiltered = useMemo(() => {
+  const dateFilteredRaw = useMemo(() => {
     return deliveries.filter((d) => {
       if (!d.shift_date) return false;
       if (fromDate && d.shift_date < fromDate) return false;
@@ -37,6 +48,13 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
       return true;
     });
   }, [deliveries, fromDate, toDate]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+    columns: SHIFT_SORT_COLUMNS,
+    defaultSort: { field: "shift_type", direction: "asc" },
+    paramPrefix: "shift",
+  });
+  const dateFiltered = useMemo(() => sortData(dateFilteredRaw), [dateFilteredRaw, sortData]);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ShiftDelivery.delete(id),
@@ -73,6 +91,15 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
         <h2 className="text-lg font-bold text-gray-800">سجل التسليمات</h2>
         <div className="flex items-center gap-3 flex-wrap">
           <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
+          <SortControls
+            columns={SHIFT_SORT_COLUMNS}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onToggle={toggleSort}
+            onSet={setSort}
+            onReset={resetSort}
+            cardMode
+          />
           <Button onClick={onNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
             <Plus className="w-4 h-4" /> تسليم جديد
           </Button>
