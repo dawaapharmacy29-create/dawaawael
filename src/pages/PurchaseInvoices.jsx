@@ -140,9 +140,33 @@ export default function PurchaseInvoices() {
     },
   });
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data, batch_id, change_type, reason }) => {
+      const oldInv = invoices.find((i) => i.id === id) || {};
       await base44.entities.PurchaseInvoice.update(id, data);
-      await logActivity({ action_type: "update", entity_type: "invoice", entity_id: id, entity_label: data.system_invoice_number, details: `تعديل فاتورة ${data.system_invoice_number}` });
+      const trackedFields = ["total_value", "paid_value", "returned_value", "supplier_name", "branch", "payment_type", "purchase_category", "net_purchase_mode", "exclusion_reason", "status"];
+      const changes = trackedFields.filter(f => data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(oldInv[f]));
+      if (changes.length > 0) {
+        const oldVals = changes.map(f => `${f}: ${JSON.stringify(oldInv[f])}`).join(" | ");
+        const newVals = changes.map(f => `${f}: ${JSON.stringify(data[f])}`).join(" | ");
+        await logActivity({
+          action_type: change_type || "update",
+          entity_type: "invoice",
+          entity_id: id,
+          record_id: id,
+          entity_label: oldInv.system_invoice_number || data.system_invoice_number || id,
+          old_value: oldVals,
+          new_value: newVals,
+          batch_id: batch_id || "",
+          reason: reason || "",
+          details: changes.includes("net_purchase_mode") ? `تغيير الاستثناء: ${oldInv.net_purchase_mode} → ${data.net_purchase_mode}`
+            : changes.includes("purchase_category") ? `تغيير التصنيف: ${oldInv.purchase_category} → ${data.purchase_category}`
+            : changes.includes("branch") ? `تغيير الفرع: ${oldInv.branch} → ${data.branch}`
+            : changes.includes("supplier_name") ? `تغيير المورد: ${oldInv.supplier_name} → ${data.supplier_name}`
+            : changes.includes("total_value") ? `تغيير القيمة: ${oldInv.total_value} → ${data.total_value}`
+            : changes.includes("paid_value") ? `تغيير المدفوع: ${oldInv.paid_value} → ${data.paid_value}`
+            : `تعديل: ${changes.join(", ")}`,
+        });
+      }
       return { id, data };
     },
     onSuccess: ({ id, data }) => {
@@ -186,19 +210,24 @@ export default function PurchaseInvoices() {
   };
 
   const executeBulkSave = () => {
+    const batchId = `bulk-save-${Date.now()}`;
     selectedIds.forEach((id) => {
       const inv = invoices.find((i) => i.id === id);
-      if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" } });
+      if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" }, batch_id: batchId, change_type: "status_change", reason: "حفظ جماعي" });
     });
     setSelectedIds([]);
   };
 
   const executeBulkExclude = ({ exclusion_reason, exclusion_note }) => {
+    const batchId = `bulk-exclude-${Date.now()}`;
     selectedIds.forEach((id) => {
       const inv = invoices.find((i) => i.id === id);
       if (inv) updateMutation.mutate({
         id,
-        data: { ...inv, net_purchase_mode: "exclude", exclusion_reason, exclusion_note }
+        data: { ...inv, net_purchase_mode: "exclude", exclusion_reason, exclusion_note },
+        batch_id: batchId,
+        change_type: "exclusion_change",
+        reason: exclusion_reason || "استثناء جماعي",
       });
     });
     setSelectedIds([]);
@@ -206,11 +235,15 @@ export default function PurchaseInvoices() {
   };
 
   const executeBulkCategory = ({ purchase_category, purchase_category_source }) => {
+    const batchId = `bulk-category-${Date.now()}`;
     selectedIds.forEach((id) => {
       const inv = invoices.find((i) => i.id === id);
       if (inv) updateMutation.mutate({
         id,
-        data: { ...inv, purchase_category, purchase_category_source }
+        data: { ...inv, purchase_category, purchase_category_source },
+        batch_id: batchId,
+        change_type: "category_change",
+        reason: "تغيير تصنيف جماعي",
       });
     });
     setSelectedIds([]);

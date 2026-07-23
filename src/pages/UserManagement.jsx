@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
+import { logActivity } from "@/lib/activityLogger";
 
 const ROLE_CONFIG = {
   admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
@@ -28,7 +29,7 @@ const PERMISSIONS = [
 export default function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, user: currentUser } = useUserRole();
   const [inviteDialog, setInviteDialog] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer" });
 
@@ -38,12 +39,38 @@ export default function UserManagement() {
   });
 
   const updateRole = useMutation({
-    mutationFn: ({ id, role }) => base44.entities.User.update(id, { role }),
+    mutationFn: async ({ id, role, oldRole, userEmail }) => {
+      await base44.entities.User.update(id, { role });
+      await logActivity({
+        action_type: "role_change",
+        entity_type: "user",
+        entity_id: id,
+        record_id: id,
+        entity_label: userEmail,
+        old_value: oldRole,
+        new_value: role,
+        reason: "تغيير دور المستخدم",
+        details: `تغيير دور ${userEmail} من ${oldRole} إلى ${role}`,
+      });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
   const updatePerm = useMutation({
-    mutationFn: ({ id, perm, value }) => base44.entities.User.update(id, { [perm]: value }),
+    mutationFn: async ({ id, perm, value, oldValue, userEmail }) => {
+      await base44.entities.User.update(id, { [perm]: value });
+      await logActivity({
+        action_type: "permission_change",
+        entity_type: "user",
+        entity_id: id,
+        record_id: id,
+        entity_label: userEmail,
+        old_value: `${perm}: ${oldValue}`,
+        new_value: `${perm}: ${value}`,
+        reason: "تغيير صلاحية",
+        details: `تغيير صلاحية ${perm} لـ ${userEmail}: ${oldValue} → ${value}`,
+      });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
@@ -114,7 +141,11 @@ export default function UserManagement() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <Badge className={`${cfg.color} border-0 hidden sm:inline-flex`}>{cfg.label}</Badge>
-                  <Select value={role} onValueChange={(v) => updateRole.mutate({ id: user.id, role: v })}>
+                  <Select
+                    value={role}
+                    disabled={user.id === currentUser?.id}
+                    onValueChange={(v) => updateRole.mutate({ id: user.id, role: v, oldRole: role, userEmail: user.email })}
+                  >
                     <SelectTrigger className="w-36 h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -124,6 +155,9 @@ export default function UserManagement() {
                       <SelectItem value="viewer">مشاهد</SelectItem>
                     </SelectContent>
                   </Select>
+                  {user.id === currentUser?.id && (
+                    <span className="text-[10px] text-gray-400">لا يمكن تغيير دورك</span>
+                  )}
                 </div>
                 {/* Permissions row - only show for non-admin */}
                 {role !== "admin" && (
@@ -133,8 +167,9 @@ export default function UserManagement() {
                       return (
                         <button
                           key={p.key}
-                          onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val })}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          disabled={user.id === currentUser?.id}
+                          onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val, oldValue: val, userEmail: user.email })}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                             val ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-teal-200"
                           }`}
                         >
