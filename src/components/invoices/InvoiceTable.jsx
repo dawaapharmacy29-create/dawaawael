@@ -160,9 +160,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                 <TableHead className="w-10 text-center">
                   <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, pageData)} />
                 </TableHead>
-                <TableHead className="w-8 text-center p-0">
-                  <button type="button" onClick={toggleAllRows} className="p-1 text-gray-400 hover:text-teal-600 mx-auto block" title={allExpanded ? "طي الكل" : "توسيع الكل"}>
-                    {allExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                <TableHead className="w-10 text-center p-0">
+                  <button type="button" onClick={toggleAllRows} className="flex items-center justify-center w-full h-full py-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 transition-colors" title={allExpanded ? "طي الكل" : "توسيع الكل"} aria-label={allExpanded ? "طي الكل" : "توسيع الكل"}>
+                    {allExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </button>
                 </TableHead>
                 <SortableHeader field="system_invoice_number" label="رقم البرنامج" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
@@ -195,8 +195,8 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                         <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(inv.id)} />
                       </TableCell>
                       <TableCell className="text-center p-0">
-                        <button type="button" onClick={() => toggleRow(inv.id)} className="p-1 text-gray-400 hover:text-teal-600" title={isExpanded ? "طي" : "توسيع"}>
-                          {isExpanded ? <ChevronUp className="w-4 h-4 mx-auto" /> : <ChevronDown className="w-4 h-4 mx-auto" />}
+                        <button type="button" onClick={() => toggleRow(inv.id)} className="flex items-center justify-center w-full h-full py-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 transition-colors" title={isExpanded ? "طي" : "توسيع"} aria-label={isExpanded ? "طي" : "توسيع"}>
+                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                         </button>
                       </TableCell>
                       <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>
