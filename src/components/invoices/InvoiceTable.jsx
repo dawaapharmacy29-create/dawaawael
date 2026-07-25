@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect, Fragment } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight, ArrowRightLeft, Ban, AlertTriangle, ChevronDown, ChevronUp, Columns3 } from "lucide-react";
+import { Pencil, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight, ArrowRightLeft, Ban, AlertTriangle, Columns3 } from "lucide-react";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/useUserRole";
@@ -21,7 +21,6 @@ import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
 import { TopScrollbar } from "@/components/table/TopScrollbar";
 import { ColumnVisibilityToggle } from "@/components/table/ColumnVisibilityToggle";
-import { InvoiceExpandRow } from "@/components/invoices/InvoiceExpandRow";
 import {
   INVOICE_STATUS_ORDER,
   PAYMENT_STATUS_ORDER,
@@ -90,7 +89,6 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
   const [currentPage, setCurrentPage] = useState(1);
   const [hiddenCols, setHiddenCols] = useState({});
-  const [expandedRows, setExpandedRows] = useState({});
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData, isActive } = useTableSorting({
     columns: SORT_COLUMNS,
     defaultSort: { field: "created_date", direction: "desc" },
@@ -99,7 +97,6 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
 
   const isCol = (key) => !hiddenCols[key];
   const toggleCol = (key) => setHiddenCols((p) => ({ ...p, [key]: !p[key] }));
-  const toggleRow = (id) => setExpandedRows((p) => ({ ...p, [id]: !p[id] }));
 
   // إعادة الصفحة للأولى عند تغيير الترتيب
   useEffect(() => { setCurrentPage(1); }, [sortField, sortDirection]);
@@ -115,15 +112,6 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
 
   // Reset to page 1 when filters change drastically
   const allSelected = pageData.length > 0 && pageData.every((inv) => selectedIds.includes(inv.id));
-  const allExpanded = pageData.length > 0 && pageData.every((inv) => expandedRows[inv.id]);
-  const toggleAllRows = () => {
-    const next = !allExpanded;
-    setExpandedRows((p) => {
-      const updated = { ...p };
-      pageData.forEach((inv) => { updated[inv.id] = next; });
-      return updated;
-    });
-  };
 
   if (isLoading) {
     return <Card className="p-8 text-center text-gray-400"><div className="w-8 h-8 border-4 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />جاري التحميل...</Card>;
@@ -160,11 +148,6 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                 <TableHead className="w-10 text-center">
                   <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, pageData)} />
                 </TableHead>
-                <TableHead className="w-10 text-center p-0">
-                  <button type="button" onClick={toggleAllRows} className="flex items-center justify-center w-full h-full py-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 transition-colors" title={allExpanded ? "طي الكل" : "توسيع الكل"} aria-label={allExpanded ? "طي الكل" : "توسيع الكل"}>
-                    {allExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                  </button>
-                </TableHead>
                 <SortableHeader field="system_invoice_number" label="رقم البرنامج" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
                 {isCol("supplier_invoice_number") && <SortableHeader field="supplier_invoice_number" label="رقم المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
                 {isCol("supplier_name") && <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
@@ -187,17 +170,10 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
               {pageData.map((inv) => {
                 const remaining = (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0);
                 const isSelected = selectedIds.includes(inv.id);
-                const isExpanded = !!expandedRows[inv.id];
                 return (
-                  <Fragment key={inv.id}>
-                    <TableRow className={`hover:bg-gray-50 transition-colors ${isSelected ? "bg-teal-50" : ""}`}>
+                  <TableRow key={inv.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? "bg-teal-50" : ""}`}>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                         <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(inv.id)} />
-                      </TableCell>
-                      <TableCell className="text-center p-0">
-                        <button type="button" onClick={() => toggleRow(inv.id)} className="flex items-center justify-center w-full h-full py-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 transition-colors" title={isExpanded ? "طي" : "توسيع"} aria-label={isExpanded ? "طي" : "توسيع"}>
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </button>
                       </TableCell>
                       <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>
                         <div className="flex items-center gap-1.5">
@@ -281,8 +257,6 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                         </div>
                       </TableCell>
                     </TableRow>
-                    {isExpanded && <InvoiceExpandRow inv={inv} />}
-                  </Fragment>
                 );
               })}
             </TableBody>
