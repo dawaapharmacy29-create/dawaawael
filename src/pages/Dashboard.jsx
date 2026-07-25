@@ -54,6 +54,8 @@ export default function Dashboard() {
     setShowDateFilter(false);
   };
 
+  useEffect(() => { setEditingTarget(false); }, [branch]);
+
   const { data: invoices = [], isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: async () => {
@@ -101,12 +103,18 @@ export default function Dashboard() {
     queryKey: ["target-goals"],
     queryFn: () => base44.entities.TargetGoal.list(),
   });
-  const currentTarget = targetGoals.find((t) => t.month === currentMonth);
+  const branchTargets = BRANCHES.map((b) => ({
+    branch: b,
+    target: targetGoals.find((t) => t.month === currentMonth && t.branch === b),
+  }));
+  const currentBranchTarget = branch === "all"
+    ? null
+    : branchTargets.find((bt) => bt.branch === branch)?.target;
 
   const saveTargetMutation = useMutation({
     mutationFn: async (amount) => {
-      if (currentTarget) return base44.entities.TargetGoal.update(currentTarget.id, { target_amount: amount, month: currentMonth });
-      return base44.entities.TargetGoal.create({ label: "الهدف الشهري", target_amount: amount, month: currentMonth });
+      if (branch === "all" || !currentBranchTarget) return;
+      return base44.entities.TargetGoal.update(currentBranchTarget.id, { target_amount: amount, month: currentMonth, branch });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
   });
@@ -128,7 +136,9 @@ export default function Dashboard() {
   const totalInvoiceValue = branchMonthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalExpenses = branchMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const totalPayments = totalInvoiceValue + totalExpenses;
-  const targetAmount = currentTarget?.target_amount || 0;
+  const targetAmount = branch === "all"
+    ? branchTargets.reduce((s, bt) => s + (bt.target?.target_amount || 0), 0)
+    : currentBranchTarget?.target_amount || 0;
   const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
   const totalCashPurchases = branchMonthInvoices
@@ -205,10 +215,12 @@ export default function Dashboard() {
                       <Input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} className="h-6 text-xs px-2 w-28" placeholder="الهدف..." />
                       <Button size="icon" className="h-6 w-6 bg-teal-600" onClick={() => saveTargetMutation.mutate(parseFloat(targetInput))}><Check className="w-3 h-3" /></Button>
                     </div>
-                  ) : (
+                  ) : branch !== "all" ? (
                     <button onClick={() => { setTargetInput(targetAmount ? targetAmount.toString() : ""); setEditingTarget(true); }} className="flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1">
                       <Pencil className="w-3 h-3" /> تعديل الهدف
                     </button>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1">مجموع أهداف الفروع</p>
                   )}
                 </div>
               )}
