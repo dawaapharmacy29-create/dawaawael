@@ -139,22 +139,16 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
   return (
     <Card className="overflow-hidden">
       {/* Sort controls + mobile menu */}
-      <div className="flex items-center justify-between gap-2 px-4 py-1.5 border-b bg-gray-50/50">
-        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={toggleAllRows}>
-          {allExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          {allExpanded ? "طي الكل" : "توسيع الكل"}
-        </Button>
-        <div className="flex items-center gap-2">
-          <ColumnVisibilityToggle columns={TOGGLE_COLUMNS} hiddenCols={hiddenCols} onToggle={toggleCol} />
-          <SortControls
-            columns={SORT_COLUMNS}
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onToggle={toggleSort}
-            onSet={setSort}
-            onReset={resetSort}
-          />
-        </div>
+      <div className="flex items-center justify-end gap-2 px-4 py-1.5 border-b bg-gray-50/50">
+        <ColumnVisibilityToggle columns={TOGGLE_COLUMNS} hiddenCols={hiddenCols} onToggle={toggleCol} />
+        <SortControls
+          columns={SORT_COLUMNS}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onToggle={toggleSort}
+          onSet={setSort}
+          onReset={resetSort}
+        />
       </div>
 
       {/* Desktop Table */}
@@ -166,7 +160,11 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                 <TableHead className="w-10 text-center">
                   <Checkbox checked={allSelected} onCheckedChange={() => onToggleAll(!allSelected, pageData)} />
                 </TableHead>
-                <TableHead className="w-8 text-center"></TableHead>
+                <TableHead className="w-8 text-center p-0">
+                  <button type="button" onClick={toggleAllRows} className="p-1 text-gray-400 hover:text-teal-600 mx-auto block" title={allExpanded ? "طي الكل" : "توسيع الكل"}>
+                    {allExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </TableHead>
                 <SortableHeader field="system_invoice_number" label="رقم البرنامج" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
                 {isCol("supplier_invoice_number") && <SortableHeader field="supplier_invoice_number" label="رقم المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
                 {isCol("supplier_name") && <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
