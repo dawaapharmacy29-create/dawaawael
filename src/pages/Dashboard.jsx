@@ -113,8 +113,9 @@ export default function Dashboard() {
 
   const saveTargetMutation = useMutation({
     mutationFn: async (amount) => {
-      if (branch === "all" || !currentBranchTarget) return;
-      return base44.entities.TargetGoal.update(currentBranchTarget.id, { target_amount: amount, month: currentMonth, branch });
+      if (branch === "all") return;
+      if (currentBranchTarget) return base44.entities.TargetGoal.update(currentBranchTarget.id, { target_amount: amount });
+      return base44.entities.TargetGoal.create({ label: "الهدف الشهري", target_amount: amount, month: currentMonth, branch });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
   });
