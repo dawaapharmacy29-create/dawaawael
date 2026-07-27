@@ -29,6 +29,7 @@ import ShiftDelivery from './pages/ShiftDelivery';
 import SecurityAuditPage from './pages/SecurityAuditPage';
 import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
+import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -76,6 +77,7 @@ const AuthenticatedApp = () => {
         <Route path="/security-audit" element={<SecurityAuditPage />} />
         <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
         <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
+        <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

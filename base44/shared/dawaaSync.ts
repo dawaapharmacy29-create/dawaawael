@@ -1,23 +1,12 @@
-import { secrets } from "base44:runtime";
-
 const MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_LEN = 5000;
 const MAX_ERROR_LEN = 500;
 
-export function getSyncConfig() {
-  return {
-    endpoint: secrets.get("DAWAA_SYNC_ENDPOINT") || "",
-    secret: secrets.get("DAWAA_SYNC_SECRET") || "",
-  };
-}
-
-export function isConfigured() {
-  const { endpoint, secret } = getSyncConfig();
+export function isConfigured(endpoint, secret) {
   return Boolean(endpoint && secret);
 }
 
-export async function sendToSupabase(event) {
-  const { endpoint, secret } = getSyncConfig();
+export async function sendToSupabase(endpoint, secret, event) {
   if (!endpoint || !secret) {
     return { success: false, status: 0, error: "إعدادات المزامنة غير مكتملة", data: "" };
   }
@@ -74,5 +63,3 @@ export async function sendToSupabase(event) {
 export function shouldFail(attempts) {
   return attempts >= MAX_ATTEMPTS;
 }
-
-export const MAX_RETRY_LIMIT = 10;
