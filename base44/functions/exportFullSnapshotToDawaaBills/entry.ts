@@ -30,6 +30,23 @@ export default async function(req: Request): Promise<Response> {
       }, { status: 400 });
     }
 
+    // ShiftDelivery is already fully reconciled in DAWAAPHARMACY-BILLS.
+    // Keep real-time events enabled, but skip the redundant historical snapshot
+    // so an old malformed record cannot block the rest of the migration.
+    if (entityName === 'ShiftDelivery') {
+      return Response.json({
+        success: true,
+        skipped: true,
+        skip_reason: 'already_reconciled',
+        snapshot_id: snapshotId,
+        entity_name: entityName,
+        batch_number: 1,
+        records_sent: 0,
+        is_last_batch: true,
+        next_offset: null,
+      });
+    }
+
     const endpoint = secrets.get('DAWAA_SYNC_ENDPOINT') || '';
     const secret = secrets.get('DAWAA_SYNC_SECRET') || '';
     if (!endpoint || !secret) {
