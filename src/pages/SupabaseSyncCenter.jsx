@@ -4,15 +4,27 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Database, Plug, Send, RotateCcw } from "lucide-react";
+import { Database, Plug, Send, Archive } from "lucide-react";
 import SyncStats from "@/components/sync/SyncStats";
 import SyncOutboxTable from "@/components/sync/SyncOutboxTable";
+
+const SNAPSHOT_ENTITIES = [
+  "Supplier",
+  "ShiftDelivery",
+  "PharmacyOrder",
+  "CustomerOrder",
+  "SupplierPayment",
+  "PurchaseInvoice",
+  "Expense",
+  "Return",
+];
 
 export default function SupabaseSyncCenter() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
   const [retryingId, setRetryingId] = useState(null);
   const [testResult, setTestResult] = useState(null);
+  const [snapshotProgress, setSnapshotProgress] = useState(null);
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["sync-outbox"],
@@ -26,11 +38,7 @@ export default function SupabaseSyncCenter() {
     pendingRetry: records.filter((r) => r.status === "pending_retry").length,
     failed: records.filter((r) => r.status === "failed").length,
     today: records.filter((r) => (r.created_date || "").slice(0, 10) === todayStr).length,
-    lastSync: records
-      .filter((r) => r.synced_at)
-      .map((r) => r.synced_at)
-      .sort()
-      .pop() || null,
+    lastSync: records.filter((r) => r.synced_at).map((r) => r.synced_at).sort().pop() || null,
   };
 
   const testConnection = useMutation({
@@ -55,6 +63,65 @@ export default function SupabaseSyncCenter() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sync-outbox"] }),
   });
 
+  const fullSnapshot = useMutation({
+    mutationFn: async () => {
+      const snapshotId = crypto.randomUUID();
+      const summary = [];
+
+      for (let entityIndex = 0; entityIndex < SNAPSHOT_ENTITIES.length; entityIndex += 1) {
+        const entityName = SNAPSHOT_ENTITIES[entityIndex];
+        let offset = 0;
+        let batches = 0;
+        let recordsSent = 0;
+        let done = false;
+
+        while (!done) {
+          setSnapshotProgress({
+            snapshotId,
+            entityName,
+            entityIndex: entityIndex + 1,
+            entitiesTotal: SNAPSHOT_ENTITIES.length,
+            offset,
+            batches,
+            recordsSent,
+          });
+
+          const response = await base44.functions.invoke("exportFullSnapshotToDawaaBills", {
+            entity_name: entityName,
+            snapshot_id: snapshotId,
+            batch_size: 200,
+            offset,
+          });
+          const data = response?.data || response;
+
+          if (!data?.success) {
+            throw new Error(data?.error || `فشل تصدير ${entityName}`);
+          }
+
+          batches += 1;
+          recordsSent += Number(data.records_sent || 0);
+          done = Boolean(data.is_last_batch);
+          offset = data.next_offset ?? offset;
+        }
+
+        summary.push({ entityName, batches, recordsSent });
+      }
+
+      return { success: true, snapshotId, summary };
+    },
+    onSuccess: (result) => {
+      setSnapshotProgress({ completed: true, ...result });
+      qc.invalidateQueries({ queryKey: ["sync-outbox"] });
+    },
+    onError: (error) => {
+      setSnapshotProgress((current) => ({
+        ...(current || {}),
+        failed: true,
+        error: error?.message || "فشل نقل البيانات التاريخية",
+      }));
+    },
+  });
+
   const filtered = records.filter((r) => statusFilter === "all" || r.status === statusFilter);
 
   return (
@@ -69,19 +136,29 @@ export default function SupabaseSyncCenter() {
             <p className="text-xs text-gray-500">ربط أحادي الاتجاه من Base44 إلى Supabase</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
-            disabled={testConnection.isPending}
+            disabled={testConnection.isPending || fullSnapshot.isPending}
             onClick={() => testConnection.mutate()}
           >
             <Plug className="w-4 h-4 ml-1" />
             اختبار الاتصال
           </Button>
           <Button
+            variant="outline"
             size="sm"
-            disabled={retryBatch.isPending || stats.pendingRetry === 0}
+            disabled={fullSnapshot.isPending}
+            onClick={() => fullSnapshot.mutate()}
+            className="border-indigo-300 text-indigo-700"
+          >
+            <Archive className="w-4 h-4 ml-1" />
+            {fullSnapshot.isPending ? "جاري نقل التاريخ..." : "نقل البيانات التاريخية كاملة"}
+          </Button>
+          <Button
+            size="sm"
+            disabled={retryBatch.isPending || stats.pendingRetry === 0 || fullSnapshot.isPending}
             onClick={() => retryBatch.mutate()}
             className="bg-teal-600 hover:bg-teal-700"
           >
@@ -90,6 +167,27 @@ export default function SupabaseSyncCenter() {
           </Button>
         </div>
       </div>
+
+      {snapshotProgress && (
+        <Card className={snapshotProgress.failed ? "border-red-300 bg-red-50" : snapshotProgress.completed ? "border-green-300 bg-green-50" : "border-indigo-200 bg-indigo-50"}>
+          <CardContent className="p-3 text-sm">
+            {snapshotProgress.failed ? (
+              <span className="text-red-700">❌ {snapshotProgress.error}</span>
+            ) : snapshotProgress.completed ? (
+              <div className="space-y-1 text-green-800">
+                <div className="font-semibold">✅ تم إرسال البيانات التاريخية كاملة إلى منطقة المراجعة</div>
+                <div>Snapshot: {snapshotProgress.snapshotId}</div>
+                <div>إجمالي السجلات: {snapshotProgress.summary.reduce((sum, item) => sum + item.recordsSent, 0)}</div>
+              </div>
+            ) : (
+              <div className="text-indigo-800">
+                <div className="font-semibold">جاري نقل {snapshotProgress.entityName}</div>
+                <div>الكيان {snapshotProgress.entityIndex} من {snapshotProgress.entitiesTotal} — تم إرسال {snapshotProgress.recordsSent} سجل</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {testResult && (
         <Card className={testResult.success ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}>
@@ -115,11 +213,7 @@ export default function SupabaseSyncCenter() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-base">سجل أحداث المزامنة</CardTitle>
-            <RadioGroup
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-              className="flex gap-1 flex-wrap"
-            >
+            <RadioGroup value={statusFilter} onValueChange={setStatusFilter} className="flex gap-1 flex-wrap">
               {[
                 { v: "all", l: "الكل" },
                 { v: "synced", l: "متزامن" },
