@@ -12,27 +12,26 @@ const SUPPORTED_ENTITIES = new Set([
   'Supplier',
 ]);
 
-const MAX_BATCH_SIZE = 200;
+const MAX_BATCH_SIZE = 50;
 
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
     const entityName = String(body.entity_name || '').trim();
-    const batchSize = Math.min(Math.max(Number(body.batch_size || MAX_BATCH_SIZE), 1), MAX_BATCH_SIZE);
+    const batchSize = Math.min(Math.max(Number(body.batch_size || 25), 1), MAX_BATCH_SIZE);
     const offset = Math.max(Number(body.offset || 0), 0);
     const snapshotId = String(body.snapshot_id || crypto.randomUUID());
 
     if (!SUPPORTED_ENTITIES.has(entityName)) {
       return Response.json({
+        success: false,
         error: 'unsupported_entity',
+        entity_name: entityName,
         supported_entities: [...SUPPORTED_ENTITIES],
-      }, { status: 400 });
+      });
     }
 
-    // ShiftDelivery is already fully reconciled in DAWAAPHARMACY-BILLS.
-    // Keep real-time events enabled, but skip the redundant historical snapshot
-    // so an old malformed record cannot block the rest of the migration.
     if (entityName === 'ShiftDelivery') {
       return Response.json({
         success: true,
@@ -50,48 +49,78 @@ export default async function(req: Request): Promise<Response> {
     const endpoint = secrets.get('DAWAA_SYNC_ENDPOINT') || '';
     const secret = secrets.get('DAWAA_SYNC_SECRET') || '';
     if (!endpoint || !secret) {
-      return Response.json({ error: 'sync_config_missing' }, { status: 500 });
+      return Response.json({ success: false, error: 'sync_config_missing', entity_name: entityName });
     }
 
     const entityApi = base44.asServiceRole.entities[entityName];
     if (!entityApi?.list) {
-      return Response.json({ error: 'entity_api_unavailable', entity_name: entityName }, { status: 500 });
+      return Response.json({ success: false, error: 'entity_api_unavailable', entity_name: entityName });
     }
 
-    const records = await entityApi.list('created_date', batchSize, offset);
+    let records;
+    try {
+      records = await entityApi.list('created_date', batchSize, offset);
+    } catch (primaryError) {
+      try {
+        records = await entityApi.list('-created_date', batchSize, offset);
+      } catch (fallbackError) {
+        return Response.json({
+          success: false,
+          error: 'entity_read_failed',
+          entity_name: entityName,
+          offset,
+          primary_error: primaryError?.message || String(primaryError),
+          fallback_error: fallbackError?.message || String(fallbackError),
+        });
+      }
+    }
+
     const normalizedRecords = Array.isArray(records) ? records : [];
     const batchNumber = Math.floor(offset / batchSize) + 1;
     const isLastBatch = normalizedRecords.length < batchSize;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Dawaa-Sync-Secret': secret,
-        'X-Dawaa-Event-Id': `${snapshotId}:${entityName}:${batchNumber}`,
-      },
-      body: JSON.stringify({
-        mode: 'full_snapshot',
-        snapshot_id: snapshotId,
-        source_system: 'base44',
-        source_entity: entityName,
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dawaa-Sync-Secret': secret,
+          'X-Dawaa-Event-Id': `${snapshotId}:${entityName}:${batchNumber}`,
+        },
+        body: JSON.stringify({
+          mode: 'full_snapshot',
+          snapshot_id: snapshotId,
+          source_system: 'base44',
+          source_entity: entityName,
+          batch_number: batchNumber,
+          is_last_batch: isLastBatch,
+          records: normalizedRecords,
+        }),
+      });
+    } catch (networkError) {
+      return Response.json({
+        success: false,
+        error: 'snapshot_network_failed',
+        entity_name: entityName,
         batch_number: batchNumber,
-        is_last_batch: isLastBatch,
-        records: normalizedRecords,
-      }),
-    });
+        offset,
+        details: networkError?.message || String(networkError),
+      });
+    }
 
     const responseText = await response.text();
     if (!response.ok) {
       return Response.json({
+        success: false,
         error: 'snapshot_send_failed',
         status: response.status,
-        details: responseText.slice(0, 1000),
+        details: responseText.slice(0, 2000),
         snapshot_id: snapshotId,
         entity_name: entityName,
         batch_number: batchNumber,
         offset,
-      }, { status: 502 });
+      });
     }
 
     return Response.json({
@@ -106,7 +135,8 @@ export default async function(req: Request): Promise<Response> {
     });
   } catch (error) {
     return Response.json({
+      success: false,
       error: error?.message || 'snapshot_export_failed',
-    }, { status: 500 });
+    });
   }
 }
