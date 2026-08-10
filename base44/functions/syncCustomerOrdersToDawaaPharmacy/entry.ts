@@ -15,8 +15,8 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'authentication_required' }, { status: 401 });
     }
 
-    const endpoint = secrets.get('DAWAA_PHARMACY_SYNC_ENDPOINT') || DEFAULT_ENDPOINT;
-    const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || '';
+    const endpoint = secrets.get('DAWAA_PHARMACY_SYNC_ENDPOINT') || secrets.get('DAWAA_SYNC_ENDPOINT') || DEFAULT_ENDPOINT;
+    const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || secrets.get('DAWAA_SYNC_SECRET') || '';
     if (!secret) {
       return Response.json({
         error: 'sync_secret_missing',
