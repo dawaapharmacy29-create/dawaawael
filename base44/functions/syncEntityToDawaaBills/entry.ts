@@ -12,6 +12,43 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: "entity_name, record_id, event_type are required" }, { status: 400 });
     }
 
+    // Independent best-effort mirror of CustomerOrder create/update events to Dawaa Pharmacy.
+    // This must never block or alter the existing DawaaBills synchronization path.
+    if (entity_name === "CustomerOrder" && ["create", "update"].includes(String(event_type))) {
+      try {
+        const managementEndpoint = secrets.get("DAWAA_PHARMACY_SYNC_ENDPOINT") || "https://jkjqeqkshllustwlzzbf.supabase.co/functions/v1/dawaawael-customer-order-sync";
+        const managementSecret = secrets.get("DAWAA_PHARMACY_SYNC_SECRET") || "";
+        if (managementSecret && payload && typeof payload === "object") {
+          const managementResponse = await fetch(managementEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Dawaa-Sync-Secret": managementSecret,
+              "X-Dawaa-Event-Id": `dawaawael:CustomerOrder:${record_id}:${source_updated_at || source_created_at || event_type}`,
+            },
+            body: JSON.stringify({
+              mode: "incremental",
+              source_system: "dawaawael",
+              source_entity: "CustomerOrder",
+              records: [{ ...payload, id: payload.id || record_id }],
+            }),
+          });
+          if (!managementResponse.ok) {
+            console.warn("CustomerOrder management sync deferred", {
+              record_id,
+              status: managementResponse.status,
+              body: (await managementResponse.text()).slice(0, 500),
+            });
+          }
+        }
+      } catch (managementError) {
+        console.warn("CustomerOrder management sync deferred", {
+          record_id,
+          message: managementError instanceof Error ? managementError.message : String(managementError),
+        });
+      }
+    }
+
     // Idempotency: skip if a record with same entity + record_id + updated_at + event_type exists
     const existing = await base44.asServiceRole.entities.SyncOutbox.filter({
       entity_name,
