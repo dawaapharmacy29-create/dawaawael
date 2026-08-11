@@ -147,9 +147,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden min-w-0">
       {/* Sort controls + mobile menu */}
-      <div className="flex items-center justify-end gap-2 px-4 py-1.5 border-b bg-gray-50/50">
+      <div className="flex items-center justify-end gap-2 px-2.5 py-1 border-b bg-gray-50/50">
         <ColumnVisibilityToggle columns={TOGGLE_COLUMNS} hiddenCols={hiddenCols} onToggle={toggleCol} />
         <SortControls
           columns={SORT_COLUMNS}
@@ -164,7 +164,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
       {/* Desktop Table */}
       <div className="hidden md:block">
         <TopScrollbar>
-          <table className="w-full caption-bottom text-sm">
+          <table className="w-full caption-bottom text-[12px] xl:text-[13px] [&_th]:px-1.5 [&_td]:px-1.5 [&_th]:h-9">
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="w-10 text-center">
@@ -197,14 +197,14 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                         <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(inv.id)} />
                       </TableCell>
-                      <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline" onClick={() => onView(inv)}>
+                      <TableCell className="font-mono font-semibold text-teal-700 cursor-pointer hover:underline whitespace-nowrap" onClick={() => onView(inv)}>
                         <div className="flex items-center gap-1.5">
                           {inv.system_invoice_number}
                           {inv.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" title={inv.notes} />}
                         </div>
                       </TableCell>
-                      {isCol("supplier_invoice_number") && <TableCell className="text-gray-600">{inv.supplier_invoice_number || "—"}</TableCell>}
-                      {isCol("supplier_name") && <TableCell className="text-gray-700">{inv.supplier_name || "—"}</TableCell>}
+                      {isCol("supplier_invoice_number") && <TableCell className="text-gray-600 whitespace-nowrap">{inv.supplier_invoice_number || "—"}</TableCell>}
+                      {isCol("supplier_name") && <TableCell className="text-gray-700 max-w-[150px]"><span className="block truncate" title={inv.supplier_name || "—"}>{inv.supplier_name || "—"}</span></TableCell>}
                       {isCol("invoice_date") && (
                         <TableCell className="text-gray-600 text-sm max-w-[60px] overflow-hidden">
                           <span className="block truncate cursor-default" title={inv.invoice_date || "—"}>
@@ -259,9 +259,9 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                           </Badge>
                         </TableCell>
                       )}
-                      {isCol("total_value") && <TableCell className="font-semibold">{(inv.total_value || 0).toLocaleString("ar-EG")}</TableCell>}
-                      {isCol("returned_value") && <TableCell className="text-red-600">{inv.returned_value ? inv.returned_value.toLocaleString("ar-EG") : "—"}</TableCell>}
-                      {isCol("remaining") && <TableCell className={remaining > 0 ? "text-orange-600 font-semibold" : "text-gray-500"}>{remaining.toLocaleString("ar-EG")}</TableCell>}
+                      {isCol("total_value") && <TableCell className="font-semibold whitespace-nowrap">{(inv.total_value || 0).toLocaleString("ar-EG")}</TableCell>}
+                      {isCol("returned_value") && <TableCell className="text-red-600 whitespace-nowrap">{inv.returned_value ? inv.returned_value.toLocaleString("ar-EG") : "—"}</TableCell>}
+                      {isCol("remaining") && <TableCell className={`${remaining > 0 ? "text-orange-600 font-semibold" : "text-gray-500"} whitespace-nowrap`}>{remaining.toLocaleString("ar-EG")}</TableCell>}
                       {isCol("payment_type") && <TableCell><Badge className={`${paymentColor[inv.payment_type] || "bg-gray-100 text-gray-700"} border-0 text-xs`}>{inv.payment_type}</Badge></TableCell>}
                       {isCol("status") && <TableCell><Badge className={`${statusColor[inv.status]} border-0 text-xs`}>{statusIcon[inv.status]} {inv.status}</Badge></TableCell>}
                       {isCol("created_date") && (
@@ -271,8 +271,8 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                           </span>
                         </TableCell>
                       )}
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex gap-0.5">
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-500 hover:bg-gray-100" onClick={() => onView(inv)} title="عرض"><Eye className="w-3.5 h-3.5" /></Button>
                           {canSaveInvoice && <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(inv)} title="تعديل"><Pencil className="w-3.5 h-3.5" /></Button>}
                           {canDeleteInvoice && <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => onDelete(inv.id)} title="حذف"><Trash2 className="w-3.5 h-3.5" /></Button>}
