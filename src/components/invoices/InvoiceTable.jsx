@@ -30,6 +30,7 @@ import {
 } from "@/lib/sortUtils";
 
 const PAGE_SIZE = 50;
+const INVOICE_COLUMNS_STORAGE_KEY = "dawaawael_invoice_hidden_columns_v1";
 
 // قائمة الأعمدة المسموح بترتيبها (Allowlist)
 const SORT_COLUMNS = [
@@ -88,7 +89,17 @@ const branchColor = {
 export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, onView, selectedIds, onToggleSelect, onToggleAll }) {
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
   const [currentPage, setCurrentPage] = useState(1);
-  const [hiddenCols, setHiddenCols] = useState({});
+  const [hiddenCols, setHiddenCols] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = window.localStorage.getItem(INVOICE_COLUMNS_STORAGE_KEY);
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData, isActive } = useTableSorting({
     columns: SORT_COLUMNS,
     defaultSort: { field: "created_date", direction: "desc" },
@@ -97,6 +108,17 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
 
   const isCol = (key) => !hiddenCols[key];
   const toggleCol = (key) => setHiddenCols((p) => ({ ...p, [key]: !p[key] }));
+
+  // نحفظ اختيار الأعمدة محليًا على نفس الجهاز حتى يظل ثابتًا بعد الريفرش أو إعادة فتح التطبيق.
+  // هذا لا يغير أي بيانات فواتير ولا يؤثر على باقي المستخدمين أو منطق الحسابات.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(INVOICE_COLUMNS_STORAGE_KEY, JSON.stringify(hiddenCols));
+    } catch {
+      // لو التخزين المحلي غير متاح، يظل الجدول يعمل طبيعيًا بالحالة الحالية فقط.
+    }
+  }, [hiddenCols]);
 
   // إعادة الصفحة للأولى عند تغيير الترتيب
   useEffect(() => { setCurrentPage(1); }, [sortField, sortDirection]);
