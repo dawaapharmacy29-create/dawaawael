@@ -12,11 +12,11 @@ const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard },
   { path: "/invoices", label: "فواتير الشراء", icon: FileText },
   { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true },
-  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true },
+  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, hidden: true },
   { path: "/expenses", label: "المصروفات", icon: Receipt },
   { path: "/returns", label: "المرتجعات", icon: RotateCcw, pink: true },
-  { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true },
-  { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true },
+  { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true, hidden: true },
+  { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true, hidden: true },
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true },
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true },
@@ -41,7 +41,9 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const { isAdmin } = useUserRole();
-  const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  // نخفي الوحدات غير المفعلة من القائمة فقط، مع إبقاء الصفحات والمسارات والبيانات كما هي
+  // حتى يمكن إعادة تفعيلها لاحقًا بدون فقد أي وظيفة أو بيانات.
+  const visibleNavItems = navItems.filter(item => !item.hidden && (!item.adminOnly || isAdmin));
 
   const { data: pendingInvoices = [] } = useQuery({
     queryKey: ["pending-invoices-count"],
