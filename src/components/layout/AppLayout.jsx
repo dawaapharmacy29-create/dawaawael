@@ -107,7 +107,7 @@ export default function AppLayout() {
       to={item.path}
       onClick={() => isMobile && setOpen(false)}
       className={cn(
-        "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-lg text-[15px] font-medium transition-colors",
         item.indent ? "px-2 py-1.5 mr-2" : "px-2.5 py-2",
         item.gold
           ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
@@ -132,7 +132,7 @@ export default function AppLayout() {
           : "text-gray-600 hover:bg-gray-100"
       )}
     >
-      <item.icon className={cn(item.indent ? "w-3 h-3" : "w-4 h-4", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
+      <item.icon className={cn(item.indent ? "w-3.5 h-3.5" : "w-[18px] h-[18px]", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
       <span className="flex-1">{item.label}</span>
       {item.badge && pendingCount > 0 && (
         <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
@@ -149,7 +149,7 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={() => toggleGroup(section.key)}
-            className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:bg-gray-50"
+            className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-50"
             aria-expanded={expanded}
           >
             <span>{section.label}</span>
@@ -167,7 +167,7 @@ export default function AppLayout() {
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">
-      <aside className="hidden md:flex flex-col w-52 bg-white border-l shadow-sm shrink-0">
+      <aside className="hidden md:flex flex-col w-56 bg-white border-l shadow-sm shrink-0">
         <div className="p-4 border-b bg-teal-600">
           <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
