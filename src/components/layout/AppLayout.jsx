@@ -108,7 +108,7 @@ export default function AppLayout() {
       onClick={() => isMobile && setOpen(false)}
       className={cn(
         "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
-        item.indent ? "px-2 py-2 mr-3" : "px-3 py-2.5",
+        item.indent ? "px-2 py-1.5 mr-2" : "px-2.5 py-2",
         item.gold
           ? "bg-yellow-50 text-yellow-700 border border-yellow-300"
           : item.pink
@@ -149,7 +149,7 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={() => toggleGroup(section.key)}
-            className="w-full flex items-center justify-between gap-2 px-2 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-50"
+            className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:bg-gray-50"
             aria-expanded={expanded}
           >
             <span>{section.label}</span>
@@ -167,12 +167,12 @@ export default function AppLayout() {
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">
-      <aside className="hidden md:flex flex-col w-64 bg-white border-l shadow-sm">
+      <aside className="hidden md:flex flex-col w-56 bg-white border-l shadow-sm">
         <div className="p-4 border-b bg-teal-600">
           <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
         </div>
-        <nav className="flex-1 p-3 overflow-y-auto">
+        <nav className="flex-1 p-2 overflow-y-auto">
           {renderNavSections(false)}
         </nav>
       </aside>
