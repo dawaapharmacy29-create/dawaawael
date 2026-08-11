@@ -380,7 +380,7 @@ export default function PurchaseInvoices() {
   const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || filterSourceBranch !== "الكل" || filterDestBranch !== "الكل" || filterManualException || filterReviewNeeded || search || dateFrom || dateTo;
 
   return (
-    <div dir="rtl" className="p-4 md:p-6 space-y-4">
+    <div dir="rtl" className="w-full min-w-0 max-w-full p-2 md:p-3 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">فواتير الشراء</h1>
