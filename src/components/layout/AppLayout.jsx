@@ -167,7 +167,7 @@ export default function AppLayout() {
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">
-      <aside className="hidden md:flex flex-col w-56 bg-white border-l shadow-sm">
+      <aside className="hidden md:flex flex-col w-52 bg-white border-l shadow-sm shrink-0">
         <div className="p-4 border-b bg-teal-600">
           <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
@@ -197,7 +197,7 @@ export default function AppLayout() {
         </SheetContent>
       </Sheet>
 
-      <main className="flex-1 md:overflow-auto pt-14 md:pt-0 flex flex-col">
+      <main className="flex-1 min-w-0 md:overflow-auto pt-14 md:pt-0 flex flex-col">
         <div className="px-4 pt-3 pb-0 flex justify-end">
           <SmartAlerts />
         </div>
