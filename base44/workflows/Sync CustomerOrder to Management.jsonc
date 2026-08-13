@@ -1,0 +1,41 @@
+{
+  "description": "\u0645\u0632\u0627\u0645\u0646\u0629 \u0641\u0648\u0631\u064a\u0629 \u0645\u0633\u062a\u0642\u0644\u0629 \u0644\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0625\u0644\u0649 \u062a\u0637\u0628\u064a\u0642 \u0627\u0644\u0625\u062f\u0627\u0631\u0629 \u0639\u0644\u0649 Supabase \u0639\u0646\u062f \u0627\u0644\u0625\u0646\u0634\u0627\u0621 \u0623\u0648 \u0627\u0644\u062a\u0639\u062f\u064a\u0644",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_customer_order_to_management",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sync_management": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncCustomerOrdersToDawaaPharmacy",
+            "args": {
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0644\u062a\u0637\u0628\u064a\u0642 \u0627\u0644\u0625\u062f\u0627\u0631\u0629",
+            "description": "\u0645\u0632\u0627\u0645\u0646\u0629 CustomerOrder \u0645\u0628\u0627\u0634\u0631\u0629 \u0625\u0644\u0649 Supabase"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "CustomerOrder"
+    }
+  },
+  "name": "Sync CustomerOrder to Management"
+}
