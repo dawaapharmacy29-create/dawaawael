@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, ShoppingBag, Download, PieChart, LayoutList, LayoutGrid, RefreshCw, SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as XLSX from "xlsx";
-import OrderStatCards from "@/components/orders/OrderStatCards";
 import OrderOperationsBar, { matchesOrderQueue } from "@/components/orders/OrderOperationsBar";
 import OrderTable from "@/components/orders/OrderTable";
 import OrderFormDialog from "@/components/orders/OrderFormDialog";
@@ -16,6 +15,7 @@ import OrderDetailDialog from "@/components/orders/OrderDetailDialog";
 import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
+import OrderBranchOverview from "@/components/orders/OrderBranchOverview";
 import { logActivity } from "@/lib/activityLogger";
 import { syncCustomerOrderToManagement, syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
 
@@ -147,8 +147,8 @@ export default function CustomerOrders() {
 
   // Role-based filtering: non-admin sees only their branch
   const userBranch = user?.branch;
-  const filteredOrders = orders.filter((o) => {
-    if (!isManager && userBranch && o.branch !== userBranch) return false;
+  const accessibleOrders = orders.filter((o) => !(!isManager && userBranch && o.branch !== userBranch));
+  const filteredOrders = accessibleOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (filterEmployee && o.assigned_employee !== filterEmployee) return false;
@@ -246,10 +246,9 @@ export default function CustomerOrders() {
         </div>
       )}
 
-      <OrderOperationsBar orders={orders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
+      <OrderBranchOverview orders={accessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
 
-      {/* Stat Cards */}
-      <div className="overflow-x-auto pb-1"><div className="min-w-[760px]"><OrderStatCards orders={orders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} /></div></div>
+      <OrderOperationsBar orders={accessibleOrders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -267,28 +266,9 @@ export default function CustomerOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <OrderAnalytics orders={orders} />
+        <OrderAnalytics orders={accessibleOrders} />
       ) : (
         <>
-          {/* Branch Filter Buttons */}
-          {isManager && (
-            <div className="flex gap-2 flex-wrap">
-              {["all", ...BRANCHES].map((b) => (
-                <button
-                  key={b}
-                  onClick={() => setFilterBranch(b)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    filterBranch === b
-                      ? "bg-teal-600 text-white border-teal-600"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"
-                  }`}
-                >
-                  {b === "all" ? "كل الفروع" : b}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Search and view controls */}
           <div className="sticky top-14 md:top-0 z-20 bg-white/95 backdrop-blur rounded-xl border shadow-sm p-2.5 space-y-2">
             <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center">
@@ -330,7 +310,7 @@ export default function CustomerOrders() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {orders.length} طلب</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {accessibleOrders.length} طلب</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
           {showEfficiency && <BranchEfficiencyCard orders={filteredOrders} />}
