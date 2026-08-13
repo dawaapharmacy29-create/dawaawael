@@ -217,10 +217,10 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
       <ConfirmDialog
         open={!!confirmId}
         onOpenChange={(v) => !v && setConfirmId(null)}
-        title="تأكيد الحذف"
-        description="هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع."
+        title="إلغاء وأرشفة الطلب"
+        description="سيتم إلغاء الطلب وحفظه في السجل ومزامنة الإلغاء مع تطبيق الإدارة، بدون حذف البيانات نهائيًا."
         onConfirm={() => { onDelete(confirmId); setConfirmId(null); }}
-        confirmLabel="حذف"
+        confirmLabel="إلغاء وأرشفة"
       />
     </>
   );
