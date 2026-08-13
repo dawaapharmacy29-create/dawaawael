@@ -55,6 +55,17 @@ function exportOrdersToExcel(orders) {
   XLSX.writeFile(wb, `طلبات_العملاء_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+async function loadAllCustomerOrders() {
+  const all = [];
+  for (let offset = 0; offset < 5000; offset += 500) {
+    const batch = await base44.entities.CustomerOrder.list("-created_date", 500, offset);
+    const rows = Array.isArray(batch) ? batch : [];
+    all.push(...rows);
+    if (rows.length < 500) break;
+  }
+  return all;
+}
+
 export default function CustomerOrders() {
   const { isAdmin, isManager, user } = useUserRole();
   const qc = useQueryClient();
@@ -80,7 +91,10 @@ export default function CustomerOrders() {
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["customer-orders"],
-    queryFn: () => base44.entities.CustomerOrder.list("-created_date", 500),
+    queryFn: loadAllCustomerOrders,
+    staleTime: 15000,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: teamMembers = [] } = useQuery({
@@ -117,6 +131,33 @@ export default function CustomerOrders() {
       setSyncResult({ ok: true, text: `تمت مزامنة ${sent} طلب مع تطبيق الإدارة${details ? ` — ${details}` : ""}` });
     },
     onError: (error) => setSyncResult({ ok: false, text: error?.message || "تعذرت المزامنة" }),
+  });
+
+  const quickActionMutation = useMutation({
+    mutationFn: async ({ order, status }) => {
+      const currentUser = await base44.auth.me();
+      const actor = currentUser?.full_name || currentUser?.email || "مستخدم النظام";
+      const now = new Date().toISOString();
+      const updates = {
+        status,
+        timeline: [...(order.timeline || []), { status, by: actor, at: now, note: `إجراء سريع: ${status}` }],
+        ...(status === "تم توفير الصنف" ? { product_available: true } : {}),
+        ...(status === "تم التوصيل" ? { customer_contacted: true, last_followup_date: now.slice(0, 10) } : {}),
+      };
+      await base44.entities.CustomerOrder.update(order.id, updates);
+      await syncCustomerOrderToManagement(order.id);
+      return { id: order.id, updates };
+    },
+    onMutate: async ({ order, status }) => {
+      await qc.cancelQueries({ queryKey: ["customer-orders"] });
+      const previous = qc.getQueryData(["customer-orders"]);
+      qc.setQueryData(["customer-orders"], (current = []) => current.map((item) => item.id === order.id ? { ...item, status } : item));
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(["customer-orders"], context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["customer-orders"] }),
   });
 
   const deleteMutation = useMutation({
@@ -325,6 +366,8 @@ export default function CustomerOrders() {
             onDelete={(id) => deleteMutation.mutate(id)}
             isManager={isManager}
             viewMode={viewMode}
+            onQuickStatus={(order, status) => quickActionMutation.mutate({ order, status })}
+            quickActionPending={quickActionMutation.isPending}
           />
         </>
       )}
