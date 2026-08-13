@@ -148,6 +148,7 @@ export default function CustomerOrders() {
   // Role-based filtering: non-admin sees only their branch
   const userBranch = user?.branch;
   const accessibleOrders = orders.filter((o) => !(!isManager && userBranch && o.branch !== userBranch));
+  const branchOrders = filterBranch === "all" ? accessibleOrders : accessibleOrders.filter((o) => o.branch === filterBranch);
   const filteredOrders = accessibleOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
@@ -248,7 +249,7 @@ export default function CustomerOrders() {
 
       <OrderBranchOverview orders={accessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
 
-      <OrderOperationsBar orders={accessibleOrders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
+      <OrderOperationsBar orders={branchOrders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -266,7 +267,7 @@ export default function CustomerOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <OrderAnalytics orders={accessibleOrders} />
+        <OrderAnalytics orders={branchOrders} />
       ) : (
         <>
           {/* Search and view controls */}
