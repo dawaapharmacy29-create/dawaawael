@@ -5,7 +5,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, ShoppingBag, Download, PieChart } from "lucide-react";
+import { Plus, Search, ShoppingBag, Download, PieChart, LayoutList, LayoutGrid, RefreshCw, SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
@@ -16,6 +16,7 @@ import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 import { logActivity } from "@/lib/activityLogger";
+import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -66,6 +67,10 @@ export default function CustomerOrders() {
   const [showForm, setShowForm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [activeTab, setActiveTab] = useState("orders");
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem("customer-orders-view") || "table");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showEfficiency, setShowEfficiency] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["customer-orders"],
@@ -75,6 +80,25 @@ export default function CustomerOrders() {
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
     queryFn: () => base44.entities.TeamMember.list(),
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      let offset = 0;
+      let snapshotId;
+      let sent = 0;
+      for (let batch = 0; batch < 20; batch += 1) {
+        const result = await syncCustomerOrdersSnapshot({ offset, batchSize: 200, snapshotId });
+        if (!result?.success) throw new Error(result?.message || result?.error || "تعذرت المزامنة");
+        snapshotId = result.snapshot_id || snapshotId;
+        sent += Number(result.records_sent || 0);
+        if (result.is_last_batch || result.next_offset == null) return { sent };
+        offset = result.next_offset;
+      }
+      throw new Error("توقفت المزامنة لحماية الصفحة بعد 20 دفعة");
+    },
+    onSuccess: ({ sent }) => setSyncResult({ ok: true, text: `تمت مزامنة ${sent} طلب مع تطبيق الإدارة` }),
+    onError: (error) => setSyncResult({ ok: false, text: error?.message || "تعذرت المزامنة" }),
   });
 
   const deleteMutation = useMutation({
@@ -114,13 +138,19 @@ export default function CustomerOrders() {
     return true;
   });
 
+  const hasActiveFilters = filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterDateFrom || filterDateTo || search;
+  const clearFilters = () => {
+    setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setSearch("");
+  };
+  const changeView = (mode) => { setViewMode(mode); localStorage.setItem("customer-orders-view", mode); };
+
   const tabs = [
     { id: "orders", label: "الطلبات" },
     { id: "analytics", label: "الإحصائيات" },
   ];
 
   return (
-    <div dir="rtl" className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
+    <div dir="rtl" className="px-3 py-4 md:px-5 md:py-5 space-y-3 w-full max-w-[1800px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -161,6 +191,12 @@ export default function CustomerOrders() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <OrderAlerts orders={orders} />
+          {isManager && (
+            <Button variant="outline" onClick={() => { setSyncResult(null); syncMutation.mutate(); }} disabled={syncMutation.isPending} className="gap-2 border-sky-200 text-sky-700 hover:bg-sky-50 flex-1 sm:flex-none" title="إرسال لقطة كاملة ومحدثة إلى تطبيق الإدارة">
+              <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              <span className="hidden lg:inline">{syncMutation.isPending ? "جارٍ الربط..." : "مزامنة الإدارة"}</span>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => exportOrdersToExcel(filteredOrders)} className="gap-2 border-teal-300 text-teal-700 hover:bg-teal-50 flex-1 sm:flex-none">
             <Download className="w-4 h-4" /> <span className="hidden sm:inline">تصدير</span> Excel
           </Button>
@@ -169,6 +205,12 @@ export default function CustomerOrders() {
           </Button>
         </div>
       </div>
+
+      {syncResult && (
+        <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${syncResult.ok ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+          <span>{syncResult.text}</span><button onClick={() => setSyncResult(null)} className="p-1 rounded hover:bg-black/5" aria-label="إغلاق"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <OrderStatCards orders={orders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} />
@@ -211,9 +253,10 @@ export default function CustomerOrders() {
             </div>
           )}
 
-          {/* Filters */}
-          <div className="bg-white rounded-xl border p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-center">
-            <div className="relative sm:col-span-2 lg:col-span-1">
+          {/* Search and view controls */}
+          <div className="sticky top-14 md:top-0 z-20 bg-white/95 backdrop-blur rounded-xl border shadow-sm p-2.5 space-y-2">
+            <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center">
+            <div className="relative flex-1">
               <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
               <Input
                 value={search}
@@ -231,26 +274,26 @@ export default function CustomerOrders() {
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="الموظف" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>كل الموظفين</SelectItem>
-                {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm" placeholder="من تاريخ" />
-            <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="h-9 text-sm" placeholder="إلى تاريخ" />
-            {(filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterDateFrom || filterDateTo || search) && (
-              <Button variant="ghost" size="sm" className="text-gray-400 h-9 sm:col-span-2 lg:col-span-1" onClick={() => { setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setSearch(""); }}>
-                مسح الفلاتر
-              </Button>
+            <Button variant="outline" size="sm" className={`h-9 gap-2 ${showAdvancedFilters ? "border-teal-300 text-teal-700 bg-teal-50" : ""}`} onClick={() => setShowAdvancedFilters((v) => !v)}>
+              <SlidersHorizontal className="w-4 h-4" /> فلاتر متقدمة {showAdvancedFilters ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </Button>
+            <div className="flex rounded-lg border p-0.5 bg-gray-50 shrink-0">
+              <button onClick={() => changeView("table")} className={`h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium ${viewMode === "table" ? "bg-white text-teal-700 shadow-sm" : "text-gray-500"}`}><LayoutList className="w-4 h-4" /> جدول</button>
+              <button onClick={() => changeView("cards")} className={`h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium ${viewMode === "cards" ? "bg-white text-teal-700 shadow-sm" : "text-gray-500"}`}><LayoutGrid className="w-4 h-4" /> كروت</button>
+            </div></div>
+            {showAdvancedFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t">
+                <Select value={filterEmployee || "all"} onValueChange={(value) => setFilterEmployee(value === "all" ? "" : value)}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="الموظف" /></SelectTrigger><SelectContent><SelectItem value="all">كل الموظفين</SelectItem>{teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}</SelectContent></Select>
+                <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm" />
+                <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="h-9 text-sm" />
+                {hasActiveFilters && <Button variant="ghost" size="sm" className="h-9 text-gray-500 gap-2" onClick={clearFilters}><X className="w-4 h-4" /> مسح كل الفلاتر</Button>}
+              </div>
             )}
           </div>
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {orders.length} طلب</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
-          <BranchEfficiencyCard orders={filteredOrders} />
+          {showEfficiency && <BranchEfficiencyCard orders={filteredOrders} />}
 
           {/* Table */}
           <OrderTable
@@ -260,6 +303,7 @@ export default function CustomerOrders() {
             onSelect={setSelectedOrder}
             onDelete={(id) => deleteMutation.mutate(id)}
             isManager={isManager}
+            viewMode={viewMode}
           />
         </>
       )}
