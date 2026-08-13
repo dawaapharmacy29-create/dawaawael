@@ -16,7 +16,7 @@ import OrderAnalytics from "@/components/orders/OrderAnalytics";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 import { logActivity } from "@/lib/activityLogger";
-import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
+import { syncCustomerOrderToManagement, syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -92,25 +92,42 @@ export default function CustomerOrders() {
         if (!result?.success) throw new Error(result?.message || result?.error || "تعذرت المزامنة");
         snapshotId = result.snapshot_id || snapshotId;
         sent += Number(result.records_sent || 0);
-        if (result.is_last_batch || result.next_offset == null) return { sent };
+        if (result.is_last_batch || result.next_offset == null) return { sent, receiver: result.receiver_response || null };
         offset = result.next_offset;
       }
       throw new Error("توقفت المزامنة لحماية الصفحة بعد 20 دفعة");
     },
-    onSuccess: ({ sent }) => setSyncResult({ ok: true, text: `تمت مزامنة ${sent} طلب مع تطبيق الإدارة` }),
+    onSuccess: ({ sent, receiver }) => {
+      const imported = Number(receiver?.imported || 0);
+      const updated = Number(receiver?.updated || 0);
+      const conflicts = Number(receiver?.conflicts || 0);
+      const details = [imported && `${imported} جديد`, updated && `${updated} محدّث`, conflicts && `${conflicts} يحتاج مراجعة`].filter(Boolean).join(" · ");
+      setSyncResult({ ok: true, text: `تمت مزامنة ${sent} طلب مع تطبيق الإدارة${details ? ` — ${details}` : ""}` });
+    },
     onError: (error) => setSyncResult({ ok: false, text: error?.message || "تعذرت المزامنة" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.CustomerOrder.delete(id),
-    onSuccess: (_data, id) => {
-      const order = orders.find(o => o.id === id);
+    mutationFn: async (id) => {
+      const order = orders.find((item) => item.id === id);
+      const currentUser = await base44.auth.me();
+      const actor = currentUser?.full_name || currentUser?.email || "مدير النظام";
+      const now = new Date().toISOString();
+      await base44.entities.CustomerOrder.update(id, {
+        status: "تم الإلغاء",
+        cancellation_reason: order?.cancellation_reason || "أخرى",
+        timeline: [...(order?.timeline || []), { status: "تم الإلغاء", by: actor, at: now, note: "إلغاء وأرشفة من قائمة الطلبات" }],
+      });
+      await syncCustomerOrderToManagement(id);
+      return order;
+    },
+    onSuccess: (order, id) => {
       logActivity({
-        action_type: "delete",
-        entity_type: "invoice",
+        action_type: "update",
+        entity_type: "customer_order",
         entity_id: id,
         entity_label: order ? `طلب عميل: ${order.customer_name} - ${order.product_name}` : id,
-        details: "حذف طلب عميل",
+        details: "إلغاء وأرشفة طلب عميل مع مزامنته للإدارة",
       });
       qc.invalidateQueries(["customer-orders"]);
     },
