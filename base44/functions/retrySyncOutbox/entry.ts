@@ -2,6 +2,47 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from "base44:runtime";
 import { sendToSupabase, isConfigured, shouldFail } from '../../shared/dawaaSync.ts';
 
+const MANAGEMENT_SYNC_ENDPOINT = 'https://jkjqeqkshllustwlzzbf.supabase.co/functions/v1/dawaawael-customer-order-sync';
+
+async function reconcileCustomerOrdersToManagement(base44) {
+  const endpoint = secrets.get('DAWAA_PHARMACY_SYNC_ENDPOINT') || MANAGEMENT_SYNC_ENDPOINT;
+  const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || '';
+  if (!secret) {
+    return { success: false, skipped: true, error: 'DAWAA_PHARMACY_SYNC_SECRET missing' };
+  }
+
+  const records = await base44.asServiceRole.entities.CustomerOrder.list('-updated_date', 200, 0);
+  if (!Array.isArray(records) || records.length === 0) {
+    return { success: true, records_sent: 0 };
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Dawaa-Sync-Secret': secret,
+      'X-Dawaa-Event-Id': `dawaawael:CustomerOrder:reconcile:${new Date().toISOString().slice(0, 16)}`,
+    },
+    body: JSON.stringify({
+      mode: 'reconcile_recent',
+      source_system: 'dawaawael',
+      source_entity: 'CustomerOrder',
+      records,
+    }),
+  });
+
+  const raw = await response.text();
+  let receiver = null;
+  try { receiver = JSON.parse(raw); } catch { receiver = { raw: raw.slice(0, 1000) }; }
+  return {
+    success: response.ok,
+    status: response.status,
+    records_sent: records.length,
+    receiver,
+    error: response.ok ? '' : `HTTP ${response.status}: ${raw.slice(0, 300)}`,
+  };
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -118,7 +159,19 @@ export default async function(req: Request): Promise<Response> {
       }
     }
 
-    return Response.json({ processed: pendingRecords.length, synced, failed, retried });
+    // Independent catch-up for the management app. The scheduled workflow runs this function every 5 minutes,
+    // so a missed/failed live event is repaired without waiting for a manual full snapshot.
+    let management_reconciliation;
+    try {
+      management_reconciliation = await reconcileCustomerOrdersToManagement(base44);
+    } catch (error) {
+      management_reconciliation = {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    return Response.json({ processed: pendingRecords.length, synced, failed, retried, management_reconciliation });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
