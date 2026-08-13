@@ -87,12 +87,18 @@ export default function CustomerOrders() {
       let offset = 0;
       let snapshotId;
       let sent = 0;
+      const receiverTotals = { imported: 0, updated: 0, conflicts: 0, rejected: 0 };
       for (let batch = 0; batch < 20; batch += 1) {
         const result = await syncCustomerOrdersSnapshot({ offset, batchSize: 200, snapshotId });
         if (!result?.success) throw new Error(result?.message || result?.error || "تعذرت المزامنة");
         snapshotId = result.snapshot_id || snapshotId;
         sent += Number(result.records_sent || 0);
-        if (result.is_last_batch || result.next_offset == null) return { sent, receiver: result.receiver_response || null };
+        const receiver = result.receiver_response || {};
+        receiverTotals.imported += Number(receiver.imported || 0);
+        receiverTotals.updated += Number(receiver.updated || 0);
+        receiverTotals.conflicts += Number(receiver.conflicts || 0);
+        receiverTotals.rejected += Number(receiver.rejected || 0);
+        if (result.is_last_batch || result.next_offset == null) return { sent, receiver: receiverTotals };
         offset = result.next_offset;
       }
       throw new Error("توقفت المزامنة لحماية الصفحة بعد 20 دفعة");
