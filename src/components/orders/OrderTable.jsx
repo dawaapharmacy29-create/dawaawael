@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Trash2, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
