@@ -1,4 +1,4 @@
-import { Loader2, Trash2, MessageSquare, ChevronLeft, ChevronRight, Phone, Clock3, Star } from "lucide-react";
+import { Loader2, Trash2, MessageSquare, ChevronLeft, ChevronRight, Phone, Clock3, Star, Search, PackageCheck, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -51,6 +51,13 @@ function whatsappLink(phone) {
   return international ? `https://wa.me/${international}` : "";
 }
 
+function getQuickAction(status) {
+  if (status === "طلب جديد") return { label: "بدء البحث", status: "جاري البحث", icon: Search, tone: "text-amber-700 bg-amber-50 hover:bg-amber-100" };
+  if (["جاري البحث", "النواقص", "تم الطلب"].includes(status)) return { label: "تم التوفير", status: "تم توفير الصنف", icon: PackageCheck, tone: "text-teal-700 bg-teal-50 hover:bg-teal-100" };
+  if (["تم توفير الصنف", "تم توفير بديل"].includes(status)) return { label: "تم التسليم", status: "تم التوصيل", icon: Truck, tone: "text-green-700 bg-green-50 hover:bg-green-100" };
+  return null;
+}
+
 const SourceIcon = ({ source }) => {
   if (source === "واتساب") {
     return <img src={WHATSAPP_ICON} alt="واتساب" className="w-6 h-6 inline-block" />;
@@ -58,7 +65,7 @@ const SourceIcon = ({ source }) => {
   return <span>{SOURCE_ICONS[source] || "—"}</span>;
 };
 
-export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager, viewMode = "table" }) {
+export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager, viewMode = "table", onQuickStatus, quickActionPending }) {
   const [confirmId, setConfirmId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
@@ -155,6 +162,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 </td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-1">
+                    {(() => { const action = getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={() => onQuickStatus?.(o, action.status)} className={`h-7 px-2 rounded-md flex items-center gap-1 text-[10px] font-bold whitespace-nowrap ${action.tone}`} title={action.label}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
                     {o.phone && <a href={whatsappLink(o.phone)} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-md flex items-center justify-center text-green-600 hover:bg-green-50" title="فتح واتساب">●</a>}
                     {o.phone && <a href={`tel:${o.phone}`} className="h-7 w-7 rounded-md flex items-center justify-center text-sky-600 hover:bg-sky-50" title="اتصال"><Phone className="w-3.5 h-3.5" /></a>}
                   {isManager && (
@@ -203,9 +211,10 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
               {o.branch && <span>📍 {o.branch}</span>}
               <span className={`px-1.5 py-0.5 rounded ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
             </div>
-            <div className="mt-3 pt-2.5 border-t flex items-center justify-between gap-2 text-[11px] text-gray-400">
-              <span className="flex items-center gap-1.5">{o.assigned_employee || "غير مسند"} · {o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")} · <span className={isOrderOverdue(o) ? "text-red-600 font-bold" : ""}>{getOrderAge(o)}</span></span>
-              {isManager && <button className="p-1.5 rounded-md text-red-400 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-50 transition" onClick={(e) => { e.stopPropagation(); setConfirmId(o.id); }} aria-label="حذف الطلب"><Trash2 className="w-3.5 h-3.5" /></button>}
+            <div className="mt-3 pt-2.5 border-t space-y-2 text-[11px] text-gray-400">
+              <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5">{o.assigned_employee || "غير مسند"} · {o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")} · <span className={isOrderOverdue(o) ? "text-red-600 font-bold" : ""}>{getOrderAge(o)}</span></span>
+              {isManager && <button className="p-1.5 rounded-md text-red-400 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-50 transition" onClick={(e) => { e.stopPropagation(); setConfirmId(o.id); }} aria-label="إلغاء وأرشفة الطلب"><Trash2 className="w-3.5 h-3.5" /></button>}</div>
+              {(() => { const action = getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={(e) => { e.stopPropagation(); onQuickStatus?.(o, action.status); }} className={`w-full h-8 rounded-lg flex items-center justify-center gap-1.5 font-bold ${action.tone}`}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
             </div>
           </div>
         ))}
