@@ -26,6 +26,10 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     branch: "",
     request_source: "",
     product_name: "",
+    quantity: 1,
+    customer_type: "عادي",
+    request_type: "عادي",
+    promised_at: "",
     product_image: "",
     notes: "",
     priority: "عادي",
@@ -56,6 +60,9 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       status: editOrder ? form.status : "طلب جديد",
       order_number: editOrder ? form.order_number : genOrderNumber(),
       timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: userName, at: now, note: "تم إنشاء الطلب" }],
+      recorded_by: editOrder ? (form.recorded_by || userName) : userName,
+      requested_at: editOrder ? (form.requested_at || now) : now,
+      quantity: Math.max(1, Number(form.quantity || 1)),
       ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
     };
     if (editOrder) {
@@ -99,6 +106,14 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">نوع العميل</label>
+              <Select value={form.customer_type || "عادي"} onValueChange={(v) => set("customer_type", v)}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="مهم">مهم</SelectItem><SelectItem value="عادي">عادي</SelectItem></SelectContent></Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">نوع الطلب</label>
+              <Select value={form.request_type || "عادي"} onValueChange={(v) => set("request_type", v)}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="عادي">عادي</SelectItem><SelectItem value="نواقص">نواقص</SelectItem><SelectItem value="استفسار">استفسار</SelectItem></SelectContent></Select>
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">مصدر الطلب</label>
               <Select value={form.request_source} onValueChange={(v) => set("request_source", v)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="المصدر" /></SelectTrigger>
@@ -114,9 +129,9 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">اسم الصنف *</label>
-            <Input value={form.product_name} onChange={(e) => set("product_name", e.target.value)} placeholder="اسم الدواء أو المنتج" className="h-9 text-sm" />
+          <div className="grid grid-cols-[1fr_90px] gap-3">
+            <div className="space-y-1"><label className="text-xs font-medium text-gray-600">اسم الصنف *</label><Input value={form.product_name} onChange={(e) => set("product_name", e.target.value)} placeholder="اسم الدواء أو المنتج" className="h-9 text-sm" /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-gray-600">الكمية</label><Input type="number" min="1" value={form.quantity || 1} onChange={(e) => set("quantity", e.target.value)} className="h-9 text-sm text-center" /></div>
           </div>
 
           {/* Image Upload */}
@@ -141,10 +156,10 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">الموظف المسؤول</label>
-              <Select value={form.assigned_employee} onValueChange={(v) => set("assigned_employee", v)}>
+              <Select value={form.assigned_employee || "unassigned"} onValueChange={(v) => set("assigned_employee", v === "unassigned" ? "" : v)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={null}>— بدون تعيين —</SelectItem>
+                  <SelectItem value="unassigned">— بدون تعيين —</SelectItem>
                   {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -153,6 +168,11 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
               <label className="text-xs font-medium text-gray-600">تاريخ الطلب</label>
               <Input type="date" value={form.request_date} onChange={(e) => set("request_date", e.target.value)} className="h-9 text-sm" />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">موعد الرد أو التوفير المتوقع</label>
+            <Input type="datetime-local" value={form.promised_at ? String(form.promised_at).slice(0,16) : ""} onChange={(e) => set("promised_at", e.target.value ? new Date(e.target.value).toISOString() : "")} className="h-9 text-sm" />
           </div>
 
           <div className="space-y-1">
