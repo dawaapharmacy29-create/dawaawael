@@ -51,7 +51,7 @@ const SourceIcon = ({ source }) => {
   return <span>{SOURCE_ICONS[source] || "—"}</span>;
 };
 
-export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager }) {
+export default function OrderTable({ orders, isLoading, onSelect, onDelete, isManager, viewMode = "table" }) {
   const [confirmId, setConfirmId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
@@ -85,7 +85,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-xl border overflow-hidden">
+      <div className={`${viewMode === "table" ? "hidden md:block" : "hidden"} bg-white rounded-xl border overflow-x-auto`}>
         <div className="flex items-center justify-end px-4 py-1.5 border-b bg-gray-50/50">
           <SortControls
             columns={ORDER_SORT_COLUMNS}
@@ -96,7 +96,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
             onReset={resetSort}
           />
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[1180px] text-sm">
           <thead className="bg-gray-50 text-gray-600 text-xs">
             <tr>
               <SortableHeader field="order_number" label="رقم الطلب" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3" />
@@ -173,22 +173,26 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
         )}
       </div>
 
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-3">
+      {/* Responsive Cards */}
+      <div className={`${viewMode === "cards" ? "grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3" : "md:hidden space-y-3"}`}>
         {pageData.map((o) => (
-          <div key={o.id} className="bg-white rounded-xl border p-3 cursor-pointer" onClick={() => onSelect(o)}>
+          <div key={o.id} className="group bg-white rounded-xl border border-gray-200 p-3.5 cursor-pointer hover:border-teal-300 hover:shadow-md transition-all min-w-0" onClick={() => onSelect(o)}>
             <div className="flex items-start justify-between mb-2">
               <div className="min-w-0">
-                <div className="font-bold text-gray-800 truncate">{o.customer_name}</div>
-                <div className="text-xs text-gray-400">{o.phone}</div>
+                <div className="flex items-center gap-2"><span className="font-bold text-gray-800 truncate">{o.customer_name}</span><span className="font-mono text-[10px] text-gray-400 shrink-0">#{o.order_number || o.id?.slice(-6)}</span></div>
+                <div className="text-xs text-gray-400">{o.phone}{o.customer_code ? ` · كود ${o.customer_code}` : ""}</div>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-semibold shrink-0 ${STATUS_STYLE[o.status] || ""}`}>{o.status}</span>
             </div>
-            <div className="text-sm font-medium text-teal-700 mb-2 flex items-center gap-1.5 truncate">🔹 {o.product_name} {o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
+            <div className="text-sm font-semibold text-teal-700 mb-2 flex items-center gap-1.5"><span className="line-clamp-2">🔹 {o.product_name}</span>{o.notes && <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" title={o.notes} />}</div>
             <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-1"><SourceIcon source={o.request_source} /> {o.request_source}</span>
               {o.branch && <span>📍 {o.branch}</span>}
               <span className={`px-1.5 py-0.5 rounded ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
+            </div>
+            <div className="mt-3 pt-2.5 border-t flex items-center justify-between gap-2 text-[11px] text-gray-400">
+              <span>{o.assigned_employee || "غير مسند"} · {o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")}</span>
+              {isManager && <button className="p-1.5 rounded-md text-red-400 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-50 transition" onClick={(e) => { e.stopPropagation(); setConfirmId(o.id); }} aria-label="حذف الطلب"><Trash2 className="w-3.5 h-3.5" /></button>}
             </div>
           </div>
         ))}
@@ -196,7 +200,7 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
 
       {/* Pagination (mobile) */}
       {totalPages > 1 && (
-        <div className="md:hidden flex items-center justify-between py-2">
+        <div className={`${viewMode === "table" ? "md:hidden" : ""} flex items-center justify-between py-2`}>
           <span className="text-xs text-gray-500">{safePage * PAGE_SIZE > total ? total : safePage * PAGE_SIZE} من {total}</span>
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage <= 1} onClick={() => setCurrentPage(safePage - 1)}>
