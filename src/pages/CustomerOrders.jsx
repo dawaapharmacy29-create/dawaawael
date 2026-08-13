@@ -9,6 +9,7 @@ import { Plus, Search, ShoppingBag, Download, PieChart, LayoutList, LayoutGrid, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
+import OrderOperationsBar, { matchesOrderQueue } from "@/components/orders/OrderOperationsBar";
 import OrderTable from "@/components/orders/OrderTable";
 import OrderFormDialog from "@/components/orders/OrderFormDialog";
 import OrderDetailDialog from "@/components/orders/OrderDetailDialog";
@@ -62,6 +63,11 @@ export default function CustomerOrders() {
   const [filterBranch, setFilterBranch] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterEmployee, setFilterEmployee] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterSource, setFilterSource] = useState("all");
+  const [filterRequestType, setFilterRequestType] = useState("all");
+  const [filterCustomerType, setFilterCustomerType] = useState("all");
+  const [activeQueue, setActiveQueue] = useState("active");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -146,6 +152,11 @@ export default function CustomerOrders() {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (filterEmployee && o.assigned_employee !== filterEmployee) return false;
+    if (filterPriority !== "all" && o.priority !== filterPriority) return false;
+    if (filterSource !== "all" && o.request_source !== filterSource) return false;
+    if (filterRequestType !== "all" && (o.request_type || "عادي") !== filterRequestType) return false;
+    if (filterCustomerType !== "all" && (o.customer_type || "عادي") !== filterCustomerType) return false;
+    if (!matchesOrderQueue(o, activeQueue)) return false;
     if (filterDateFrom && o.request_date < filterDateFrom) return false;
     if (filterDateTo && o.request_date > filterDateTo) return false;
     if (search) {
@@ -161,9 +172,9 @@ export default function CustomerOrders() {
     return true;
   });
 
-  const hasActiveFilters = filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterDateFrom || filterDateTo || search;
+  const hasActiveFilters = filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterPriority !== "all" || filterSource !== "all" || filterRequestType !== "all" || filterCustomerType !== "all" || filterDateFrom || filterDateTo || search || activeQueue !== "active";
   const clearFilters = () => {
-    setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setSearch("");
+    setFilterStatus("all"); setFilterBranch("all"); setFilterEmployee(""); setFilterPriority("all"); setFilterSource("all"); setFilterRequestType("all"); setFilterCustomerType("all"); setFilterDateFrom(""); setFilterDateTo(""); setSearch(""); setActiveQueue("active");
   };
   const changeView = (mode) => { setViewMode(mode); localStorage.setItem("customer-orders-view", mode); };
 
@@ -235,8 +246,10 @@ export default function CustomerOrders() {
         </div>
       )}
 
+      <OrderOperationsBar orders={orders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
+
       {/* Stat Cards */}
-      <OrderStatCards orders={orders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} />
+      <div className="overflow-x-auto pb-1"><div className="min-w-[760px]"><OrderStatCards orders={orders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} /></div></div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -305,8 +318,12 @@ export default function CustomerOrders() {
               <button onClick={() => changeView("cards")} className={`h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium ${viewMode === "cards" ? "bg-white text-teal-700 shadow-sm" : "text-gray-500"}`}><LayoutGrid className="w-4 h-4" /> كروت</button>
             </div></div>
             {showAdvancedFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-2 pt-2 border-t">
                 <Select value={filterEmployee || "all"} onValueChange={(value) => setFilterEmployee(value === "all" ? "" : value)}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="الموظف" /></SelectTrigger><SelectContent><SelectItem value="all">كل الموظفين</SelectItem>{teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}</SelectContent></Select>
+                <Select value={filterPriority} onValueChange={setFilterPriority}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">كل الأولويات</SelectItem><SelectItem value="عاجل">عاجل</SelectItem><SelectItem value="متوسط">متوسط</SelectItem><SelectItem value="عادي">عادي</SelectItem></SelectContent></Select>
+                <Select value={filterSource} onValueChange={setFilterSource}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">كل المصادر</SelectItem><SelectItem value="واتساب">واتساب</SelectItem><SelectItem value="مكالمة هاتفية">مكالمة هاتفية</SelectItem><SelectItem value="داخل الصيدلية">داخل الصيدلية</SelectItem></SelectContent></Select>
+                <Select value={filterRequestType} onValueChange={setFilterRequestType}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">كل أنواع الطلب</SelectItem><SelectItem value="عادي">عادي</SelectItem><SelectItem value="نواقص">نواقص</SelectItem><SelectItem value="استفسار">استفسار</SelectItem></SelectContent></Select>
+                <Select value={filterCustomerType} onValueChange={setFilterCustomerType}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">كل العملاء</SelectItem><SelectItem value="مهم">عميل مهم</SelectItem><SelectItem value="عادي">عميل عادي</SelectItem></SelectContent></Select>
                 <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm" />
                 <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="h-9 text-sm" />
                 {hasActiveFilters && <Button variant="ghost" size="sm" className="h-9 text-gray-500 gap-2" onClick={clearFilters}><X className="w-4 h-4" /> مسح كل الفلاتر</Button>}
