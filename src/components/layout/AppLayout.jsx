@@ -26,6 +26,7 @@ const navItems = [
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, section: "reports" },
+  { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
   { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي", icon: BarChart2, indent: true, section: "reports" },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
