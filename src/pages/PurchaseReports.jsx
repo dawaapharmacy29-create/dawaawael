@@ -361,6 +361,9 @@ export default function PurchaseReports() {
         )}
       </div>
 
+      {/* مقارنة إجمالي المبيعات وإجمالي المشتريات يومياً على مدار الشهر */}
+      <MonthlySalesPurchasesChart invoices={invoices} />
+
       {/* Dialog: مراجعة تصنيف فواتير الشهر الحالي */}
       <Dialog open={categorizeOpen} onOpenChange={setCategorizeOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
