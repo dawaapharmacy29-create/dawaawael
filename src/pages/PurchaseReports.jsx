@@ -9,6 +9,7 @@ import ReportsDashboard from "@/components/purchase-reports/ReportsDashboard";
 import BranchBreakdown from "@/components/purchase-reports/BranchBreakdown";
 import SupplierBreakdown from "@/components/purchase-reports/SupplierBreakdown";
 import AdminSummary from "@/components/purchase-reports/AdminSummary";
+import MonthlySalesPurchasesChart from "@/components/purchase-reports/MonthlySalesPurchasesChart";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
