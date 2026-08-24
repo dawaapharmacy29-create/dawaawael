@@ -313,16 +313,21 @@ export default function CustomerOrders() {
         <>
           {/* Search and view controls */}
           <div className="sticky top-14 md:top-0 z-20 bg-white/95 backdrop-blur rounded-xl border shadow-sm p-2.5 space-y-2">
-            <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+            <div className="relative">
+              <Search className="absolute right-3 top-3 w-5 h-5 text-teal-500" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="بحث باسم العميل، الصنف، الرقم..."
-                className="pr-9 h-9 text-sm"
+                placeholder="بحث بالعميل أو الصنف أو رقم الهاتف أو كود العميل أو رقم الطلب..."
+                className="pr-11 h-12 text-base md:text-sm font-medium border-teal-200 focus-visible:ring-teal-400 bg-teal-50/30"
               />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="مسح البحث">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
+            <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="الحالة" />
