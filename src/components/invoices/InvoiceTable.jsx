@@ -36,6 +36,7 @@ const INVOICE_COLUMNS_STORAGE_KEY = "dawaawael_invoice_hidden_columns_v1";
 const SORT_COLUMNS = [
   { field: "system_invoice_number", label: "رقم البرنامج", type: "number" },
   { field: "supplier_invoice_number", label: "رقم المورد", type: "text" },
+  { field: "transfer_authorization_number", label: "رقم الإذن", type: "text" },
   { field: "supplier_name", label: "المورد", type: "text" },
   { field: "invoice_date", label: "التاريخ", type: "date" },
   { field: "branch", label: "الفرع", type: "text" },
@@ -53,6 +54,7 @@ const SORT_COLUMNS = [
 // أعمدة قابلة للإظهار/الإخفاء (ما عدا: الاختيار، التوسيع، رقم البرنامج، الإجراءات)
 const TOGGLE_COLUMNS = [
   { key: "supplier_invoice_number", label: "رقم المورد" },
+  { key: "transfer_authorization_number", label: "رقم الإذن" },
   { key: "supplier_name", label: "المورد" },
   { key: "invoice_date", label: "التاريخ" },
   { key: "branch", label: "الفرع" },
@@ -172,6 +174,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                 </TableHead>
                 <SortableHeader field="system_invoice_number" label="رقم البرنامج" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />
                 {isCol("supplier_invoice_number") && <SortableHeader field="supplier_invoice_number" label="رقم المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
+                {isCol("transfer_authorization_number") && <SortableHeader field="transfer_authorization_number" label="رقم الإذن" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
                 {isCol("supplier_name") && <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
                 {isCol("invoice_date") && <SortableHeader field="invoice_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
                 {isCol("branch") && <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} />}
@@ -204,6 +207,7 @@ export default function InvoiceTable({ invoices, isLoading, onEdit, onDelete, on
                         </div>
                       </TableCell>
                       {isCol("supplier_invoice_number") && <TableCell className="text-gray-600 whitespace-nowrap">{inv.supplier_invoice_number || "—"}</TableCell>}
+                      {isCol("transfer_authorization_number") && <TableCell className="text-gray-600 whitespace-nowrap">{inv.transfer_authorization_number || "—"}</TableCell>}
                       {isCol("supplier_name") && <TableCell className="text-gray-700 max-w-[150px]"><span className="block truncate" title={inv.supplier_name || "—"}>{inv.supplier_name || "—"}</span></TableCell>}
                       {isCol("invoice_date") && (
                         <TableCell className="text-gray-600 text-sm max-w-[60px] overflow-hidden">

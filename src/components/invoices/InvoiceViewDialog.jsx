@@ -70,6 +70,7 @@ export default function InvoiceViewDialog({ open, onOpenChange, invoice, onEdit 
         <div className="space-y-1">
           <Row label="رقم الفاتورة (البرنامج)" value={<span className="font-mono text-teal-700">{invoice.system_invoice_number}</span>} />
           <Row label="رقم الفاتورة (المورد)" value={invoice.supplier_invoice_number} />
+          <Row label="رقم الإذن (تحويل المخزن)" value={invoice.transfer_authorization_number} />
           <Row label="المورد" value={invoice.supplier_name} />
           <Row label="التاريخ" value={invoice.invoice_date} />
           <Row label="الفرع" value={invoice.branch ? <Badge className={`${branchColor[invoice.branch]} border-0`}>{invoice.branch}</Badge> : "—"} />

@@ -80,6 +80,7 @@ function SearchableSelect({ value, onChange, options, placeholder, className = "
 const emptyForm = {
   system_invoice_number: "",
   supplier_invoice_number: "",
+  transfer_authorization_number: "",
   supplier_name: "",
   supplier_id: "",
   branch: "",
@@ -326,7 +327,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Invoice Numbers */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">رقم الفاتورة على البرنامج *</Label>
               <Input value={form.system_invoice_number} onChange={(e) => set("system_invoice_number", e.target.value)} placeholder="INV-001" required className="h-8 text-sm" />
@@ -334,6 +335,10 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             <div className="space-y-1">
               <Label className="text-xs">رقم الفاتورة من المورد</Label>
               <Input value={form.supplier_invoice_number} onChange={(e) => set("supplier_invoice_number", e.target.value)} placeholder="رقم المورد" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">رقم الإذن (تحويل المخزن)</Label>
+              <Input value={form.transfer_authorization_number} onChange={(e) => set("transfer_authorization_number", e.target.value)} placeholder="رقم إذن التحويل" className="h-8 text-sm" />
             </div>
           </div>
 
