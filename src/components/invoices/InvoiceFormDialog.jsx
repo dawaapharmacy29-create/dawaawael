@@ -104,8 +104,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const [dupError, setDupError] = useState("");
 
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
-  const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members"], queryFn: () => base44.entities.TeamMember.list("name") });
-  const branchMembers = teamMembers.filter((m) => (m.branches || []).includes(form.branch));
+  const { data: teamMembers = [], isLoading: isLoadingMembers } = useQuery({ queryKey: ["team-members"], queryFn: () => base44.entities.TeamMember.list("name") });
+  const branchMembers = teamMembers.filter((m) => (m.branches || []).some((b) => b.trim() === form.branch?.trim()));
+  const memberOptions = branchMembers.length > 0 ? branchMembers.map((m) => m.name) : teamMembers.map((m) => m.name);
 
   useEffect(() => {
     if (invoice) {
@@ -373,12 +374,18 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             {form.branch && (
               <div className="space-y-1">
                 <Label className="text-xs">مدخل الفاتورة</Label>
-                <SearchableSelect
-                  value={form.entered_by}
-                  onChange={(v) => set("entered_by", v)}
-                  options={branchMembers.map((m) => m.name)}
-                  placeholder={branchMembers.length === 0 ? "لا يوجد عاملين" : "اختر"}
-                />
+                {isLoadingMembers ? (
+                  <div className="h-8 px-3 rounded-md border bg-gray-50 text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" /> جاري تحميل العاملين...
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    value={form.entered_by}
+                    onChange={(v) => set("entered_by", v)}
+                    options={memberOptions}
+                    placeholder="اختر مدخل الفاتورة"
+                  />
+                )}
               </div>
             )}
           </div>
