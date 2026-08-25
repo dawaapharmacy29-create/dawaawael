@@ -50,10 +50,12 @@ function SearchableSelect({ value, onChange, options, placeholder, className = "
           <div className="p-1 border-b">
             <input
               autoFocus
+              dir="rtl"
+              lang="ar"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ابحث..."
-              className="w-full px-2 py-1 text-sm outline-none bg-transparent"
+              className="w-full px-2 py-1 text-sm outline-none bg-transparent text-right"
             />
           </div>
           <div className="max-h-44 overflow-y-auto p-1">
