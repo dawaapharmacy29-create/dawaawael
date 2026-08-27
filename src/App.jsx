@@ -31,6 +31,7 @@ import SecurityAuditPage from './pages/SecurityAuditPage';
 import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
 import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
+import EmployeeHR from './pages/EmployeeHR';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -80,6 +81,7 @@ const AuthenticatedApp = () => {
         <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
         <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
+        <Route path="/employee-hr" element={<EmployeeHR />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

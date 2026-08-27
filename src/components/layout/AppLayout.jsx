@@ -35,6 +35,7 @@ const navItems = [
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, section: "management" },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck, section: "management" },
+  { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, section: "management" },
   { path: "/supabase-sync", label: "مركز مزامنة Supabase", icon: Database, adminOnly: true, section: "management" },
 ];
 
