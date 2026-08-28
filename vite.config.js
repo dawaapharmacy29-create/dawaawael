@@ -5,6 +5,13 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   logLevel: 'error', // Suppress warnings, only show errors
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react-dom/client', 'scheduler']
+  },
+  optimizeDeps: {
+    force: true,
+    include: ['react', 'react-dom', 'react-dom/client']
+  },
   plugins: [
     base44({
       // Support for legacy code that imports the base44 SDK with @/integrations, @/entities, etc.
