@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, CalendarDays, Users } from "lucide-react";
 import LeaveFormDialog from "./LeaveFormDialog";
+import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
 
 const currentYear = new Date().getFullYear();
 const statusColor = {
@@ -125,7 +126,10 @@ export default function LeavesTab() {
       {/* Records */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold text-sm">سجل الإجازات</h3>
-        <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4" /> إضافة إجازة</Button>
+        <div className="flex items-center gap-2">
+          <QuickAddEmployeeDialog />
+          <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4" /> إضافة إجازة</Button>
+        </div>
       </div>
       <Card className="overflow-hidden">
         {isLoading ? (

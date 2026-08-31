@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, Clock, Users } from "lucide-react";
 import PermissionFormDialog from "./PermissionFormDialog";
+import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
 
 const currentYear = new Date().getFullYear();
 const statusColor = {
@@ -108,7 +109,10 @@ export default function PermissionsTab() {
       {/* Records */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold text-sm">سجل الإذونات</h3>
-        <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4" /> إضافة إذن</Button>
+        <div className="flex items-center gap-2">
+          <QuickAddEmployeeDialog />
+          <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4" /> إضافة إذن</Button>
+        </div>
       </div>
       <Card className="overflow-hidden">
         {isLoading ? (

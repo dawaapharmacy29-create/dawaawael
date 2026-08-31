@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LoanFormDialog from "./LoanFormDialog";
+import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
 
 const statusColor = {
   "نشطة": "bg-teal-100 text-teal-700 border-0",
@@ -75,7 +76,10 @@ export default function LoansTab() {
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم..." className="max-w-xs h-9" dir="rtl" />
-        <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true); }}><Plus className="w-4 h-4" /> إضافة سلفة</Button>
+        <div className="flex items-center gap-2">
+          <QuickAddEmployeeDialog />
+          <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true); }}><Plus className="w-4 h-4" /> إضافة سلفة</Button>
+        </div>
       </div>
 
       {/* Table */}
