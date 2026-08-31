@@ -12,6 +12,7 @@ import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicato
 import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
 import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
+import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { useSearchParams } from "react-router-dom";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -56,19 +57,20 @@ export default function Dashboard() {
 
   useEffect(() => { setEditingTarget(false); }, [branch]);
 
+  // فلترة الفواتير من الخادم حسب الفترة المختارة — يجيب فقط فواتير الشهر بدل 4000+ فاتورة
   const { data: invoices = [], isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: async () => {
-      const PAGE = 500; let all = []; let page = 0;
-      while (true) {
-        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
-        all = [...all, ...batch];
-        if (batch.length < PAGE) break;
-        page++;
-      }
-      return all;
-    },
-    staleTime: 20000,
+    queryKey: ["purchase-invoices", "byDate", dateFilter.from, dateFilter.to],
+    queryFn: async () =>
+      fetchAllParallel(base44.entities.PurchaseInvoice, {
+        query: {
+          $or: [
+            { invoice_date: { $gte: dateFilter.from, $lte: dateFilter.to } },
+            { created_date: { $gte: `${dateFilter.from}T00:00:00`, $lte: `${dateFilter.to}T23:59:59` } },
+          ],
+        },
+      }),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -78,7 +80,7 @@ export default function Dashboard() {
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ["expenses"],
     queryFn: () => base44.entities.Expense.list("-created_date", 2000),
-    staleTime: 20000,
+    staleTime: 60000,
   });
   const { data: budgets = [] } = useQuery({
     queryKey: ["branch-budgets"],
