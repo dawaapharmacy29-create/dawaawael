@@ -1,0 +1,71 @@
+{
+  "name": "SyncWatermark",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique sync stream key"
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "source_entity": {
+      "type": "string"
+    },
+    "destination": {
+      "type": "string"
+    },
+    "last_source_updated_at": {
+      "type": "string"
+    },
+    "last_source_record_id": {
+      "type": "string"
+    },
+    "last_success_at": {
+      "type": "string"
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "key",
+    "source_system",
+    "source_entity",
+    "destination"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
