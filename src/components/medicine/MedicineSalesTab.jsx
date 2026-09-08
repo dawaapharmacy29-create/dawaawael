@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, RefreshCw, Copy, Check } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
+import NewListCycleDialog from "@/components/medicine/NewListCycleDialog";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const TODAY = new Date().toISOString().split("T")[0];
@@ -41,6 +42,15 @@ export default function MedicineSalesTab() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [newCycleOpen, setNewCycleOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState("");
+
+  const copyCode = (code) => {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(""), 1200);
+  };
 
   const { data: settings = [] } = useQuery({
     queryKey: ["report-settings"],
@@ -182,11 +192,18 @@ export default function MedicineSalesTab() {
             </button>
           ))}
         </div>
-        {canAdd && (
-          <Button onClick={openAddDialog} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Plus className="w-4 h-4" /> إضافة مبيعات اللسته
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canAdd && (
+            <Button onClick={openAddDialog} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+              <Plus className="w-4 h-4" /> إضافة مبيعات اللسته
+            </Button>
+          )}
+          {canAdd && (
+            <Button onClick={() => setNewCycleOpen(true)} variant="outline" className="border-orange-400 text-orange-600 hover:bg-orange-50 gap-2">
+              <RefreshCw className="w-4 h-4" /> بداية لستة جديدة
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Records list */}
@@ -232,7 +249,17 @@ export default function MedicineSalesTab() {
                         <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="px-2 py-1.5">
                             <div className="font-medium text-gray-700">{sale.medicine_name}</div>
-                            {itemData?.item_code && <div className="text-xs text-teal-600 font-mono">{itemData.item_code}</div>}
+                            {itemData?.item_code && (
+                              <button
+                                type="button"
+                                onClick={() => copyCode(itemData.item_code)}
+                                title="اضغط لنسخ الكود"
+                                className="text-xs text-teal-600 font-mono flex items-center gap-1 hover:bg-teal-50 rounded px-1 -mx-1"
+                              >
+                                {itemData.item_code}
+                                {copiedCode === itemData.item_code ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 opacity-50" />}
+                              </button>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 text-center text-blue-700 font-semibold">{sale.quantity ?? 0}</td>
                         </tr>
@@ -245,6 +272,9 @@ export default function MedicineSalesTab() {
           ))}
         </div>
       )}
+
+      {/* New cycle dialog */}
+      <NewListCycleDialog open={newCycleOpen} onOpenChange={setNewCycleOpen} />
 
       {/* Confirm delete */}
       <ConfirmDialog
@@ -382,7 +412,17 @@ export default function MedicineSalesTab() {
                   <div key={item.id} className="grid grid-cols-2 gap-2 items-center">
                     <div>
                       <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                      {item.item_code && <p className="text-xs text-teal-600 font-mono">{item.item_code}</p>}
+                      {item.item_code && (
+                        <button
+                          type="button"
+                          onClick={() => copyCode(item.item_code)}
+                          title="اضغط لنسخ الكود"
+                          className="text-xs text-teal-600 font-mono flex items-center gap-1 hover:bg-teal-50 rounded px-1 -mx-1"
+                        >
+                          {item.item_code}
+                          {copiedCode === item.item_code ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 opacity-50" />}
+                        </button>
+                      )}
                     </div>
                     <Input
                       type="number" min="0" step="any"
