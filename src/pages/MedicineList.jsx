@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MedicineDashboard from "@/components/medicine/MedicineDashboard";
 import MedicineSalesTab from "@/components/medicine/MedicineSalesTab";
 import MedicineItemsAdmin from "@/components/medicine/MedicineItemsAdmin";
+import BranchItemWeeklySales from "@/components/medicine/BranchItemWeeklySales";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -114,6 +115,7 @@ export default function MedicineList() {
         <TabsContent value="dashboard">
           <MedicineDashboard />
           <BranchBalanceTable />
+          <BranchItemWeeklySales />
         </TabsContent>
         <TabsContent value="sales">
           <MedicineSalesTab />
