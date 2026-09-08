@@ -32,9 +32,21 @@ import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
 import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
 import EmployeeHR from './pages/EmployeeHR';
+import { useEffect } from "react";
+import { setNumbersHidden } from "@/lib/westernDigits";
+import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
+
+  // دور "مشاهد" (viewer): يتصفح التطبيق كاملًا بدون رؤية أي رقم
+  const isViewerRole = !!user && (user.role || "viewer") === "viewer";
+  useEffect(() => {
+    setNumbersHidden(isViewerRole);
+    if (isViewerRole) startNumberMasking();
+    else stopNumberMasking();
+    return () => stopNumberMasking();
+  }, [isViewerRole]);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (

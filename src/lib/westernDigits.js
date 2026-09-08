@@ -7,8 +7,13 @@ const isArabicLocale = (locale) =>
 const NUMBER_LOCALE = "en-US"; // فواصل إنجليزية (1,250,000.00)
 const DATE_LOCALE = "ar-EG-u-nu-latn"; // أسماء عربية (شهور/أيام) بأرقام إنجليزية
 
+// إخفاء كل القيم الرقمية المنسقة عن دور "مشاهد" (viewer) — تظهر كنقاط
+let numbersHidden = false;
+export const setNumbersHidden = (value) => { numbersHidden = !!value; };
+
 const origNumber = Number.prototype.toLocaleString;
 Number.prototype.toLocaleString = function (locale, options) {
+  if (numbersHidden) return "•••";
   return origNumber.call(this, isArabicLocale(locale) ? NUMBER_LOCALE : locale, options);
 };
 
