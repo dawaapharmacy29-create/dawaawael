@@ -40,6 +40,7 @@ export default function SupplierBalances() {
   const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 0 });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
+  const { data: adjustments = [] } = useQuery({ queryKey: ["supplier-debt-adjustments"], queryFn: () => base44.entities.SupplierDebtAdjustment.list() });
 
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -48,13 +49,13 @@ export default function SupplierBalances() {
   const supplierTotals = useMemo(() => {
     return allSupplierNames
       .map((name) => {
-        const result = calcSupplierTotalDebt({ invoices, payments, debts, monthStarts, supplierName: name, branches: BRANCHES });
+        const result = calcSupplierTotalDebt({ invoices, payments, debts, monthStarts, adjustments, supplierName: name, branches: BRANCHES });
         const hasCreditInvoices = invoices.some((inv) => inv.payment_type === "آجل" && inv.supplier_name === name);
         if (result.totalNet <= 0 && !hasCreditInvoices) return null;
         return { name, ...result };
       })
       .filter(Boolean);
-  }, [allSupplierNames, invoices, payments, debts, monthStarts]);
+  }, [allSupplierNames, invoices, payments, debts, monthStarts, adjustments]);
 
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: SBAL_SORT_COLUMNS,
