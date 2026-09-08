@@ -1,0 +1,53 @@
+{
+  "name": "AdminExpenseRecord",
+  "properties": {
+    "amount": {
+      "description": "\u0627\u0644\u0642\u064a\u0645\u0629 \u0627\u0644\u0645\u0633\u062c\u0644\u0629 \u0644\u0647\u0630\u0627 \u0627\u0644\u0634\u0647\u0631",
+      "type": "number"
+    },
+    "item_id": {
+      "description": "\u0645\u0639\u0631\u0641 \u0628\u0646\u062f \u0627\u0644\u0645\u0635\u0631\u0648\u0641",
+      "type": "string"
+    },
+    "item_name": {
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0628\u0646\u062f \u0648\u0642\u062a \u0627\u0644\u062a\u0633\u062c\u064a\u0644 (\u0644\u0644\u0623\u0631\u0634\u0641\u0629)",
+      "type": "string"
+    },
+    "month": {
+      "description": "\u0627\u0644\u0634\u0647\u0631 (YYYY-MM)",
+      "type": "string"
+    },
+    "notes": {
+      "description": "\u0645\u0644\u0627\u062d\u0638\u0627\u062a",
+      "type": "string"
+    }
+  },
+  "required": [
+    "item_id",
+    "month",
+    "amount"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "type": "object"
+}
