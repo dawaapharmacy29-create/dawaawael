@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import '@/index.css'
+import '@/lib/westernDigits.js'
 
 // Unregister any stale service workers that may serve cached stale JS (HR tabs added)
 if ('serviceWorker' in navigator) {

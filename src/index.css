@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,6 +31,9 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --font-heading: "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+    --font-display: "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -84,5 +89,8 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 }
