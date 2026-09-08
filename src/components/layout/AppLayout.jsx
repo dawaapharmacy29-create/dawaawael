@@ -12,7 +12,7 @@ const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard, section: "main" },
   { path: "/invoices", label: "فواتير الشراء", icon: FileText, section: "main" },
   { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main" },
-  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, hidden: true, section: "operations" },
+  { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, section: "main" },
   { path: "/expenses", label: "المصروفات", icon: Receipt, section: "operations" },
   { path: "/returns", label: "المرتجعات", icon: RotateCcw, pink: true, section: "operations" },
   { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true, hidden: true, section: "operations" },
