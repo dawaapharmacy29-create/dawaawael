@@ -623,6 +623,49 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Debt Adjustment Dialog — لتصحيح فواتير سقطت سهواً ومش مسجلة على التطبيق */}
+      {isManager && (
+        <Dialog open={!!adjustmentDialog} onOpenChange={(o) => !o && setAdjustmentDialog(null)}>
+          <DialogContent dir="rtl" className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-amber-600" />
+                فرق مديونية — {adjustmentDialog?.supplier_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+                الفرع: <strong>{branch}</strong>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-700">
+                <p>لتصحيح فاتورة سقطت سهواً ومش مسجلة على التطبيق. اكتب رقم موجب لو المديونية أقل مما هيظهر في النظام (فاتورة ناقصة)، أو رقم سالب لو المديونية أكتر مما هيظهر (تصحيح زيادة بالغلط).</p>
+              </div>
+              <div className="space-y-1">
+                <Label>قيمة الفرق (موجب يزود المديونية / سالب يقللها) *</Label>
+                <Input type="number" value={adjustmentForm.amount}
+                  onChange={e => setAdjustmentForm(f => ({ ...f, amount: e.target.value }))} placeholder="مثال: 1500 أو -1500" />
+              </div>
+              <div className="space-y-1">
+                <Label>تاريخ الفرق</Label>
+                <Input type="date" value={adjustmentForm.adjustment_date}
+                  onChange={e => setAdjustmentForm(f => ({ ...f, adjustment_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>السبب / ملاحظات</Label>
+                <Textarea value={adjustmentForm.notes} onChange={e => setAdjustmentForm(f => ({ ...f, notes: e.target.value }))} rows={2}
+                  placeholder="مثال: فاتورة رقم 123 سقطت سهواً من الموظف" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setAdjustmentDialog(null)}>إلغاء</Button>
+              <Button disabled={!adjustmentForm.amount || savingAdjustment} onClick={saveAdjustment} className="bg-amber-600 hover:bg-amber-700">
+                {savingAdjustment ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد الفرق"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
