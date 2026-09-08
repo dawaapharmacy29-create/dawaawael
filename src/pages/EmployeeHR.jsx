@@ -1,10 +1,22 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Clock, CalendarDays, Users } from "lucide-react";
+import { Wallet, Clock, CalendarDays, Users, Lock } from "lucide-react";
 import LoansTab from "@/components/hr/LoansTab";
 import PermissionsTab from "@/components/hr/PermissionsTab";
 import LeavesTab from "@/components/hr/LeavesTab";
+import { useUserRole } from "@/lib/useUserRole";
 
 export default function EmployeeHR() {
+  const { isAdmin } = useUserRole();
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-4" dir="rtl">
       <div className="flex items-center gap-2">
