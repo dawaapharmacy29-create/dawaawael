@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Receipt } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Receipt, Scale } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { calcSupplierBranchDebt, getAllCreditSupplierNames, round2 } from "@/lib/supplierBalanceUtils";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
@@ -34,6 +34,9 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
   const [monthStartDialog, setMonthStartDialog] = useState(null);
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
+  const [adjustmentDialog, setAdjustmentDialog] = useState(null);
+  const [adjustmentForm, setAdjustmentForm] = useState({ amount: "", notes: "", adjustment_date: new Date().toISOString().split("T")[0] });
+  const [savingAdjustment, setSavingAdjustment] = useState(false);
 
   const { data: allInvoices = [] } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -54,6 +57,7 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
+  const { data: adjustments = [] } = useQuery({ queryKey: ["supplier-debt-adjustments"], queryFn: () => base44.entities.SupplierDebtAdjustment.list("-adjustment_date") });
 
   // فواتير هذا الفرع فقط
   const invoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
@@ -136,6 +140,25 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
     setMonthStartDialog({ supplier_name: supplierName, existing });
   };
 
+  const openAdjustmentDialog = (supplierName) => {
+    setAdjustmentForm({ amount: "", notes: "", adjustment_date: new Date().toISOString().split("T")[0] });
+    setAdjustmentDialog({ supplier_name: supplierName });
+  };
+
+  const saveAdjustment = async () => {
+    setSavingAdjustment(true);
+    await base44.entities.SupplierDebtAdjustment.create({
+      supplier_name: adjustmentDialog.supplier_name,
+      branch,
+      amount: round2(parseFloat(adjustmentForm.amount) || 0),
+      adjustment_date: adjustmentForm.adjustment_date,
+      notes: adjustmentForm.notes,
+    });
+    await qc.invalidateQueries({ queryKey: ["supplier-debt-adjustments"] });
+    setSavingAdjustment(false);
+    setAdjustmentDialog(null);
+  };
+
   const openPayDialog = (invoice) => {
     setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
     setPayDialog({ invoice });
@@ -154,7 +177,7 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
   const supplierGroups = useMemo(() => {
     const map = {};
     allSupplierNames.forEach((name) => {
-      const result = calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, supplierName: name, branch });
+      const result = calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, adjustments, supplierName: name, branch });
       const allCreditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
       if (result.totalNet <= 0 && allCreditInvoices.length === 0) return;
       map[name] = {
@@ -164,7 +187,7 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
       };
     });
     return Object.values(map).sort((a, b) => b.totalNet - a.totalNet);
-  }, [invoices, payments, debts, allSupplierNames, monthStarts, branch]);
+  }, [invoices, payments, debts, allSupplierNames, monthStarts, adjustments, branch]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
 
