@@ -298,6 +298,10 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
                               onClick={(e) => { e.stopPropagation(); openDebtDialog(group.name); }}>
                               <Edit2 className="w-3 h-3" /> مديونية قديمة
                             </Button>
+                            <Button size="sm" variant="outline" className="text-amber-700 border-amber-300 hover:bg-amber-50 h-7 text-xs gap-1"
+                              onClick={(e) => { e.stopPropagation(); openAdjustmentDialog(group.name); }}>
+                              <Scale className="w-3 h-3" /> فرق مديونية
+                            </Button>
                           </>
                         )}
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
