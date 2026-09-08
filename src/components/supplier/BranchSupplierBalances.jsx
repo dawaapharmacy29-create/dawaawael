@@ -360,6 +360,14 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
                             </div>
                             <p className="text-2xl font-bold text-red-600 mt-2">{fmt(group.totalNet)} ج</p>
                             <p className="text-xs text-gray-500 mt-2">{group.invoices.length} فاتورة إجمالي</p>
+                            {group.adjustmentsTotal !== 0 && (
+                              <div className="mt-2 flex items-center justify-between bg-white rounded-lg px-3 py-1.5 border border-amber-200">
+                                <span className="text-xs text-amber-700">فروق مديونية يدوية</span>
+                                <span className={`text-xs font-bold ${group.adjustmentsTotal > 0 ? "text-red-600" : "text-green-600"}`}>
+                                  {group.adjustmentsTotal > 0 ? "+" : ""}{fmt(group.adjustmentsTotal)} ج
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -441,6 +449,22 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
                                   ))}
                                 </TableBody>
                               </Table>
+                            </div>
+                          </div>
+                        )}
+
+                        {group.adjustments.length > 0 && (
+                          <div className="p-4 border-t bg-amber-50">
+                            <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1"><Scale className="w-3.5 h-3.5" /> فروق المديونية اليدوية</p>
+                            <div className="space-y-1">
+                              {group.adjustments.map((a) => (
+                                <div key={a.id} className="flex items-center justify-between text-xs text-gray-600 bg-white rounded px-3 py-1.5 border border-amber-100">
+                                  <span>{a.adjustment_date || "—"} — {a.notes || "فرق مديونية"}</span>
+                                  <span className={`font-semibold ${a.amount > 0 ? "text-red-600" : "text-green-600"}`}>
+                                    {a.amount > 0 ? "+" : ""}{fmt(a.amount)} ج
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
