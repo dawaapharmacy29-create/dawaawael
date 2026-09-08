@@ -21,7 +21,7 @@ import PaymentsLog from "@/components/supplier/PaymentsLog";
  */
 export default function BranchSupplierBalances({ branch, accentColor = "text-blue-700" }) {
   const qc = useQueryClient();
-  const { isManager } = useUserRole();
+  const { isManager, isAdmin } = useUserRole();
   const [tab, setTab] = useState("balances"); // balances | statement | payments
   const [expanded, setExpanded] = useState(null);
   const [payDialog, setPayDialog] = useState(null);
