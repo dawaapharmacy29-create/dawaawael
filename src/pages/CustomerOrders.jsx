@@ -67,9 +67,7 @@ async function loadAllCustomerOrders() {
 }
 
 export default function CustomerOrders() {
-  const { isAdmin, isSupervisor, user } = useUserRole();
-  // المشرف له نفس صلاحية إدارة الطلبات هنا لأن "تسجيل طلب عميل" ضمن صلاحياته الثابتة.
-  const isManager = isAdmin || isSupervisor;
+  const { isAdmin, isManager, user } = useUserRole();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");

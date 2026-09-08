@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ClipboardList, Eye, XCircle, Lock } from "lucide-react";
+import { ClipboardList, Eye, XCircle } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
@@ -35,7 +35,7 @@ const ENTITY_LABELS = {
 
 export default function ActivityLog() {
   const queryClient = useQueryClient();
-  const { isManager, isAdmin } = useUserRole();
+  const { isManager } = useUserRole();
   const [selected, setSelected] = useState(null);
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: LOG_SORT_COLUMNS,
@@ -94,15 +94,6 @@ export default function ActivityLog() {
   };
 
   const sortedLogs = useMemo(() => sortData(logs), [logs, sortData]);
-
-  if (!isAdmin) {
-    return (
-      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
-        <Lock className="w-12 h-12" />
-        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
-      </div>
-    );
-  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">

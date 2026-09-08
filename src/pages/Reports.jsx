@@ -40,7 +40,7 @@ const DEFAULT_FROM = `${thisYear}-01-01`;
 const DEFAULT_TO = `${thisYear}-12-31`;
 
 export default function Reports() {
-  const { isManager, isAdmin } = useUserRole();
+  const { isManager } = useUserRole();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [pendingFrom, setPendingFrom] = useState(DEFAULT_FROM);
@@ -140,15 +140,6 @@ export default function Reports() {
   const changed = pendingFrom !== activeFrom || pendingTo !== activeTo;
 
   const formatDateAr = (d) => d ? new Date(d).toLocaleDateString("ar-EG") : "";
-
-  if (!isAdmin) {
-    return (
-      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
-        <Lock className="w-12 h-12" />
-        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
-      </div>
-    );
-  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">

@@ -32,7 +32,7 @@ export const ORDER_STATUS_ORDER = {
   "الصنف غير متوفر حاليا": 8, "تم الإلغاء": 9,
 };
 export const PRIORITY_ORDER = { "عاجل": 1, "متوسط": 2, "عادي": 3 };
-export const USER_ROLE_ORDER = { admin: 1, supervisor: 2, viewer: 3 };
+export const USER_ROLE_ORDER = { admin: 1, manager: 2, viewer: 3 };
 export const SLOW_STATUS_ORDER = {
   "راكد": 1, "منتظر التحويل": 2, "تم النقل": 3, "تم الإرجاع للشركة": 4, "تم التحويل لمنتهي": 5,
 };

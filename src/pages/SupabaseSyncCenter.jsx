@@ -4,10 +4,9 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Database, Plug, Send, Archive, Lock } from "lucide-react";
+import { Database, Plug, Send, Archive } from "lucide-react";
 import SyncStats from "@/components/sync/SyncStats";
 import SyncOutboxTable from "@/components/sync/SyncOutboxTable";
-import { useUserRole } from "@/lib/useUserRole";
 
 const SNAPSHOT_ENTITIES = [
   "Supplier",
@@ -21,7 +20,6 @@ const SNAPSHOT_ENTITIES = [
 ];
 
 export default function SupabaseSyncCenter() {
-  const { isAdmin } = useUserRole();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
   const [retryingId, setRetryingId] = useState(null);
@@ -125,15 +123,6 @@ export default function SupabaseSyncCenter() {
   });
 
   const filtered = records.filter((r) => statusFilter === "all" || r.status === statusFilter);
-
-  if (!isAdmin) {
-    return (
-      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
-        <Lock className="w-12 h-12" />
-        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
-      </div>
-    );
-  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">

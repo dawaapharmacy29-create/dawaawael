@@ -24,8 +24,7 @@ import CustomerOrders from './pages/CustomerOrders';
 import PharmacyOrders from './pages/PharmacyOrders';
 import InventoryCount from './pages/InventoryCount';
 import ReportsBranch from './pages/ReportsBranch';
-import SupplierBalancesShokry from './pages/SupplierBalancesShokry';
-import SupplierBalancesShami from './pages/SupplierBalancesShami';
+import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
 import ReplenishmentPage from './pages/ReplenishmentPage';
 import ShiftDelivery from './pages/ShiftDelivery';
 import SecurityAuditPage from './pages/SecurityAuditPage';
@@ -33,7 +32,6 @@ import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
 import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
 import EmployeeHR from './pages/EmployeeHR';
-import AdminExpenses from './pages/AdminExpenses';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -64,7 +62,6 @@ const AuthenticatedApp = () => {
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/reports" element={<Reports />} />
-        <Route path="/admin-expenses" element={<AdminExpenses />} />
         <Route path="/supplier-balances" element={<SupplierBalances />} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
@@ -77,8 +74,7 @@ const AuthenticatedApp = () => {
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<ReportsBranch />} />
-        <Route path="/supplier-balances-shokry" element={<SupplierBalancesShokry />} />
-        <Route path="/supplier-balances-shami" element={<SupplierBalancesShami />} />
+        <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />

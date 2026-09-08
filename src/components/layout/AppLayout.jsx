@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -22,21 +22,20 @@ const navItems = [
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true, section: "requests" },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
   { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers" },
-  { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, adminOnly: true, section: "suppliers" },
-  { path: "/supplier-balances-shokry", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, adminOnly: true, section: "suppliers" },
-  { path: "/supplier-balances-shami", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, adminOnly: true, section: "suppliers" },
-  { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, adminOnly: true, section: "reports" },
-  { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, adminOnly: true, section: "reports" },
-  { path: "/admin-expenses", label: "المصروفات الإدارية", icon: Wallet, adminOnly: true, section: "reports" },
-  { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, adminOnly: true, section: "reports" },
-  { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي", icon: BarChart2, indent: true, adminOnly: true, section: "reports" },
-  { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, adminOnly: true, section: "management" },
-  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, adminOnly: true, section: "management" },
+  { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers" },
+  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
+  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
+  { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, section: "reports" },
+  { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
+  { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
+  { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي", icon: BarChart2, indent: true, section: "reports" },
+  { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
+  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "management" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
-  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, adminOnly: true, section: "management" },
-  { path: "/team-members", label: "فريق العمل", icon: UserCheck, adminOnly: true, section: "management" },
-  { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, adminOnly: true, section: "management" },
+  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, section: "management" },
+  { path: "/team-members", label: "فريق العمل", icon: UserCheck, section: "management" },
+  { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, section: "management" },
   { path: "/supabase-sync", label: "مركز مزامنة Supabase", icon: Database, adminOnly: true, section: "management" },
 ];
 

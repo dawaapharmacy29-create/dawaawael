@@ -10,7 +10,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
 
-const PAY_SORT_COLUMNS_ALL = [
+const PAY_SORT_COLUMNS = [
   { field: "payment_date", label: "التاريخ", type: "date" },
   { field: "supplier_name", label: "المورد", type: "text" },
   { field: "branch", label: "الفرع", type: "text" },
@@ -18,14 +18,7 @@ const PAY_SORT_COLUMNS_ALL = [
   { field: "amount", label: "المبلغ", type: "number" },
 ];
 
-const PAY_SORT_COLUMNS_BRANCH = PAY_SORT_COLUMNS_ALL.filter((c) => c.field !== "branch");
-
-/**
- * سجل مدفوعات الموردين.
- * بدون branch: يعرض كل الفروع (عمود "الفرع" ظاهر).
- * مع branch: يقفل الفلتر على هذا الفرع فقط ويخفي عمود/فلتر الفرع (للاستخدام داخل صفحة فرع مستقلة).
- */
-export default function PaymentsLog({ branch }) {
+export default function PaymentsLog() {
   const today = new Date().toISOString().split("T")[0];
   const firstOfMonth = today.slice(0, 8) + "01";
 
@@ -35,45 +28,37 @@ export default function PaymentsLog({ branch }) {
 
   const { data: payments = [] } = useQuery({
     queryKey: ["supplier-payments"],
-    queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000),
     staleTime: 60000,
   });
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
-    queryFn: () => base44.entities.Supplier.list(),
     staleTime: 60000,
   });
 
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
-  const branchPayments = useMemo(
-    () => (branch ? payments.filter((p) => p.branch === branch) : payments),
-    [payments, branch]
-  );
-
   // All supplier names from payments + suppliers list
   const supplierNames = useMemo(() => {
-    const fromPayments = branchPayments.map((p) => p.supplier_name).filter(Boolean);
-    const fromSuppliers = suppliers.map((s) => s.name).filter(Boolean);
+    const fromPayments = payments.map(p => p.supplier_name).filter(Boolean);
+    const fromSuppliers = suppliers.map(s => s.name).filter(Boolean);
     return [...new Set([...fromSuppliers, ...fromPayments])].sort();
-  }, [branchPayments, suppliers]);
+  }, [payments, suppliers]);
 
   const filteredRaw = useMemo(() => {
-    return branchPayments.filter((p) => {
+    return payments.filter(p => {
       const d = (p.payment_date || "").slice(0, 10);
       const matchSupplier = !selectedSupplier || p.supplier_name === selectedSupplier;
       const matchFrom = !dateFrom || d >= dateFrom;
       const matchTo = !dateTo || d <= dateTo;
       return matchSupplier && matchFrom && matchTo;
     });
-  }, [branchPayments, selectedSupplier, dateFrom, dateTo]);
+  }, [payments, selectedSupplier, dateFrom, dateTo]);
 
-  const sortColumns = branch ? PAY_SORT_COLUMNS_BRANCH : PAY_SORT_COLUMNS_ALL;
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
-    columns: sortColumns,
+    columns: PAY_SORT_COLUMNS,
     defaultSort: { field: "payment_date", direction: "desc" },
-    paramPrefix: branch ? `pay_${branch === "دواء شكري" ? "shokry" : "shami"}` : "pay",
+    paramPrefix: "pay",
   });
   const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
@@ -107,7 +92,7 @@ export default function PaymentsLog({ branch }) {
       </Card>
 
       <SortControls
-        columns={sortColumns}
+        columns={PAY_SORT_COLUMNS}
         sortField={sortField}
         sortDirection={sortDirection}
         onToggle={toggleSort}
@@ -144,7 +129,7 @@ export default function PaymentsLog({ branch }) {
                 <TableRow className="bg-gray-50">
                   <SortableHeader field="payment_date" label="التاريخ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                   <SortableHeader field="supplier_name" label="المورد" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
-                  {!branch && <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />}
+                  <SortableHeader field="branch" label="الفرع" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                   <SortableHeader field="invoice_number" label="رقم الفاتورة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
                   <SortableHeader field="amount" label="المبلغ" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="text-right text-xs" />
@@ -155,7 +140,7 @@ export default function PaymentsLog({ branch }) {
                   <TableRow key={p.id} className="hover:bg-gray-50 text-sm">
                     <TableCell className="text-gray-600">{p.payment_date || "—"}</TableCell>
                     <TableCell className="font-semibold text-gray-800">{p.supplier_name || "—"}</TableCell>
-                    {!branch && <TableCell className="text-xs text-blue-700 font-medium">{p.branch || "—"}</TableCell>}
+                    <TableCell className="text-xs text-blue-700 font-medium">{p.branch || "—"}</TableCell>
                     <TableCell className="font-mono text-teal-700">{p.invoice_number || "—"}</TableCell>
                     <TableCell className="text-gray-500 text-xs">{p.notes || "—"}</TableCell>
                     <TableCell className="font-bold text-green-700">{fmt(p.amount)} ج</TableCell>

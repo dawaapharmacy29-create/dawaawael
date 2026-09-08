@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { logActivity } from "@/lib/activityLogger";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -32,7 +32,7 @@ const emptyForm = { name: "", branches: [], role: "", phone: "" };
 
 export default function TeamMembers() {
   const qc = useQueryClient();
-  const { canManageTeam, isAdmin } = useUserRole();
+  const { canManageTeam } = useUserRole();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -95,15 +95,6 @@ export default function TeamMembers() {
     branch: b,
     members: sortData(members.filter((m) => (m.branches || []).includes(b))),
   })), [members, sortData]);
-
-  if (!isAdmin) {
-    return (
-      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
-        <Lock className="w-12 h-12" />
-        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
-      </div>
-    );
-  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
