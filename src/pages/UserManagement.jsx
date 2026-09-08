@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
+import { ShieldCheck, UserPlus, Mail, Lock, RotateCcw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
 import { logActivity } from "@/lib/activityLogger";
@@ -24,17 +24,22 @@ const USER_SORT_COLUMNS = [
 ];
 
 const ROLE_CONFIG = {
-  admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
-  manager: { label: "محاسب / مشرف", color: "bg-blue-100 text-blue-700", desc: "إضافة وتعديل وعرض" },
-  viewer: { label: "مشاهد", color: "bg-gray-100 text-gray-700", desc: "عرض فقط (يمكن تخصيص صلاحيات إضافية)" },
+  admin: {
+    label: "مدير",
+    color: "bg-red-100 text-red-700",
+    desc: "كل الصلاحيات على كل صفحات التطبيق تلقائياً — بما في ذلك التقارير، أرصدة الموردين، وصفحات الإدارة والمتابعة.",
+  },
+  supervisor: {
+    label: "مشرف",
+    color: "bg-blue-100 text-blue-700",
+    desc: "صلاحية محدودة على 5 مناطق فقط: فواتير الشراء، تسجيل طلب عميل، المصروفات، المرتجعات، وتبويب \"تسليم جديد\" فقط من تسليم الشيفت.",
+  },
+  viewer: {
+    label: "مشاهد",
+    color: "bg-gray-100 text-gray-700",
+    desc: "عرض فقط — بدون أي صلاحية إدخال أو تعديل في أي صفحة.",
+  },
 };
-
-const PERMISSIONS = [
-  { key: "can_save_invoice", label: "إضافة وتعديل الفواتير" },
-  { key: "can_delete_invoice", label: "حذف الفواتير" },
-  { key: "can_manage_team", label: "إدارة فريق العمل" },
-  { key: "can_set_budget", label: "تحديد الحد الأقصى للمشتريات" },
-];
 
 export default function UserManagement() {
   const qc = useQueryClient();
@@ -42,6 +47,8 @@ export default function UserManagement() {
   const { isAdmin, user: currentUser } = useUserRole();
   const [inviteDialog, setInviteDialog] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer" });
+  const [resetDialog, setResetDialog] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -72,22 +79,33 @@ export default function UserManagement() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
-  const updatePerm = useMutation({
-    mutationFn: async ({ id, perm, value, oldValue, userEmail }) => {
-      await base44.entities.User.update(id, { [perm]: value });
+  const resetAllMutation = useMutation({
+    mutationFn: async () => {
+      const targets = users.filter((u) => u.id !== currentUser?.id);
+      for (const u of targets) {
+        await base44.entities.User.update(u.id, {
+          role: "viewer",
+          can_save_invoice: false,
+          can_delete_invoice: false,
+          can_manage_team: false,
+          can_set_budget: false,
+        });
+      }
       await logActivity({
-        action_type: "permission_change",
+        action_type: "role_change",
         entity_type: "user",
-        entity_id: id,
-        record_id: id,
-        entity_label: userEmail,
-        old_value: `${perm}: ${oldValue}`,
-        new_value: `${perm}: ${value}`,
-        reason: "تغيير صلاحية",
-        details: `تغيير صلاحية ${perm} لـ ${userEmail}: ${oldValue} → ${value}`,
+        entity_label: "كل المستخدمين",
+        reason: "إعادة ضبط الصلاحيات",
+        details: `تمت إعادة ضبط أدوار وصلاحيات ${targets.length} مستخدم إلى "مشاهد"`,
       });
+      return targets.length;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: (count) => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      setResetDialog(false);
+      toast({ title: "تم إعادة الضبط", description: `تم تصفير أدوار وصلاحيات ${count} مستخدم إلى "مشاهد"` });
+    },
+    onSettled: () => setResetting(false),
   });
 
   if (!isAdmin) {
@@ -101,6 +119,9 @@ export default function UserManagement() {
 
   const handleInvite = async () => {
     await base44.users.inviteUser(inviteForm.email, inviteForm.role === "admin" ? "admin" : "user");
+    if (inviteForm.role !== "admin") {
+      // الدعوة على مستوى المنصة تفرّق فقط بين admin/user — نضبط دورنا الداخلي (مشرف/مشاهد) بعد قبول الدعوة من صفحة المستخدمين.
+    }
     toast({ title: "تم إرسال الدعوة", description: `تم إرسال دعوة إلى ${inviteForm.email}` });
     setInviteDialog(false);
     setInviteForm({ email: "", role: "viewer" });
@@ -117,7 +138,7 @@ export default function UserManagement() {
             <p className="text-gray-500 text-sm mt-0.5">تحديد أدوار وصلاحيات المستخدمين</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <SortControls
             columns={USER_SORT_COLUMNS}
             sortField={sortField}
@@ -127,6 +148,9 @@ export default function UserManagement() {
             onReset={resetSort}
             cardMode
           />
+          <Button onClick={() => setResetDialog(true)} variant="outline" className="gap-2 border-red-300 text-red-600 hover:bg-red-50">
+            <RotateCcw className="w-4 h-4" /> إعادة ضبط الجميع
+          </Button>
           <Button onClick={() => setInviteDialog(true)} className="bg-teal-600 hover:bg-teal-700 gap-2">
             <UserPlus className="w-4 h-4" /> دعوة مستخدم
           </Button>
@@ -156,7 +180,7 @@ export default function UserManagement() {
             const role = user.role || "viewer";
             const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.viewer;
             return (
-              <Card key={user.id} className="p-4 flex items-center justify-between gap-3">
+              <Card key={user.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm shrink-0">
                     {(user.full_name || user.email || "?").charAt(0).toUpperCase()}
@@ -178,7 +202,7 @@ export default function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">مدير</SelectItem>
-                      <SelectItem value="manager">محاسب / مشرف</SelectItem>
+                      <SelectItem value="supervisor">مشرف</SelectItem>
                       <SelectItem value="viewer">مشاهد</SelectItem>
                     </SelectContent>
                   </Select>
@@ -186,27 +210,6 @@ export default function UserManagement() {
                     <span className="text-[10px] text-gray-400">لا يمكن تغيير دورك</span>
                   )}
                 </div>
-                {/* Permissions row - only show for non-admin */}
-                {role !== "admin" && (
-                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
-                    {PERMISSIONS.map((p) => {
-                      const val = !!user[p.key];
-                      return (
-                        <button
-                          key={p.key}
-                          disabled={user.id === currentUser?.id}
-                          onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val, oldValue: val, userEmail: user.email })}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            val ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-teal-200"
-                          }`}
-                        >
-                          {val ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </Card>
             );
           })}
@@ -232,7 +235,7 @@ export default function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">مدير</SelectItem>
-                  <SelectItem value="manager">محاسب / مشرف</SelectItem>
+                  <SelectItem value="supervisor">مشرف</SelectItem>
                   <SelectItem value="viewer">مشاهد</SelectItem>
                 </SelectContent>
               </Select>
@@ -242,6 +245,35 @@ export default function UserManagement() {
             <Button variant="outline" onClick={() => setInviteDialog(false)}>إلغاء</Button>
             <Button disabled={!inviteForm.email} onClick={handleInvite} className="bg-teal-600 hover:bg-teal-700">
               إرسال الدعوة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset All Dialog */}
+      <Dialog open={resetDialog} onOpenChange={setResetDialog}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="w-5 h-5" /> إعادة ضبط كل المستخدمين
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-gray-600">
+              هيتم تحويل دور <strong>كل المستخدمين ما عدا حسابك الحالي</strong> إلى "مشاهد" (بدون أي صلاحيات)،
+              وإلغاء أي صلاحيات إضافية مسجّلة عليهم. حسابات المستخدمين نفسها (تسجيل الدخول) هتفضل موجودة —
+              العملية دي بتصفّر الأدوار والصلاحيات بس، مش بتحذف حسابات.
+            </p>
+            <p className="text-red-600 font-medium">هتحتاج تعيد تحديد دور كل مستخدم (مدير / مشرف) بعد كده يدوياً.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetDialog(false)}>إلغاء</Button>
+            <Button
+              disabled={resetting || resetAllMutation.isPending}
+              onClick={() => { setResetting(true); resetAllMutation.mutate(); }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {resetAllMutation.isPending ? "جاري إعادة الضبط..." : "تأكيد إعادة الضبط"}
             </Button>
           </DialogFooter>
         </DialogContent>
