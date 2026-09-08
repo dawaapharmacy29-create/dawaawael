@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, Search, Eye, ArrowRightLeft } from "lucide-react";
+import { AlertTriangle, Search, Eye, ArrowRightLeft, Lock } from "lucide-react";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
@@ -37,7 +37,7 @@ const SORT_COLUMNS = [
 ];
 
 export default function ReviewNeededInvoices() {
-  const { canSaveInvoice } = useUserRole();
+  const { canSaveInvoice, isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
   const [activeReason, setActiveReason] = useState("all");
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
@@ -124,6 +124,15 @@ export default function ReviewNeededInvoices() {
   const filtered = sortData(filteredRaw);
 
   const countByReason = (key) => reviewList.filter((inv) => inv.reviewReasons.includes(key)).length;
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-4">
