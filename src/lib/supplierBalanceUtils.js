@@ -35,8 +35,10 @@ export function getAllCreditSupplierNames({ invoices, debts }) {
  * - يقسّم الفواتير الآجلة لـ"قديمة" و"جديدة" حسب تاريخ بداية الشهر المسجّل لهذا الفرع.
  * - يخصم الدفعات العامة (بدون رقم فاتورة) أولاً من المديونية القديمة المبدئية،
  *   ثم من الفواتير القديمة (الأقدم أولاً)، ثم من الفواتير الجديدة (الأقدم أولاً).
+ * - يضيف فروقات المديونية اليدوية (adjustments) على الإجمالي مباشرة — بتُستخدم
+ *   لتصحيح فواتير سقطت سهواً ومش مسجّلة على التطبيق (موجب يزوّد المديونية، سالب يقلّلها).
  */
-export function calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, supplierName, branch }) {
+export function calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, adjustments = [], supplierName, branch }) {
   const branchInvoices = invoices.filter(
     (inv) => inv.payment_type === "آجل" && inv.supplier_name === supplierName && inv.branch === branch
   );
@@ -86,7 +88,11 @@ export function calcSupplierBranchDebt({ invoices, payments, debts, monthStarts,
   const oldInvoicesRemaining = round2(oldAdjusted.reduce((s, inv) => s + inv.remaining, 0));
   const newDebt = round2(newAdjusted.reduce((s, inv) => s + inv.remaining, 0));
   const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
-  const totalNet = round2(oldDebt + newDebt);
+
+  const supplierAdjustments = adjustments.filter((a) => a.supplier_name === supplierName && a.branch === branch);
+  const adjustmentsTotal = round2(supplierAdjustments.reduce((s, a) => s + (a.amount || 0), 0));
+
+  const totalNet = round2(oldDebt + newDebt + adjustmentsTotal);
 
   return {
     oldInvoices: oldAdjusted,
@@ -97,6 +103,8 @@ export function calcSupplierBranchDebt({ invoices, payments, debts, monthStarts,
     oldInvoicesRemaining,
     oldDebt,
     newDebt,
+    adjustments: supplierAdjustments,
+    adjustmentsTotal,
     totalNet,
     monthStartDate,
     debtRecord,
@@ -108,13 +116,14 @@ export function calcSupplierBranchDebt({ invoices, payments, debts, monthStarts,
  * إجمالي مديونية مورد واحد عبر كل الفروع — تُستخدم في صفحة الإجمالي فقط
  * (اللي المفروض تعرض المديونية الحالية الإجمالية بدون أي تفاصيل فواتير/مدفوعات).
  */
-export function calcSupplierTotalDebt({ invoices, payments, debts, monthStarts, supplierName, branches = BRANCHES }) {
+export function calcSupplierTotalDebt({ invoices, payments, debts, monthStarts, adjustments = [], supplierName, branches = BRANCHES }) {
   const perBranch = branches.map((branch) =>
-    calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, supplierName, branch })
+    calcSupplierBranchDebt({ invoices, payments, debts, monthStarts, adjustments, supplierName, branch })
   );
   const totalNet = round2(perBranch.reduce((s, r) => s + r.totalNet, 0));
   const oldDebt = round2(perBranch.reduce((s, r) => s + r.oldDebt, 0));
   const newDebt = round2(perBranch.reduce((s, r) => s + r.newDebt, 0));
+  const adjustmentsTotal = round2(perBranch.reduce((s, r) => s + r.adjustmentsTotal, 0));
   const invoiceCount = perBranch.reduce((s, r) => s + r.oldInvoices.length + r.newInvoices.length, 0);
-  return { totalNet, oldDebt, newDebt, invoiceCount, perBranch };
+  return { totalNet, oldDebt, newDebt, adjustmentsTotal, invoiceCount, perBranch };
 }
