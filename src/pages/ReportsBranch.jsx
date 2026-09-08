@@ -45,7 +45,7 @@ function getBranchFromUrl() {
 }
 
 export default function ReportsBranch() {
-  const { isManager } = useUserRole();
+  const { isManager, isAdmin } = useUserRole();
   const queryClient = useQueryClient();
   const [branch, setBranch] = useState(getBranchFromUrl);
   const [saving, setSaving] = useState(false);
@@ -132,6 +132,15 @@ export default function ReportsBranch() {
 
   const branchColor = branch === "دواء شكري" ? "text-blue-700" : "text-purple-700";
   const branchBg = branch === "دواء شكري" ? "bg-blue-600" : "bg-purple-600";
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
