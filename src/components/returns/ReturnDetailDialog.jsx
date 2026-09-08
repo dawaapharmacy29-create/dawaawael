@@ -34,7 +34,8 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { isManager, user } = useUserRole();
+  const { isAdmin, isSupervisor, user } = useUserRole();
+  const isManager = isAdmin || isSupervisor; // المشرف له صلاحية إدارة المرتجعات ثابتة
 
   if (!returnData) return null;
   const cfg = STATUS_CONFIG[returnData.status] || STATUS_CONFIG.Pending;
