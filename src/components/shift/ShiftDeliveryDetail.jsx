@@ -1,6 +1,12 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CalendarClock } from "lucide-react";
+import { useUserRole } from "@/lib/useUserRole";
+import { getPreviousDateStr } from "@/lib/shiftUtils";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -11,6 +17,19 @@ const SHIFT_BADGE = {
 };
 
 export default function ShiftDeliveryDetail({ item, onClose }) {
+  const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
+
+  // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
+  const moveToPrevDay = useMutation({
+    mutationFn: (it) =>
+      base44.entities.ShiftDelivery.update(it.id, { shift_date: getPreviousDateStr(it.shift_date) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      onClose();
+    },
+  });
+
   return (
     <Dialog open={!!item} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg">
@@ -31,6 +50,10 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
             <div>
               <p className="text-gray-500 text-xs">الحالة</p>
               <p className="font-medium">{item.status || "—"}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">وقت التسجيل</p>
+              <p className="font-medium">{item.recorded_at || item.shift_date || "—"}</p>
             </div>
           </div>
 
@@ -80,6 +103,18 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
               <p className="text-sm font-semibold text-gray-700 mb-1">ملاحظات</p>
               <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{item.notes}</p>
             </div>
+          )}
+
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => moveToPrevDay.mutate(item)}
+              disabled={moveToPrevDay.isPending}
+              className="w-full text-amber-700 border-amber-300 hover:bg-amber-50"
+            >
+              <CalendarClock className="w-4 h-4" />
+              ترحيل الشيفت لليوم السابق
+            </Button>
           )}
         </div>
       </DialogContent>

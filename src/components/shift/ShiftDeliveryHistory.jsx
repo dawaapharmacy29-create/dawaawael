@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Eye, Plus } from "lucide-react";
+import { Trash2, Pencil, Eye, Plus, CalendarClock } from "lucide-react";
+import { getPreviousDateStr } from "@/lib/shiftUtils";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
@@ -58,6 +59,13 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.ShiftDelivery.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
+  });
+
+  // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
+  const moveToPrevDay = useMutation({
+    mutationFn: (item) =>
+      base44.entities.ShiftDelivery.update(item.id, { shift_date: getPreviousDateStr(item.shift_date) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
   });
 
@@ -181,6 +189,11 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
                             {isAdmin && (
                               <button onClick={() => setEditItem(item)} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="تعديل">
                                 <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button onClick={() => moveToPrevDay.mutate(item)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="ترحيل الشيفت لليوم السابق">
+                                <CalendarClock className="w-3.5 h-3.5" />
                               </button>
                             )}
                             <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">

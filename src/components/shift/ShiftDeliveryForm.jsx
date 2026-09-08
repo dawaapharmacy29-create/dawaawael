@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getRecordedAt } from "@/lib/shiftUtils";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,6 @@ const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
   const { user } = useUserRole();
-  const today = new Date().toISOString().split("T")[0];
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
@@ -32,7 +32,6 @@ export default function ShiftDeliveryForm({ onSaved }) {
   const [form, setForm] = useState({
     branch: "",
     shift_type: "",
-    shift_date: today,
     submitted_by: user?.full_name || user?.email || "",
     total_sales: "",
     notes: "",
@@ -40,6 +39,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // تاريخ ووقت التسجيل يظهر تلقائيًا ولا يمكن للمستخدم تعديله
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const totalExpenses = useMemo(
     () => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0),
@@ -75,11 +81,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
       }));
 
     setSaving(true);
+    const recordedAt = getRecordedAt();
     try {
       await base44.entities.ShiftDelivery.create({
         branch: form.branch,
         shift_type: form.shift_type,
-        shift_date: form.shift_date,
+        shift_date: recordedAt.slice(0, 10),
+        recorded_at: recordedAt,
         submitted_by: form.submitted_by,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
@@ -92,7 +100,6 @@ export default function ShiftDeliveryForm({ onSaved }) {
       setForm({
         branch: "",
         shift_type: "",
-        shift_date: today,
         submitted_by: user?.full_name || user?.email || "",
         total_sales: "",
         notes: "",
@@ -145,8 +152,8 @@ export default function ShiftDeliveryForm({ onSaved }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm text-gray-600">تاريخ الإنشاء</Label>
-              <Input type="date" value={form.shift_date} onChange={(e) => setForm({ ...form, shift_date: e.target.value })} />
+              <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
+              <Input value={getRecordedAt(now)} disabled className="bg-gray-50 text-gray-500" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>

@@ -76,7 +76,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
       await base44.entities.ShiftDelivery.update(item.id, {
         branch: form.branch,
         shift_type: form.shift_type,
-        shift_date: form.shift_date,
+        shift_date: item.shift_date,
         submitted_by: form.submitted_by,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
@@ -126,8 +126,8 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm text-gray-600">تاريخ الإنشاء</Label>
-                <Input type="date" value={form.shift_date} onChange={(e) => setForm({ ...form, shift_date: e.target.value })} />
+                <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
+                <Input value={item.recorded_at || item.shift_date || ""} disabled className="bg-gray-50 text-gray-500" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
