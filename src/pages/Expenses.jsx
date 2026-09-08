@@ -48,7 +48,8 @@ export default function Expenses() {
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [activeTab, setActiveTab] = useState("list");
   const queryClient = useQueryClient();
-  const { isManager } = useUserRole();
+  const { isAdmin, isSupervisor } = useUserRole();
+  const isManager = isAdmin || isSupervisor; // المشرف له صلاحية إدارة المصروفات ثابتة
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
     queryFn: () => base44.entities.TeamMember.list("name"),
