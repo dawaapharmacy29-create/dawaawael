@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet } from "lucide-react";
+import { Wallet, Lock } from "lucide-react";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
+import { useUserRole } from "@/lib/useUserRole";
 import { BRANCHES, calcSupplierTotalDebt, getAllCreditSupplierNames } from "@/lib/supplierBalanceUtils";
 
 const SBAL_SORT_COLUMNS = [
@@ -22,6 +23,7 @@ const SBAL_SORT_COLUMNS = [
  * أصبحت مستقلة تماماً داخل صفحة كل فرع (أرصدة دواء شكري / أرصدة دواء الشامي).
  */
 export default function SupplierBalances() {
+  const { isAdmin } = useUserRole();
   const { data: invoices = [] } = useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: async () => {
@@ -65,6 +67,15 @@ export default function SupplierBalances() {
   const sortedSuppliers = useMemo(() => sortData(supplierTotals), [supplierTotals, sortData]);
 
   const grandTotal = supplierTotals.reduce((s, g) => s + g.totalNet, 0);
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
