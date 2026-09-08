@@ -4,11 +4,11 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Users, Receipt, TrendingUp, Building2, Pencil, Check, Calendar } from "lucide-react";
+import { Building2, Calendar } from "lucide-react";
+import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import BranchBudgetCard from "@/components/dashboard/BranchBudgetCard";
 import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
-import DailyProgressIndicator from "@/components/dashboard/DailyProgressIndicator";
 import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
 import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
@@ -22,15 +22,39 @@ const branchColor = {
   "دواء الشامي": "bg-purple-50 border-purple-200 text-purple-700",
 };
 
-const today = new Date().toISOString().split("T")[0];
-const firstOfMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
+const pad = (n) => String(n).padStart(2, "0");
+const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmtLabel = (iso) => {
+  const [y, m, d] = (iso || "").split("-");
+  return d ? `${d}-${m}-${y}` : iso;
+};
+
+// فترة الشهر تبدأ من يوم 15 من كل شهر حتى يوم 14 من الشهر التالي
+function getBillingPeriod(ref = new Date()) {
+  const start = ref.getDate() >= 15
+    ? new Date(ref.getFullYear(), ref.getMonth(), 15)
+    : new Date(ref.getFullYear(), ref.getMonth() - 1, 15);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 14);
+  return { from: fmtDate(start), to: fmtDate(end), key: `${start.getFullYear()}-${pad(start.getMonth() + 1)}` };
+}
+
+function getPrevBillingPeriod() {
+  const start = new Date(getBillingPeriod().from + "T00:00:00");
+  start.setMonth(start.getMonth() - 1);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 14);
+  return { from: fmtDate(start), to: fmtDate(end) };
+}
 
 function getStoredDates() {
   try {
     const s = localStorage.getItem("dashboard_date_filter");
-    if (s) return JSON.parse(s);
+    if (s) {
+      const p = JSON.parse(s);
+      if (p.from && p.to) return { from: p.from, to: p.to };
+    }
   } catch {}
-  return { from: firstOfMonth, to: today };
+  const p = getBillingPeriod();
+  return { from: p.from, to: p.to };
 }
 
 export default function Dashboard() {
@@ -49,11 +73,18 @@ export default function Dashboard() {
   };
   const [tempDate, setTempDate] = useState(getStoredDates);
 
-  const applyDateFilter = () => {
-    setDateFilter(tempDate);
-    localStorage.setItem("dashboard_date_filter", JSON.stringify(tempDate));
+  const currentPeriod = getBillingPeriod();
+  const prevPeriod = getPrevBillingPeriod();
+  const isCurrentMonth = dateFilter.from === currentPeriod.from && dateFilter.to === currentPeriod.to;
+  const isPrevMonth = dateFilter.from === prevPeriod.from && dateFilter.to === prevPeriod.to;
+
+  const setPeriod = (p) => {
+    setDateFilter({ from: p.from, to: p.to });
+    localStorage.setItem("dashboard_date_filter", JSON.stringify({ from: p.from, to: p.to }));
     setShowDateFilter(false);
   };
+
+  const applyDateFilter = () => setPeriod(tempDate);
 
   useEffect(() => { setEditingTarget(false); }, [branch]);
 
@@ -100,7 +131,8 @@ export default function Dashboard() {
     return () => { unsub1(); unsub2(); };
   }, []);
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  // مفتاح الشهر الحالي حسب دورة الفوترة (من 15 حتى 14) — الشهر يُنسب لشهر البداية
+  const currentMonth = getBillingPeriod().key;
   const { data: targetGoals = [] } = useQuery({
     queryKey: ["target-goals"],
     queryFn: () => base44.entities.TargetGoal.list(),
@@ -142,18 +174,10 @@ export default function Dashboard() {
   const targetAmount = branch === "all"
     ? branchTargets.reduce((s, bt) => s + (bt.target?.target_amount || 0), 0)
     : currentBranchTarget?.target_amount || 0;
-  const targetPercent = targetAmount > 0 ? Math.min(Math.round((totalPayments / targetAmount) * 100), 100) : 0;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
   const totalCashPurchases = branchMonthInvoices
     .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
     .reduce((s, i) => s + getInvoiceCashAmount(i), 0);
-
-  const stats = [
-    { label: "فواتير الفترة", value: branchMonthInvoices.length, icon: FileText, color: "text-teal-600", bg: "bg-teal-50" },
-    { label: "إجمالي قيمة المدفوعات", value: totalPayments.toLocaleString("ar-EG") + " ج", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "مشتريات الكاش", value: totalCashPurchases.toLocaleString("ar-EG") + " ج", icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "المصروفات", value: totalExpenses.toLocaleString("ar-EG") + " ج", icon: Receipt, color: "text-orange-600", bg: "bg-orange-50" },
-  ];
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -161,76 +185,70 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">الصفحة الرئيسية</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            من {monthStart} إلى {monthEnd}
+            من {fmtLabel(monthStart)} إلى {fmtLabel(monthEnd)}
           </p>
         </div>
-        <div className="relative">
-          <Button variant="outline" size="sm" onClick={() => { setTempDate(dateFilter); setShowDateFilter((v) => !v); }} className="gap-2 text-sm">
-            <Calendar className="w-4 h-4" /> تحديد الفترة
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant={isCurrentMonth ? "default" : "outline"}
+            className={isCurrentMonth ? "bg-teal-600 hover:bg-teal-700" : "text-gray-700"}
+            onClick={() => setPeriod(currentPeriod)}
+          >
+            الشهر الحالي
           </Button>
-          {showDateFilter && (
-            <div className="absolute left-0 top-10 z-50 bg-white border rounded-xl shadow-lg p-4 space-y-3 w-64 max-w-[calc(100vw-2rem)]" dir="rtl">
-              <p className="text-sm font-semibold text-gray-700">اختر الفترة الزمنية</p>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">من تاريخ</label>
-                <Input type="date" value={tempDate.from} onChange={(e) => setTempDate((p) => ({ ...p, from: e.target.value }))} className="h-8 text-sm" />
+          <Button
+            size="sm"
+            variant={isPrevMonth ? "default" : "outline"}
+            className={isPrevMonth ? "bg-teal-600 hover:bg-teal-700" : "text-gray-700"}
+            onClick={() => setPeriod(prevPeriod)}
+          >
+            الشهر السابق
+          </Button>
+          <div className="relative">
+            <Button variant="outline" size="sm" onClick={() => { setTempDate(dateFilter); setShowDateFilter((v) => !v); }} className="gap-2 text-sm">
+              <Calendar className="w-4 h-4" /> تحديد الفترة
+            </Button>
+            {showDateFilter && (
+              <div className="absolute left-0 top-10 z-50 bg-white border rounded-xl shadow-lg p-4 space-y-3 w-64 max-w-[calc(100vw-2rem)]" dir="rtl">
+                <p className="text-sm font-semibold text-gray-700">اختر الفترة الزمنية</p>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">من تاريخ</label>
+                  <Input type="date" value={tempDate.from} onChange={(e) => setTempDate((p) => ({ ...p, from: e.target.value }))} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">إلى تاريخ</label>
+                  <Input type="date" value={tempDate.to} onChange={(e) => setTempDate((p) => ({ ...p, to: e.target.value }))} className="h-8 text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="bg-teal-600 hover:bg-teal-700 flex-1" onClick={applyDateFilter}>تطبيق</Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowDateFilter(false)}>إلغاء</Button>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">إلى تاريخ</label>
-                <Input type="date" value={tempDate.to} onChange={(e) => setTempDate((p) => ({ ...p, to: e.target.value }))} className="h-8 text-sm" />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" className="bg-teal-600 hover:bg-teal-700 flex-1" onClick={applyDateFilter}>تطبيق</Button>
-                <Button size="sm" variant="outline" onClick={() => setShowDateFilter(false)}>إلغاء</Button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
       <BranchSelector value={branch} onChange={setBranch} />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((s) => (
-          <Card key={s.label} className={`p-4 flex items-center gap-3 ${s.label === "إجمالي قيمة المدفوعات" ? "col-span-2 md:col-span-1" : ""}`}>
-            <div className={`p-2 rounded-lg ${s.bg}`}>
-              <s.icon className={`w-5 h-5 ${s.color}`} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500">{s.label}</p>
-              <p className="text-lg font-bold text-gray-800">{s.value}</p>
-              {s.label === "إجمالي قيمة المدفوعات" && (
-                <div className="mt-1.5">
-                  {targetAmount > 0 ? (
-                    <div>
-                      <div className="flex justify-between text-xs mb-0.5">
-                        <span className="text-gray-400">المستهدف: {targetAmount.toLocaleString("ar-EG")} ج</span>
-                        <span className={targetPercent >= 100 ? "text-red-600 font-bold" : targetPercent >= 80 ? "text-orange-500 font-bold" : "text-green-600 font-semibold"}>{targetPercent}%</span>
-                      </div>
-                      <DailyProgressIndicator startDate={monthStart} endDate={monthEnd} currentAmount={totalPayments} targetAmount={targetAmount} height="h-3" />
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-400">لم يحدد هدف شهري</p>
-                  )}
-                  {editingTarget ? (
-                    <div className="flex gap-1 mt-1.5">
-                      <Input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} className="h-6 text-xs px-2 w-28" placeholder="الهدف..." />
-                      <Button size="icon" className="h-6 w-6 bg-teal-600" onClick={() => saveTargetMutation.mutate(parseFloat(targetInput))}><Check className="w-3 h-3" /></Button>
-                    </div>
-                  ) : branch !== "all" ? (
-                    <button onClick={() => { setTargetInput(targetAmount ? targetAmount.toString() : ""); setEditingTarget(true); }} className="flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1">
-                      <Pencil className="w-3 h-3" /> تعديل الهدف
-                    </button>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-1">مجموع أهداف الفروع</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
+      {/* Stats — كارت كبير للمدفوعات + كروت صغيرة */}
+      <DashboardStatsCards
+        totalPayments={totalPayments}
+        totalCashPurchases={totalCashPurchases}
+        totalExpenses={totalExpenses}
+        invoiceCount={branchMonthInvoices.length}
+        targetAmount={targetAmount}
+        startDate={monthStart}
+        endDate={monthEnd}
+        canEditTarget={branch !== "all"}
+        editingTarget={editingTarget}
+        targetInput={targetInput}
+        onTargetInputChange={setTargetInput}
+        onStartEditTarget={() => { setTargetInput(targetAmount ? targetAmount.toString() : ""); setEditingTarget(true); }}
+        onSaveTarget={() => saveTargetMutation.mutate(parseFloat(targetInput))}
+        isSavingTarget={saveTargetMutation.isPending}
+      />
 
       {/* Purchase Dashboard */}
       <PurchaseDashboard
