@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Receipt, Scale } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Receipt, Scale, Lock } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { calcSupplierBranchDebt, getAllCreditSupplierNames, round2 } from "@/lib/supplierBalanceUtils";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
@@ -190,6 +190,15 @@ export default function BranchSupplierBalances({ branch, accentColor = "text-blu
   }, [invoices, payments, debts, allSupplierNames, monthStarts, adjustments, branch]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
+
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-gray-400">
+        <Lock className="w-12 h-12" />
+        <p className="text-lg font-medium">هذه الصفحة للمدير فقط</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
