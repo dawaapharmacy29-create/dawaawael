@@ -24,7 +24,8 @@ import CustomerOrders from './pages/CustomerOrders';
 import PharmacyOrders from './pages/PharmacyOrders';
 import InventoryCount from './pages/InventoryCount';
 import ReportsBranch from './pages/ReportsBranch';
-import SupplierBalancesBranch from './pages/SupplierBalancesBranch';
+import SupplierBalancesShokry from './pages/SupplierBalancesShokry';
+import SupplierBalancesShami from './pages/SupplierBalancesShami';
 import ReplenishmentPage from './pages/ReplenishmentPage';
 import ShiftDelivery from './pages/ShiftDelivery';
 import SecurityAuditPage from './pages/SecurityAuditPage';
@@ -76,7 +77,8 @@ const AuthenticatedApp = () => {
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<ReportsBranch />} />
-        <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
+        <Route path="/supplier-balances-shokry" element={<SupplierBalancesShokry />} />
+        <Route path="/supplier-balances-shami" element={<SupplierBalancesShami />} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
