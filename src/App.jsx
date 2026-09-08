@@ -32,6 +32,7 @@ import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
 import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
 import EmployeeHR from './pages/EmployeeHR';
+import AdminExpenses from './pages/AdminExpenses';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -62,6 +63,7 @@ const AuthenticatedApp = () => {
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/admin-expenses" element={<AdminExpenses />} />
         <Route path="/supplier-balances" element={<SupplierBalances />} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
