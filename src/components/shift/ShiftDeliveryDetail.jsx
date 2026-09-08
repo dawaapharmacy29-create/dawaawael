@@ -18,7 +18,7 @@ const SHIFT_BADGE = {
 
 export default function ShiftDeliveryDetail({ item, onClose }) {
   const qc = useQueryClient();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isManager } = useUserRole();
 
   // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
   const moveToPrevDay = useMutation({
@@ -55,6 +55,12 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
               <p className="text-gray-500 text-xs">وقت التسجيل</p>
               <p className="font-medium">{item.recorded_at || item.shift_date || "—"}</p>
             </div>
+            {isManager && item.calculation_date && (
+              <div>
+                <p className="text-gray-500 text-xs">تاريخ الاحتساب</p>
+                <p className="font-medium">{item.calculation_date}</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
