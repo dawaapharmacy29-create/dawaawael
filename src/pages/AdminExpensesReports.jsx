@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Wallet, ShieldAlert, AlertCircle, Building2 } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { isShamiUnlocked } from "@/lib/shamiExpensesAccess";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_ACCENT = { "دواء شكري": "text-blue-700", "دواء الشامي": "text-purple-700" };
@@ -54,6 +55,11 @@ export default function AdminExpensesReports() {
   const currentMonth = monthsAgo(0);
   const currentMonthRow = monthlyComparison[monthlyComparison.length - 1];
 
+  // أرقام فرع دواء الشامي تظهر فقط بعد فتح قفله بكلمة المرور (خلال نفس جلسة المتصفح)
+  const shamiVisible = isShamiUnlocked();
+  const fmtBranch = (branch, n) => (branch === "دواء الشامي" && !shamiVisible ? "•••" : fmt(n));
+  const fmtCombined = (n) => (shamiVisible ? fmt(n) : "•••");
+
   const bigOneTimeExpenses = useMemo(
     () => oneTimeExpenses.filter((e) => (e.amount || 0) > 50000).sort((a, b) => b.month.localeCompare(a.month)),
     [oneTimeExpenses]
@@ -81,6 +87,11 @@ export default function AdminExpensesReports() {
         <p className="text-gray-500 text-sm mt-0.5">
           مقارنة بين الفرعين فقط — للتسجيل والإضافة والتعديل ادخل صفحة الفرع المطلوب من قائمة "الحركة اليومية".
         </p>
+        {!shamiVisible && (
+          <p className="text-[11px] text-purple-600 font-medium mt-1">
+            أرقام فرع دواء الشامي مخفية — تظهر بعد فتح صفحة "المصروفات الإدارية — دواء الشامي" بكلمة المرور.
+          </p>
+        )}
       </div>
 
       {/* إجمالي الشهر الحالي لكل فرع */}
@@ -91,13 +102,13 @@ export default function AdminExpensesReports() {
               <Building2 className={`w-4 h-4 ${BRANCH_ACCENT[b.branch]}`} />
               <p className={`text-sm font-semibold ${BRANCH_ACCENT[b.branch]}`}>{b.branch}</p>
             </div>
-            <p className="text-2xl font-extrabold text-gray-800">{fmt(b.total)} <span className="text-sm font-normal text-gray-400">ج.م</span></p>
+            <p className="text-2xl font-extrabold text-gray-800">{fmtBranch(b.branch, b.total)} <span className="text-sm font-normal text-gray-400">ج.م</span></p>
             <p className="text-xs text-gray-400 mt-1">مصروفات {monthLabel(currentMonth)}</p>
           </Card>
         ))}
         <Card className="p-4 bg-gradient-to-br from-teal-600 to-teal-700 text-white">
           <p className="text-sm font-semibold text-teal-100 mb-1">إجمالي الفرعين</p>
-          <p className="text-2xl font-extrabold">{fmt(currentMonthRow?.combined)} <span className="text-sm font-normal text-teal-100">ج.م</span></p>
+          <p className="text-2xl font-extrabold">{fmtCombined(currentMonthRow?.combined)} <span className="text-sm font-normal text-teal-100">ج.م</span></p>
           <p className="text-xs text-teal-100 mt-1">مصروفات {monthLabel(currentMonth)}</p>
         </Card>
       </div>
@@ -123,9 +134,9 @@ export default function AdminExpensesReports() {
                 <tr key={row.month} className="hover:bg-gray-50">
                   <td className="px-4 py-2.5 text-gray-600">{monthLabel(row.month)}</td>
                   {row.perBranch.map((b) => (
-                    <td key={b.branch} className="px-4 py-2.5 text-left font-medium text-gray-700">{fmt(b.total)}</td>
+                    <td key={b.branch} className="px-4 py-2.5 text-left font-medium text-gray-700">{fmtBranch(b.branch, b.total)}</td>
                   ))}
-                  <td className="px-4 py-2.5 text-left font-bold text-teal-700 bg-teal-50/50">{fmt(row.combined)}</td>
+                  <td className="px-4 py-2.5 text-left font-bold text-teal-700 bg-teal-50/50">{fmtCombined(row.combined)}</td>
                 </tr>
               ))}
             </tbody>
@@ -148,7 +159,7 @@ export default function AdminExpensesReports() {
                   <p className="font-bold text-gray-800 text-sm">{e.name}</p>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${e.branch === "دواء شكري" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>{e.branch}</span>
                 </div>
-                <p className="text-xl font-extrabold text-violet-700 mt-1">{fmt(e.amount)} <span className="text-xs font-normal text-gray-400">ج.م</span></p>
+                <p className="text-xl font-extrabold text-violet-700 mt-1">{e.branch === "دواء الشامي" && !shamiVisible ? "•••" : fmt(e.amount)} <span className="text-xs font-normal text-gray-400">ج.م</span></p>
                 <p className="text-[11px] text-gray-400 mt-1">تم التسجيل في: {monthLabel(e.month)}</p>
               </div>
             ))}
