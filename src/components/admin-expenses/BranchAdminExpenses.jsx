@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Wallet, Plus, Pencil, Trash2, AlertCircle, CheckCircle2, ShieldAlert, Settings2, ClipboardList, Sparkles } from "lucide-react";
+import { Wallet, Plus, Pencil, Trash2, AlertCircle, CheckCircle2, ShieldAlert, Settings2, ClipboardList, Sparkles, History } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
 const MONTH_NAMES = {
@@ -16,6 +16,11 @@ const monthLabel = (ym) => ym ? `${MONTH_NAMES[ym.split("-")[1]]} ${ym.split("-"
 const monthsAgo = (n) => {
   const d = new Date();
   d.setMonth(d.getMonth() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+const prevMonthOf = (ym) => {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 2, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
@@ -124,6 +129,15 @@ export default function BranchAdminExpenses({ branch, accentColor = "text-teal-6
     const key = `${item.id}_${selectedMonth}`;
     const rec = recordFor(item.id, selectedMonth);
     setAmountDrafts((d) => ({ ...d, [key]: rec ? rec.amount : "" }));
+    setEditingKey(key);
+  };
+
+  // نسخ رقم الشهر السابق تلقائياً في خانة التسجيل — مع إمكانية التعديل قبل التأكيد
+  const copyFromPrev = (item) => {
+    const key = `${item.id}_${selectedMonth}`;
+    const prevRec = recordFor(item.id, prevMonthOf(selectedMonth));
+    if (!prevRec) return;
+    setAmountDrafts((d) => ({ ...d, [key]: prevRec.amount }));
     setEditingKey(key);
   };
 
@@ -284,6 +298,7 @@ export default function BranchAdminExpenses({ branch, accentColor = "text-teal-6
                     const isEditing = editingKey === key;
                     const draftValue = amountDrafts[key] ?? "";
                     const sharePct = rec && monthTotal > 0 ? (rec.amount / monthTotal) * 100 : null;
+                    const prevRec = recordFor(item.id, prevMonthOf(selectedMonth));
                     return (
                       <div key={item.id} className={`rounded-2xl p-4 border-2 transition-colors ${isMissing ? "border-red-400 bg-red-50/50" : "border-emerald-200 bg-emerald-50/40"}`}>
                         <div className="flex items-center justify-between mb-2">
@@ -310,6 +325,12 @@ export default function BranchAdminExpenses({ branch, accentColor = "text-teal-6
                                 {isMissing ? "—" : fmt(rec.amount)} <span className="text-xs font-normal text-gray-400">ج.م</span>
                               </p>
                               {sharePct !== null && <p className="text-[11px] text-teal-600 font-semibold mt-0.5">{sharePct.toFixed(1)}% من إجمالي الشهر</p>}
+                              {isMissing && prevRec ? (
+                                <button onClick={() => copyFromPrev(item)}
+                                  className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-1 hover:bg-blue-100 transition-colors">
+                                  <History className="w-3 h-3" /> زي الشهر السابق ({fmt(prevRec.amount)} ج.م)
+                                </button>
+                              ) : null}
                             </div>
                             <Button size="sm" variant="outline" onClick={() => startEditing(item)} className="h-9 w-9 p-0 border-gray-300">
                               <Pencil className="w-4 h-4 text-gray-500" />
