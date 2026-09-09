@@ -47,9 +47,9 @@ const NAV_SECTIONS = [
   { key: "main", label: "الأساسيات", defaultOpen: true },
   { key: "operations", label: "الحركة اليومية", defaultOpen: true },
   { key: "requests", label: "الطلبات", defaultOpen: true },
-  { key: "suppliers", label: "الموردون والحسابات", defaultOpen: true },
-  { key: "reports", label: "التقارير", defaultOpen: false },
-  { key: "management", label: "الإدارة والمتابعة", defaultOpen: false },
+  { key: "suppliers", label: "الموردون والحسابات", defaultOpen: true, managerOnly: true },
+  { key: "reports", label: "التقارير", defaultOpen: false, managerOnly: true },
+  { key: "management", label: "الإدارة والمتابعة", defaultOpen: false, managerOnly: true },
 ];
 
 const SIDEBAR_GROUPS_KEY = "dawaawael_sidebar_groups_v1";
@@ -74,6 +74,7 @@ export default function AppLayout() {
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
+      .filter((section) => !section.managerOnly || isManager)
       .map((section) => ({
         ...section,
         items: visibleNavItems.filter((item) => item.section === section.key),
