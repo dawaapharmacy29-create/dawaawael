@@ -18,8 +18,6 @@ const navItems = [
   { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true, hidden: true, section: "operations" },
   { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true, hidden: true, section: "operations" },
   { path: "/shift-delivery", label: "تسليم الشيفت", icon: Clock, purple: true, section: "operations" },
-  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, adminOnly: true, section: "operations" },
-  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, adminOnly: true, section: "operations" },
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true, section: "requests" },
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true, section: "requests" },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
@@ -28,6 +26,8 @@ const navItems = [
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, section: "reports" },
+  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, managerOnly: true, section: "reports" },
+  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, managerOnly: true, section: "reports" },
   { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية", icon: Wallet, adminOnly: true, section: "reports" },
   { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
@@ -68,8 +68,8 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
-  const { isAdmin } = useUserRole();
-  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin));
+  const { isAdmin, isManager } = useUserRole();
+  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager));
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
@@ -78,7 +78,7 @@ export default function AppLayout() {
         items: visibleNavItems.filter((item) => item.section === section.key),
       }))
       .filter((section) => section.items.length > 0),
-    [isAdmin]
+    [isAdmin, isManager]
   );
 
   const { data: pendingInvoices = [] } = useQuery({
