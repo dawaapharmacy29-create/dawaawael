@@ -32,6 +32,9 @@ import SupplierRulesBackfill from './pages/SupplierRulesBackfill';
 import ReviewNeededInvoices from './components/invoices/ReviewNeededInvoices';
 import SupabaseSyncCenter from './pages/SupabaseSyncCenter';
 import EmployeeHR from './pages/EmployeeHR';
+import AdminExpensesShokry from './pages/AdminExpensesShokry';
+import AdminExpensesShami from './pages/AdminExpensesShami';
+import AdminExpensesReports from './pages/AdminExpensesReports';
 import { useEffect } from "react";
 import { setNumbersHidden } from "@/lib/westernDigits";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
@@ -74,6 +77,9 @@ const AuthenticatedApp = () => {
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
+        <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
+        <Route path="/admin-expenses-reports" element={<AdminExpensesReports />} />
         <Route path="/supplier-balances" element={<SupplierBalances />} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
