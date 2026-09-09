@@ -74,7 +74,7 @@ export default function AppLayout() {
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
-      .filter((section) => !section.managerOnly || isManager)
+      .filter((section) => !section.managerOnly || isAdmin)
       .map((section) => ({
         ...section,
         items: visibleNavItems.filter((item) => item.section === section.key),
