@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays } from "lucide-react";
+import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Scale } from "lucide-react";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -37,6 +37,9 @@ export default function SupplierBalancesBranch() {
   const [monthStartDialog, setMonthStartDialog] = useState(null);
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
   const [savingMonthStart, setSavingMonthStart] = useState(false);
+  const [adjustDialog, setAdjustDialog] = useState(null);
+  const [adjustForm, setAdjustForm] = useState({ adjustment: "", notes: "" });
+  const [savingAdjust, setSavingAdjust] = useState(false);
 
   const { data: allInvoices = [] } = useQuery({
     queryKey: ["purchase-invoices"],
@@ -133,81 +136,49 @@ export default function SupplierBalancesBranch() {
   }, [invoices, debts]);
 
   const supplierGroups = useMemo(() => {
+    const calcRemaining = (inv) => round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)));
+    const invDate = (inv) => inv.invoice_date || inv.created_date?.slice(0, 10) || "";
     const map = {};
     allSupplierNames.forEach(name => {
       const debtRecord = debts.find(d => d.supplier_name === name && d.branch === branch);
       const initialDebt = debtRecord?.initial_debt || 0;
-      const monthStartRecord = monthStarts.find(m => m.supplier_name === name && m.branch === branch);
-      const monthStartDate = monthStartRecord?.month_start_date || null;
+      const adjustment = debtRecord?.adjustment || 0;
+      const monthStartDate = monthStarts.find(m => m.supplier_name === name && m.branch === branch)?.month_start_date || null;
 
-      // كل فواتير الآجل لهذا المورد في هذا الفرع
-      const allCreditInvoices = invoices.filter(inv =>
-        inv.payment_type === "آجل" && inv.supplier_name === name
-      );
+      // كل فواتير الآجل لهذا المورد في هذا الفرع — المتبقي من كل فاتورة حسب بياناتها المسجلة فقط
+      const allCreditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
+      const withRemaining = allCreditInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
 
-      const calcRemaining = (inv) => round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)));
+      const oldInvoices = monthStartDate ? withRemaining.filter(inv => invDate(inv) < monthStartDate) : withRemaining;
+      const newInvoices = monthStartDate ? withRemaining.filter(inv => invDate(inv) >= monthStartDate) : [];
 
-      const oldInvoicesRaw = monthStartDate
-        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10) || "") < monthStartDate)
-        : allCreditInvoices;
-      const newInvoices = monthStartDate
-        ? allCreditInvoices.filter(inv => (inv.invoice_date || inv.created_date?.slice(0,10) || "") >= monthStartDate)
-        : [];
+      const oldInvoicesRemaining = round2(oldInvoices.reduce((s, inv) => s + inv.remaining, 0));
+      const newDebt = round2(newInvoices.reduce((s, inv) => s + inv.remaining, 0));
+      // المديونية القديمة = المديونية قبل التطبيق + متبقي الفواتير القديمة
+      const oldDebt = round2(initialDebt + oldInvoicesRemaining);
 
-      const oldInvoicesWithRemaining = oldInvoicesRaw.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
-      const newInvoicesWithRemaining = newInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
-
-      // الدفعات العامة لهذا الفرع فقط (بدون invoice_id)
+      // الدفعات العامة (غير المخصصة على فاتورة محددة) تُخصم من الإجمالي مباشرة دون تغيير بيانات الفواتير
       const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      let generalPaidPool = round2(generalPayments.reduce((s, p) => s + (p.amount || 0), 0));
+      const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.amount || 0), 0));
 
-      // 1. خصم من initialDebt أولاً
-      const debtPaidFromGeneral = round2(Math.min(generalPaidPool, initialDebt));
-      const remainingInitialDebt = round2(Math.max(0, initialDebt - debtPaidFromGeneral));
-      generalPaidPool = Math.max(0, round2(generalPaidPool - debtPaidFromGeneral));
+      // المديونية المحسوبة من السجلات + فرق التسوية اليدوي = الرصيد النهائي
+      const calculatedDebt = round2(oldDebt + newDebt - unallocatedPayments);
+      const totalNet = round2(calculatedDebt + adjustment);
 
-      // 2. ما تبقى يُخصم من الفواتير القديمة بالترتيب (الأقدم أولاً)
-      const oldInvoicesSorted = [...oldInvoicesWithRemaining].sort((a, b) => {
-        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
-        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
-        return da.localeCompare(db);
-      });
-      const oldInvoicesAdjusted = oldInvoicesSorted.map(inv => {
-        const deduct = round2(Math.min(generalPaidPool, inv.remaining));
-        generalPaidPool = Math.max(0, round2(generalPaidPool - deduct));
-        return { ...inv, remaining: round2(inv.remaining - deduct) };
-      });
-
-      // 3. ما تبقى يُخصم من الفواتير الجديدة بالترتيب (الأقدم أولاً)
-      const newInvoicesSorted = [...newInvoicesWithRemaining].sort((a, b) => {
-        const da = a.invoice_date || a.created_date?.slice(0, 10) || "";
-        const db = b.invoice_date || b.created_date?.slice(0, 10) || "";
-        return da.localeCompare(db);
-      });
-      const newInvoicesAdjusted = newInvoicesSorted.map(inv => {
-        const deduct = round2(Math.min(generalPaidPool, inv.remaining));
-        generalPaidPool = Math.max(0, round2(generalPaidPool - deduct));
-        return { ...inv, remaining: round2(inv.remaining - deduct) };
-      });
-
-      const oldInvoicesRemaining = round2(oldInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0));
-      const newDebt = round2(newInvoicesAdjusted.reduce((s, inv) => s + inv.remaining, 0));
-      const oldDebt = round2(remainingInitialDebt + oldInvoicesRemaining);
-      const totalNet = round2(oldDebt + newDebt);
-
-      if (totalNet <= 0 && allCreditInvoices.length === 0) return;
+      if (totalNet <= 0 && allCreditInvoices.length === 0 && !debtRecord) return;
 
       map[name] = {
         name,
-        invoices: [...oldInvoicesAdjusted, ...newInvoicesAdjusted],
-        oldInvoices: oldInvoicesAdjusted,
-        newInvoices: newInvoicesAdjusted,
+        invoices: withRemaining,
+        oldInvoices,
+        newInvoices,
         initialDebt,
-        debtPaid: debtPaidFromGeneral,
-        remainingInitialDebt,
+        adjustment,
         oldInvoicesRemaining,
         oldDebt,
         newDebt,
+        unallocatedPayments,
+        calculatedDebt,
         totalNet,
         debtRecord,
         monthStartDate,
@@ -226,6 +197,28 @@ export default function SupplierBalancesBranch() {
   const openDebtPayDialog = (supplierName, remaining) => {
     setPayForm({ amount: remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "سداد مديونية قديمة" });
     setPayDialog({ debtPayment: true, supplier_name: supplierName, remaining });
+  };
+
+  const openAdjustDialog = (group) => {
+    const existing = debts.find(d => d.supplier_name === group.name && d.branch === branch);
+    setAdjustForm({ adjustment: existing?.adjustment?.toString() || "", notes: existing?.notes || "" });
+    setAdjustDialog({ supplier_name: group.name, existing, calculated: group.calculatedDebt });
+  };
+
+  const saveAdjustment = async () => {
+    setSavingAdjust(true);
+    const data = {
+      supplier_name: adjustDialog.supplier_name,
+      branch,
+      initial_debt: round2(adjustDialog.existing?.initial_debt || 0),
+      adjustment: round2(parseFloat(adjustForm.adjustment) || 0),
+      notes: adjustForm.notes,
+    };
+    if (adjustDialog.existing) await base44.entities.SupplierDebt.update(adjustDialog.existing.id, data);
+    else await base44.entities.SupplierDebt.create(data);
+    await qc.invalidateQueries({ queryKey: ["supplier-debts"] });
+    setSavingAdjust(false);
+    setAdjustDialog(null);
   };
 
   const addDebtPayment = useMutation({
@@ -346,6 +339,10 @@ export default function SupplierBalancesBranch() {
                           onClick={(e) => { e.stopPropagation(); openDebtDialog(group.name); }}>
                           <Edit2 className="w-3 h-3" /> مديونية قديمة
                         </Button>
+                        <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50 h-7 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); openAdjustDialog(group); }}>
+                          <Scale className="w-3 h-3" /> تسوية
+                        </Button>
                       </>
                     )}
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -371,21 +368,17 @@ export default function SupplierBalancesBranch() {
                               <span className="text-xs text-gray-500">مديونية قبل التطبيق (الأصلية)</span>
                               <span className="text-sm font-bold text-purple-600">{fmt(group.initialDebt)} ج</span>
                             </div>
-                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
-                              <span className="text-xs text-gray-500">المسدّد منها</span>
-                              <span className="text-sm font-bold text-green-600">- {fmt(group.debtPaid)} ج</span>
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-100">
+                              <span className="text-xs text-gray-500">متبقي الفواتير القديمة</span>
+                              <span className="text-sm font-bold text-orange-600">{fmt(group.oldInvoicesRemaining)} ج</span>
                             </div>
-                            <div className="flex items-center justify-between bg-orange-100 rounded-lg px-3 py-2 border border-orange-200">
-                              <span className="text-xs font-semibold text-orange-800">المتبقي من المديونية القديمة</span>
-                              <span className="text-sm font-bold text-orange-700">{fmt(group.remainingInitialDebt)} ج</span>
-                            </div>
-                            {group.remainingInitialDebt > 0 && (
-                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1 w-full"
-                                onClick={() => openDebtPayDialog(group.name, group.remainingInitialDebt)}>
-                                <CreditCard className="w-3 h-3" /> سداد مديونية قديمة
-                              </Button>
-                            )}
                           </div>
+                        )}
+                        {group.oldDebt > 0 && (
+                          <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50 h-7 text-xs gap-1 w-full mt-3"
+                            onClick={() => openDebtPayDialog(group.name, group.oldDebt)}>
+                            <CreditCard className="w-3 h-3" /> سداد مديونية قديمة
+                          </Button>
                         )}
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -405,6 +398,24 @@ export default function SupplierBalancesBranch() {
                         </div>
                         <p className="text-2xl font-bold text-red-600 mt-2">{fmt(group.totalNet)} ج</p>
                         <p className="text-xs text-gray-500 mt-2">{group.invoices.length} فاتورة إجمالي</p>
+                        <div className="mt-3 space-y-1.5">
+                          {group.unallocatedPayments > 0 && (
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
+                              <span className="text-xs text-gray-500">دفعات عامة غير مخصصة</span>
+                              <span className="text-sm font-bold text-green-600">- {fmt(group.unallocatedPayments)} ج</span>
+                            </div>
+                          )}
+                          {group.adjustment !== 0 && (
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                              <span className="text-xs text-gray-500">فرق تسوية</span>
+                              <span className="text-sm font-bold text-amber-600">{fmt(group.adjustment)} ج</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between bg-red-100 rounded-lg px-3 py-2 border border-red-200">
+                            <span className="text-xs font-semibold text-red-800">الإجمالي النهائي</span>
+                            <span className="text-sm font-bold text-red-700">{fmt(group.totalNet)} ج</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -607,6 +618,46 @@ export default function SupplierBalancesBranch() {
               <Button variant="outline" onClick={() => setDebtDialog(null)}>إلغاء</Button>
               <Button disabled={savingDebt} onClick={saveDebt} className="bg-purple-600 hover:bg-purple-700">
                 {savingDebt ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Adjustment Dialog (تسوية فرق المديونية) */}
+      {isManager && (
+        <Dialog open={!!adjustDialog} onOpenChange={(o) => !o && setAdjustDialog(null)}>
+          <DialogContent dir="rtl" className="max-w-sm">
+            <DialogHeader><DialogTitle>تسوية مديونية — {adjustDialog?.supplier_name}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+                الفرع: <strong>{branch}</strong>
+              </div>
+              <p className="text-sm text-gray-500">
+                لو المديونية المحسوبة من الفواتير المسجلة لا تطابق رصيد المورد الفعلي، أدخل قيمة الفرق (موجبة أو سالبة) ليتم ضبط المديونية النهائية.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                <p className="text-gray-500">المديونية المحسوبة حالياً: <span className="font-bold text-red-600">{fmt(adjustDialog?.calculated)} ج</span></p>
+                <p className="text-gray-500">
+                  المديونية بعد التسوية:
+                  <span className="font-bold text-purple-700">
+                    {" "}{fmt(round2((adjustDialog?.calculated || 0) + (parseFloat(adjustForm.adjustment) || 0)))} ج
+                  </span>
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>قيمة الفرق (جنيه)</Label>
+                <Input type="number" value={adjustForm.adjustment} onChange={e => setAdjustForm(f => ({ ...f, adjustment: e.target.value }))} placeholder="مثال: 500 أو -1200" />
+              </div>
+              <div className="space-y-1">
+                <Label>ملاحظات (اختياري)</Label>
+                <Textarea value={adjustForm.notes} onChange={e => setAdjustForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="سبب الفرق..." />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setAdjustDialog(null)}>إلغاء</Button>
+              <Button disabled={savingAdjust} onClick={saveAdjustment} className="bg-amber-600 hover:bg-amber-700">
+                {savingAdjust ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ التسوية"}
               </Button>
             </DialogFooter>
           </DialogContent>
