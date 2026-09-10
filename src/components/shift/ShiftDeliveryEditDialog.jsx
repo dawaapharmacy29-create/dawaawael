@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, CalendarClock } from "lucide-react";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
@@ -33,6 +33,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
     submitted_by: item.submitted_by || "",
     total_sales: item.total_sales || "",
     notes: item.notes || "",
+    calculation_date: item.calculation_date || item.shift_date || "",
   });
   const [expenses, setExpenses] = useState(
     (item.expenses && item.expenses.length > 0)
@@ -56,6 +57,15 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
 
   const removeExpense = (idx) => setExpenses((prev) => prev.filter((_, i) => i !== idx));
 
+  const setPreviousDay = () => {
+    const base = form.calculation_date || item.shift_date;
+    if (!base) return;
+    const d = new Date(base);
+    d.setDate(d.getDate() - 1);
+    const prevDay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setForm((f) => ({ ...f, calculation_date: prevDay }));
+  };
+
   const handleSave = async () => {
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
@@ -77,6 +87,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
         branch: form.branch,
         shift_type: form.shift_type,
         shift_date: item.shift_date,
+        calculation_date: form.calculation_date || item.shift_date,
         submitted_by: form.submitted_by,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
@@ -128,6 +139,18 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
                 <Input value={item.recorded_at || item.shift_date || ""} disabled className="bg-gray-50 text-gray-500" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">تاريخ الاحتساب</Label>
+                <Input
+                  type="date"
+                  value={form.calculation_date}
+                  onChange={(e) => setForm({ ...form, calculation_date: e.target.value })}
+                  className="bg-amber-50 text-gray-700"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={setPreviousDay} className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5">
+                  <CalendarClock className="w-3.5 h-3.5" /> تسجيله لليوم السابق
+                </Button>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
