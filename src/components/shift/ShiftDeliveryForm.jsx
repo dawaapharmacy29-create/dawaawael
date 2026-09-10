@@ -32,7 +32,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
   const [form, setForm] = useState({
     branch: "",
     shift_type: "",
-    submitted_by: user?.full_name || user?.email || "",
+    submitted_by: "",
     total_sales: "",
     notes: "",
   });
