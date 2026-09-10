@@ -15,7 +15,7 @@ const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
-  const { user, isManager } = useUserRole();
+  const { user } = useUserRole();
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
