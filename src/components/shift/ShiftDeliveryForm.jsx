@@ -35,7 +35,6 @@ export default function ShiftDeliveryForm({ onSaved }) {
     submitted_by: user?.full_name || user?.email || "",
     total_sales: "",
     notes: "",
-    calculation_date: getRecordedAt().slice(0, 10),
   });
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
   const [saving, setSaving] = useState(false);
@@ -89,7 +88,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
         shift_type: form.shift_type,
         shift_date: recordedAt.slice(0, 10),
         recorded_at: recordedAt,
-        calculation_date: (isManager && form.calculation_date) || recordedAt.slice(0, 10),
+        calculation_date: recordedAt.slice(0, 10),
         submitted_by: form.submitted_by,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
@@ -157,17 +156,6 @@ export default function ShiftDeliveryForm({ onSaved }) {
               <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
               <Input value={getRecordedAt(now)} disabled className="bg-gray-50 text-gray-500" />
             </div>
-            {isManager && (
-              <div className="space-y-1.5">
-                <Label className="text-sm text-gray-600">تاريخ الاحتساب <span className="text-gray-400 text-xs">(للمدير فقط)</span></Label>
-                <Input
-                  type="date"
-                  value={form.calculation_date}
-                  onChange={(e) => setForm({ ...form, calculation_date: e.target.value })}
-                  className="bg-amber-50 text-gray-700"
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
               <Select value={form.submitted_by} onValueChange={(v) => setForm({ ...form, submitted_by: v })}>
