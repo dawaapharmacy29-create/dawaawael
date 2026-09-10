@@ -8,14 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Wallet, Plus, Trash2, Save, Loader2 } from "lucide-react";
-import { useUserRole } from "@/lib/useUserRole";
+
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
-  const { user } = useUserRole();
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
@@ -101,7 +100,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
       setForm({
         branch: "",
         shift_type: "",
-        submitted_by: user?.full_name || user?.email || "",
+        submitted_by: "",
         total_sales: "",
         notes: "",
       });
