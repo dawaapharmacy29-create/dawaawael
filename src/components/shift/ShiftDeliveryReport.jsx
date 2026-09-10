@@ -6,17 +6,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Download } from "lucide-react";
 import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
 import DateRangeFilter from "./DateRangeFilter";
+import { cn } from "@/lib/utils";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
+const toLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayLocal = () => toLocal(new Date());
+const monthStartLocal = () => toLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+
+const PERIODS = [
+  ["today", "اليوم"],
+  ["yesterday", "أمس"],
+  ["month", "الشهر الحالي"],
+  ["custom", "فترة محددة"],
+];
+
 export default function ShiftDeliveryReport({ deliveries }) {
   const [filterBranch, setFilterBranch] = useState("الكل");
   const [filterShift, setFilterShift] = useState("الكل");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [period, setPeriod] = useState("month");
+  const [fromDate, setFromDate] = useState(monthStartLocal());
+  const [toDate, setToDate] = useState(todayLocal());
+
+  const applyPeriod = (p) => {
+    setPeriod(p);
+    const t = new Date();
+    if (p === "today") {
+      setFromDate(toLocal(t));
+      setToDate(toLocal(t));
+    } else if (p === "yesterday") {
+      const y = new Date(t);
+      y.setDate(y.getDate() - 1);
+      setFromDate(toLocal(y));
+      setToDate(toLocal(y));
+    } else if (p === "month") {
+      setFromDate(monthStartLocal());
+      setToDate(toLocal(t));
+    }
+  };
 
   const filtered = useMemo(() => {
     return deliveries
@@ -64,7 +94,28 @@ export default function ShiftDeliveryReport({ deliveries }) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-bold text-gray-800">تقرير التسليمات</h2>
         <div className="flex items-center gap-2 flex-wrap">
-          <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {PERIODS.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => applyPeriod(key)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap",
+                  period === key ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-200"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {period === "custom" && (
+            <DateRangeFilter
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromChange={(v) => setFromDate(v)}
+              onToDateChange={(v) => setToDate(v)}
+            />
+          )}
           <Select value={filterBranch} onValueChange={setFilterBranch}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
