@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck } from "lucide-react";
+import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
@@ -131,6 +131,12 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete }) {
                       <div className="flex items-center gap-1.5">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${SHIFT_BADGE[r.shift_type] || "bg-gray-100"}`}>{r.shift_type}</span>
                         <span className="text-xs font-medium text-gray-700">{r.submitted_by || "—"}</span>
+                        {r.recorded_at && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-gray-400" title="وقت التسليم">
+                            <Clock className="w-3 h-3" />
+                            {r.recorded_at.slice(11, 16)}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => onView(r)} className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100">
