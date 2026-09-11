@@ -16,11 +16,6 @@ const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
 
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list(),
-    staleTime: 60000,
-  });
   const { data: expenseItems = [] } = useQuery({
     queryKey: ["expense-items"],
     queryFn: () => base44.entities.ExpenseItem.list(),
@@ -31,7 +26,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
   const [form, setForm] = useState({
     branch: "",
     shift_type: "",
-    submitted_by: "",
+    pin: "",
     total_sales: "",
     notes: "",
   });
@@ -68,7 +63,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
-    if (!form.submitted_by) return setError("الرجاء اختيار الموظف المسؤول");
+    if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
     if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
 
     const validExpenses = expenses
@@ -82,13 +77,20 @@ export default function ShiftDeliveryForm({ onSaved }) {
     setSaving(true);
     const recordedAt = getRecordedAt();
     try {
+      // التحقق من هوية الموظف عبر الرقم السري من تطبيق الإدارة (دواء بيلز)
+      const verifyRes = await base44.functions.invoke("verifyStaffPin", { pin: form.pin });
+      const verified = verifyRes?.data || {};
+      if (!verified.valid) {
+        setError(verified.error || "الرقم السري غير صحيح");
+        return;
+      }
       await base44.entities.ShiftDelivery.create({
         branch: form.branch,
         shift_type: form.shift_type,
         shift_date: recordedAt.slice(0, 10),
         recorded_at: recordedAt,
         calculation_date: recordedAt.slice(0, 10),
-        submitted_by: form.submitted_by,
+        submitted_by: verified.display_name,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
         total_expenses: totalExpenses,
@@ -100,7 +102,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
       setForm({
         branch: "",
         shift_type: "",
-        submitted_by: "",
+        pin: "",
         total_sales: "",
         notes: "",
       });
@@ -156,13 +158,16 @@ export default function ShiftDeliveryForm({ onSaved }) {
               <Input value={getRecordedAt(now)} disabled className="bg-gray-50 text-gray-500" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
-              <Select value={form.submitted_by} onValueChange={(v) => setForm({ ...form, submitted_by: v })}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm text-gray-600">الرقم السري الخاص بك <span className="text-red-500">*</span></Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                placeholder="أدخل الرقم السري من تطبيق الإدارة"
+                value={form.pin}
+                onChange={(e) => setForm({ ...form, pin: e.target.value })}
+                className="text-lg tracking-widest"
+              />
+              <p className="text-[11px] text-gray-400">يتم التحقق من هويتك عبر تطبيق الإدارة وتسجيل اسمك الرسمي تلقائيًا</p>
             </div>
           </div>
           <div className="mt-4 space-y-1.5">

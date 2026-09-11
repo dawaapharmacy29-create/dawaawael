@@ -225,6 +225,10 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       setDupError("يجب اختيار الفرع");
       return;
     }
+    if (!form.entered_by || !form.entered_by.trim()) {
+      setDupError("يجب تحديد اسم المسؤول / مدخل الفاتورة");
+      return;
+    }
     if (!form.payment_type) {
       setDupError("يجب اختيار طريقة الدفع");
       return;
@@ -383,7 +387,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
             {form.branch && (
               <div className="space-y-1">
-                <Label className="text-xs">مدخل الفاتورة</Label>
+                <Label className="text-xs">مدخل الفاتورة *</Label>
                 {isLoadingMembers ? (
                   <div className="h-8 px-3 rounded-md border bg-gray-50 text-sm text-muted-foreground flex items-center gap-2">
                     <Loader2 className="w-3 h-3 animate-spin" /> جاري تحميل العاملين...

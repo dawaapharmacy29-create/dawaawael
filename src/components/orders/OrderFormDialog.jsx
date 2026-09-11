@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Upload, X } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -34,12 +35,22 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     notes: "",
     priority: "عادي",
     assigned_employee: "",
+    recorded_by: "",
     request_date: new Date().toISOString().split("T")[0],
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  // الأسماء الرسمية الموحدة مع تطبيق الإدارة
+  const { data: nameMap = [] } = useQuery({
+    queryKey: ["employee-name-map"],
+    queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
+    staleTime: 60000,
+  });
+  const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
+  const nameOptions = [...new Set((branchNames.length > 0 ? branchNames : nameMap).map((m) => m.canonical_name).filter(Boolean))];
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -51,16 +62,15 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   };
 
   const handleSave = async () => {
-    if (!form.customer_name || !form.phone || !form.product_name) return;
+    if (!form.customer_name || !form.phone || !form.product_name || !form.recorded_by) return;
     setSaving(true);
-    const userName = user?.full_name || user?.email || "مجهول";
     const now = new Date().toISOString();
     const data = {
       ...form,
       status: editOrder ? form.status : "طلب جديد",
       order_number: editOrder ? form.order_number : genOrderNumber(),
-      timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: userName, at: now, note: "تم إنشاء الطلب" }],
-      recorded_by: editOrder ? (form.recorded_by || userName) : userName,
+      timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: form.recorded_by, at: now, note: "تم إنشاء الطلب" }],
+      recorded_by: form.recorded_by,
       requested_at: editOrder ? (form.requested_at || now) : now,
       quantity: Math.max(1, Number(form.quantity || 1)),
       ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
@@ -171,6 +181,17 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           </div>
 
           <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">مُسجِّل الطلب (اسمك الرسمي) <span className="text-red-500">*</span></label>
+            <Select value={form.recorded_by || "none"} onValueChange={(v) => set("recorded_by", v === "none" ? "" : v)}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" disabled>— اختر اسمك —</SelectItem>
+                {nameOptions.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">موعد الرد أو التوفير المتوقع</label>
             <Input type="datetime-local" value={form.promised_at ? String(form.promised_at).slice(0,16) : ""} onChange={(e) => set("promised_at", e.target.value ? new Date(e.target.value).toISOString() : "")} className="h-9 text-sm" />
           </div>
@@ -187,7 +208,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name} className="flex-1 bg-teal-600 hover:bg-teal-700">
+            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.recorded_by} className="flex-1 bg-teal-600 hover:bg-teal-700">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editOrder ? "حفظ التعديلات" : "حفظ الطلب")}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
