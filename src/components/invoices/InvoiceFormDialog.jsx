@@ -107,9 +107,12 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const [dupError, setDupError] = useState("");
 
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
-  const { data: teamMembers = [], isLoading: isLoadingMembers } = useQuery({ queryKey: ["team-members"], queryFn: () => base44.entities.TeamMember.list("name") });
-  const branchMembers = teamMembers.filter((m) => (m.branches || []).some((b) => b.trim() === form.branch?.trim()));
-  const memberOptions = branchMembers.length > 0 ? branchMembers.map((m) => m.name) : teamMembers.map((m) => m.name);
+  const { data: employeeNameMap = [], isLoading: isLoadingMembers } = useQuery({
+    queryKey: ["employee-name-map"],
+    queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
+  });
+  const branchMembers = employeeNameMap.filter((m) => m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
+  const memberOptions = [...new Set((branchMembers.length > 0 ? branchMembers : employeeNameMap).map((m) => m.canonical_name).filter(Boolean))];
 
   useEffect(() => {
     if (invoice) {

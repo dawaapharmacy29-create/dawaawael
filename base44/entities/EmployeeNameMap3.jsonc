@@ -1,0 +1,29 @@
+{
+  "name": "EmployeeNameMap3",
+  "type": "object",
+  "properties": {
+    "canonical_name": {
+      "type": "string"
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "branch": {
+      "type": "string"
+    },
+    "admin_staff_id": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "canonical_name",
+    "admin_staff_id"
+  ]
+}
