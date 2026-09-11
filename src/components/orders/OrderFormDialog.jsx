@@ -160,7 +160,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">— بدون تعيين —</SelectItem>
-                  {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
+                  {teamMembers.filter((m) => !form.branch || (m.branches || []).includes(form.branch)).map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
