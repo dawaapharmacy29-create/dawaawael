@@ -97,10 +97,16 @@ export default function CustomerOrders() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list(),
+  const { data: employeeNameMap = [] } = useQuery({
+    queryKey: ["employee-name-map"],
+    queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
   });
+
+  const teamMembers = employeeNameMap.map((m) => ({
+    id: m.admin_staff_id || m.id,
+    name: m.canonical_name,
+    branches: m.branch === "كل الفروع" ? BRANCHES : [m.branch],
+  }));
 
   const syncMutation = useMutation({
     mutationFn: async () => {
