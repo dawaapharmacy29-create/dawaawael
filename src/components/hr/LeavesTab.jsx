@@ -40,12 +40,25 @@ export default function LeavesTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-leaves"] }),
   });
   const deleteMut = useMutation({
-    mutationFn: (id) => base44.entities.EmployeeLeave.delete(id),
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archiveHRRecordSafe", {
+        id,
+        entity_type: "EmployeeLeave",
+        action: "archive",
+        archive_reason: "أرشفة إجازة موظف",
+        archive_note: "تمت الأرشفة من سجل الإجازات بدل الحذف النهائي",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة الإجازة");
+      return result.record;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-leaves"] }),
   });
 
+  const activeLeaves = leaves.filter((l) => l.is_archived !== true);
+
   const balances = useMemo(() => {
-    const yearLeaves = leaves.filter((l) => {
+    const yearLeaves = activeLeaves.filter((l) => {
       if (l.status !== "موافق") return false;
       const d = l.start_date ? new Date(l.start_date) : null;
       return d && d.getFullYear() === currentYear;
@@ -57,14 +70,14 @@ export default function LeavesTab() {
       const entitlement = emp.annual_leave_entitlement ?? 21;
       return { name: emp.name, entitlement, taken, remaining: Math.max(entitlement - taken, 0) };
     });
-  }, [leaves, employees]);
+  }, [activeLeaves, employees]);
 
-  const yearCount = leaves.filter((l) => {
+  const yearCount = activeLeaves.filter((l) => {
     const d = l.start_date ? new Date(l.start_date) : null;
     return d && d.getFullYear() === currentYear;
   }).length;
 
-  const yearDays = leaves
+  const yearDays = activeLeaves
     .filter((l) => {
       if (l.status !== "موافق") return false;
       const d = l.start_date ? new Date(l.start_date) : null;
@@ -72,7 +85,7 @@ export default function LeavesTab() {
     })
     .reduce((s, l) => s + (l.days || 0), 0);
 
-  const filtered = leaves.filter((l) => !search || l.employee_name?.includes(search));
+  const filtered = activeLeaves.filter((l) => !search || l.employee_name?.includes(search));
 
   const handleSubmit = (data) => createMut.mutate(data);
 
