@@ -27,7 +27,7 @@ export default function LoansTab() {
     queryFn: () => base44.entities.EmployeeLoan.list("-created_date", 500),
   });
   const { data: employees = [] } = useQuery({
-    queryKey: ["team-members"],
+    queryKey: ["active-team-members"],
     queryFn: async () => (await base44.entities.TeamMember.list()).filter((m) => m.is_active !== false),
   });
 
