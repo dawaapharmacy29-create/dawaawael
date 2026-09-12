@@ -112,23 +112,9 @@
   ],
   "rls": {
     "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "manager"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "viewer"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "__server_verified_only__"
+      }
     },
     "read": {
       "$or": [
