@@ -90,6 +90,7 @@ export default function ShiftDeliveryStats({ deliveries }) {
 
   const filtered = useMemo(() => {
     return (deliveries || []).filter((r) => {
+      if (r.is_archived === true || r.status === "مراجعة") return false;
       const d = r.shift_date;
       if (!d) return false;
       return d >= from && d <= to;
@@ -133,7 +134,7 @@ export default function ShiftDeliveryStats({ deliveries }) {
   // إجمالي مبيعات كل فرع في الشهر الحالي دائماً بغض النظر عن الفترة المختارة
   const currentMonthBranchTotals = useMemo(() => {
     const { from: cmFrom, to: cmTo } = periodRange("this_month");
-    const cmRecords = (deliveries || []).filter((r) => r.shift_date && r.shift_date >= cmFrom && r.shift_date <= cmTo);
+    const cmRecords = (deliveries || []).filter((r) => r.is_archived !== true && r.status !== "مراجعة" && r.shift_date && r.shift_date >= cmFrom && r.shift_date <= cmTo);
     return BRANCHES.map((b) => ({
       branch: b,
       totalSales: sum(cmRecords.filter((r) => r.branch === b), "total_sales"),
