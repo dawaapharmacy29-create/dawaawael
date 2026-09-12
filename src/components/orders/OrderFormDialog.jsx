@@ -44,7 +44,8 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     staleTime: 60000,
   });
   const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()));
-  const nameOptions = [...new Set(branchNames.map((m) => m.canonical_name).filter(Boolean))];
+  const verifiableBranchNames = branchNames.filter((m) => m.identity_verification_enabled !== false && !!m.admin_staff_id);
+  const nameOptions = [...new Set(verifiableBranchNames.map((m) => m.canonical_name).filter(Boolean))];
   const selectedRecorder = nameMap.find((m) =>
     m.canonical_name === form.recorded_by &&
     (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
@@ -244,7 +245,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
                 autoComplete="current-password"
                 className="h-9 text-sm"
               />
-              <p className="text-[11px] text-gray-400">لا يتم حفظ الرقم السري؛ يُستخدم فقط للتحقق من أن الاسم المختار هو الموظف الحقيقي.</p>
+              <p className="text-[11px] text-gray-400">لا يتم حفظ الرقم السري؛ يُستخدم فقط للتحقق من أن الاسم المختار هو الموظف الحقيقي. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر ضمن قائمة مُسجِّل الطلب.</p>
             </div>
           )}
 
