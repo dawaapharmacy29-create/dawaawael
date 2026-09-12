@@ -51,9 +51,9 @@ export default function MonthlyBranchReport({ invoices, expenses, suppliers = []
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     doc.setFontSize(14);
-    doc.text(`Suppliers Report - ${monthLabel}`, 105, 15, { align: "center" });
+    doc.text(`تقرير الموردين - ${monthLabel}`, 105, 15, { align: "center" });
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, 105, 22, { align: "center" });
+    doc.text(`تاريخ الإنشاء: ${new Date().toLocaleDateString("ar-EG")}`, 105, 22, { align: "center" });
 
     let y = 32;
     const startX = 14;
