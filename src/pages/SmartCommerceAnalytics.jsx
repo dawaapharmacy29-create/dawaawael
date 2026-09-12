@@ -111,9 +111,12 @@ export default function SmartCommerceAnalytics() {
   const previous3 = useMemo(() => prevRanges.map((r) => summarizePeriod({ handovers, invoices, suppliers, ...r, branch })), [handovers, invoices, suppliers, prevRanges, branch]);
   const salesGrowth = growth(current.sales, previous.sales);
   const purchaseGrowth = growth(current.purchases, previous.purchases);
-  const avg3Sales = average(previous3.map((x) => x.sales));
-  const avg3Purchases = average(previous3.map((x) => x.purchases));
-  const avg3Ratio = average(previous3.map((x) => x.ratio).filter((x) => x !== null));
+  const historicalPeriods = previous3.filter((x) => x.sales > 0 || x.purchases > 0);
+  const avg3Sales = average(historicalPeriods.map((x) => x.sales));
+  const avg3Purchases = average(historicalPeriods.map((x) => x.purchases));
+  const historicalRatios = historicalPeriods.map((x) => x.ratio).filter((x) => x !== null && Number.isFinite(x));
+  const avg3Ratio = average(historicalRatios);
+  const historyPeriodCount = historicalPeriods.length;
   const ratioStatus = RatioStatus({ ratio: current.ratio, baseline: avg3Ratio });
   const elapsedDays = daysInclusive(currentRange.from, currentRange.to);
   const totalPeriodDays = daysInclusive(fullRange.from, fullRange.to);
@@ -126,6 +129,7 @@ export default function SmartCommerceAnalytics() {
   const requiredSalesPerDay = selectedTarget > 0 && remainingDays > 0 ? Math.max(selectedTarget - current.sales, 0) / remainingDays : 0;
   const targetProjectedPct = selectedTarget > 0 ? (projectedSales / selectedTarget) * 100 : null;
   const referenceRatio = avg3Ratio > 0 ? avg3Ratio : (current.ratio || 0);
+  const referenceRatioSource = avg3Ratio > 0 ? `متوسط ${historyPeriodCount.toLocaleString("ar-EG")} فترة سابقة متاحة` : "النسبة الحالية مؤقتًا لعدم اكتمال التاريخ السابق";
   const purchaseBaseSales = selectedTarget > 0 ? selectedTarget : projectedSales;
   const referencePurchaseCeiling = purchaseBaseSales * (referenceRatio / 100);
   const suggestedPurchasePerDay = remainingDays > 0 ? Math.max(referencePurchaseCeiling - current.purchases, 0) / remainingDays : 0;
@@ -201,7 +205,7 @@ export default function SmartCommerceAnalytics() {
       <Card className="p-4 border-emerald-200 bg-emerald-50">
         <p className="text-xs text-gray-500">معدل شراء يومي مقترح لباقي الفترة</p>
         <p className="text-2xl font-black text-emerald-700 mt-1">{referenceRatio > 0 ? money(suggestedPurchasePerDay) : "—"}</p>
-        <p className="text-[11px] text-gray-500 mt-1">مبني على نسبة شراء/بيع تاريخية {referenceRatio > 0 ? `${referenceRatio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%` : "غير متاحة"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{referenceRatioSource}: {referenceRatio > 0 ? `${referenceRatio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%` : "غير متاحة"}</p>
       </Card>
       <Card className={`p-4 ${purchaseSurplusVsReference > 0 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}`}>
         <p className="text-xs text-gray-500">فرق الشراء عن المسار التاريخي حتى الآن</p>
