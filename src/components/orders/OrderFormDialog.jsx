@@ -85,6 +85,24 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
     setSaving(true);
     try {
+      if (!editOrder) {
+        const createRes = await base44.functions.invoke("createVerifiedCustomerOrder", {
+          mode: "direct_verified",
+          admin_staff_id: selectedRecorder.admin_staff_id,
+          credential,
+          order: form,
+        });
+        const created = createRes?.data || {};
+        if (!created.success) {
+          setSaveError(created.error || "تعذر التحقق من الهوية أو حفظ الطلب");
+          return;
+        }
+        setCredential("");
+        onSaved?.();
+        onOpenChange(false);
+        return;
+      }
+
       let identity = {
         staff_id: editOrder?.recorded_by_staff_id || selectedRecorder.admin_staff_id,
         admin_staff_id: editOrder?.recorded_by_admin_staff_id || selectedRecorder.admin_staff_id,
