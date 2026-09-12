@@ -31,6 +31,13 @@ export default async function(req: Request): Promise<Response> {
     const item = await base44.asServiceRole.entities.CustomerOrder.get(id);
     if (!item) return Response.json({ error: 'طلب العميل غير موجود' }, { status: 404 });
 
+    const role = String(user.role || '');
+    const ownsLegacyRecord = clean(item.created_by_id) === clean(user.id);
+    const ownsVerifiedRecord = clean(item.registered_by_user_id) === clean(user.id);
+    if (!['admin', 'manager'].includes(role) && !ownsLegacyRecord && !ownsVerifiedRecord) {
+      return Response.json({ error: 'ليس لديك صلاحية تعديل هذا الطلب' }, { status: 403 });
+    }
+
     const requested = body?.updates || {};
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(requested)) {
