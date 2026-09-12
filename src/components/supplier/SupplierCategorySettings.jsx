@@ -206,7 +206,7 @@ export default function SupplierCategorySettings({ supplier }) {
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   <div className="text-sm text-green-700">
                     <p className="font-semibold">تم تطبيق التصنيف على {result.updated_count} فاتورة بقيمة {fmt(result.total_value)} ج بنجاح</p>
-                    <p className="text-xs mt-0.5">Batch ID: {result.batch_id}</p>
+                    <p className="text-xs mt-0.5">معرّف الدفعة: {result.batch_id}</p>
                     <p className="text-xs">نفذها: {result.performed_by} — {new Date(result.timestamp).toLocaleString("ar-EG")}</p>
                   </div>
                 </div>
