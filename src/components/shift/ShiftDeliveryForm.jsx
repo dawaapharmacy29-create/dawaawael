@@ -172,7 +172,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
                 <SelectTrigger><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
                 <SelectContent>
                   {employeeNameMap
-                    .filter((m) => !form.branch || m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim())
+                    .filter((m) => (m.identity_verification_enabled !== false && !!m.admin_staff_id) && (!form.branch || m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim()))
                     .map((m) => <SelectItem key={m.id} value={m.id}>{m.canonical_name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -187,7 +187,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
                 className="text-lg tracking-widest"
                 autoComplete="current-password"
               />
-              <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا</p>
+              <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر في قائمة التسليم.</p>
             </div>
           </div>
           <div className="mt-4 space-y-1.5">
