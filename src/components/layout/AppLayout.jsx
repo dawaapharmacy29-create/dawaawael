@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -36,6 +36,7 @@ const navItems = [
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
   { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "management" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
+  { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, adminOnly: true, section: "management" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, section: "management" },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck, section: "management" },
