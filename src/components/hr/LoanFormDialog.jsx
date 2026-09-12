@@ -23,14 +23,18 @@ export default function LoanFormDialog({ open, onOpenChange, onSubmit, initial, 
   }, [initial, open]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const selectedEmployee = employees.find((e) => e.name === form.employee_name);
+  const employeeBranches = selectedEmployee?.branches || [];
 
-  // auto-set branch from employee + calculate monthly deduction
-  useEffect(() => {
-    if (form.employee_name) {
-      const emp = employees.find((e) => e.name === form.employee_name);
-      if (emp?.branches?.[0] && !form.branch) set("branch", emp.branches[0]);
-    }
-  }, [form.employee_name]);
+  const handleEmployeeChange = (employeeName) => {
+    const emp = employees.find((e) => e.name === employeeName);
+    const branches = emp?.branches || [];
+    setForm((f) => ({
+      ...f,
+      employee_name: employeeName,
+      branch: branches.length === 1 ? branches[0] : (branches.includes(f.branch) ? f.branch : ""),
+    }));
+  };
 
   useEffect(() => {
     const amount = Number(form.amount) || 0;
@@ -41,7 +45,8 @@ export default function LoanFormDialog({ open, onOpenChange, onSubmit, initial, 
   }, [form.amount, form.installments_count]);
 
   const handleSubmit = () => {
-    if (!form.employee_name || !form.amount || !form.date) return;
+    if (!form.employee_name || !form.branch || !form.amount || !form.date) return;
+    if (employeeBranches.length > 0 && !employeeBranches.includes(form.branch)) return;
     onSubmit({
       ...form,
       amount: Number(form.amount),
@@ -61,7 +66,7 @@ export default function LoanFormDialog({ open, onOpenChange, onSubmit, initial, 
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">الموظف *</Label>
-            <Select value={form.employee_name} onValueChange={(v) => set("employee_name", v)}>
+            <Select value={form.employee_name} onValueChange={handleEmployeeChange}>
               <SelectTrigger className="h-9"><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
               <SelectContent>
                 {employees.map((e) => (
@@ -70,6 +75,21 @@ export default function LoanFormDialog({ open, onOpenChange, onSubmit, initial, 
               </SelectContent>
             </Select>
           </div>
+          {form.employee_name && (
+            <div className="space-y-1">
+              <Label className="text-xs">الفرع *</Label>
+              {employeeBranches.length <= 1 ? (
+                <Input value={form.branch || ""} readOnly className="h-9 bg-gray-50" />
+              ) : (
+                <Select value={form.branch} onValueChange={(v) => set("branch", v)}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="اختر فرع الموظف" /></SelectTrigger>
+                  <SelectContent>
+                    {employeeBranches.map((branch) => <SelectItem key={branch} value={branch}>{branch}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">المبلغ *</Label>
