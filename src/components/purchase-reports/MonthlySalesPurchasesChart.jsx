@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card } from "@/components/ui/card";
 import { GitCompareArrows } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
@@ -21,7 +22,7 @@ function dayLabel(dateKey) {
   return `${d}/${m}`;
 }
 
-export default function MonthlySalesPurchasesChart({ invoices }) {
+export default function MonthlySalesPurchasesChart({ invoices, suppliers = [] }) {
   const { data: deliveries = [], isLoading } = useQuery({
     queryKey: ["shift-deliveries-monthly-chart"],
     queryFn: async () => {
@@ -45,7 +46,7 @@ export default function MonthlySalesPurchasesChart({ invoices }) {
 
     const salesByDay = {};
     deliveries.forEach((d) => {
-      if (!d.shift_date || d.shift_date < start || d.shift_date > end) return;
+      if (d.is_archived === true || !d.shift_date || d.shift_date < start || d.shift_date > end) return;
       salesByDay[d.shift_date] = (salesByDay[d.shift_date] || 0) + (d.total_sales || 0);
     });
 
@@ -53,7 +54,7 @@ export default function MonthlySalesPurchasesChart({ invoices }) {
     invoices.forEach((i) => {
       const dateKey = i.invoice_date || i.created_date?.split("T")[0];
       if (!dateKey || dateKey < start || dateKey > end) return;
-      purchasesByDay[dateKey] = (purchasesByDay[dateKey] || 0) + (i.total_value || 0);
+      purchasesByDay[dateKey] = (purchasesByDay[dateKey] || 0) + getInvoiceNetAmount(i, suppliers);
     });
 
     const days = [];
@@ -69,7 +70,7 @@ export default function MonthlySalesPurchasesChart({ invoices }) {
       cursor.setDate(cursor.getDate() + 1);
     }
     return days;
-  }, [deliveries, invoices]);
+  }, [deliveries, invoices, suppliers]);
 
   return (
     <Card className="p-4">
