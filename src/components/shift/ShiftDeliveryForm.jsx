@@ -158,7 +158,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} onValueChange={(v) => setForm({ ...form, branch: v })}>
+              <Select value={form.branch} onValueChange={(v) => setForm({ ...form, branch: v, employee_map_id: "", pin: "" })}>
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
