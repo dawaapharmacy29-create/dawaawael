@@ -39,7 +39,7 @@ function getProgressIndex(status) {
   return 0;
 }
 
-export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, teamMembers = [], isManager, onUpdated }) {
+export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, teamMembers = [], isManager, onUpdated, onRestoreArchive }) {
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [lightbox, setLightbox] = useState(null);
@@ -59,6 +59,8 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
 
   const isCancelled = order.status === "تم الإلغاء";
   const isDelivered  = order.status === "تم التوصيل";
+  const isArchived = order.is_archived === true;
+  const canOperate = isManager && !isArchived && !isCancelled && !isDelivered;
   const progressIdx  = getProgressIndex(order.status);
 
   const updateOrder = async (updates, newStatus, timelineNote) => {
@@ -73,6 +75,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
     }];
     const updated = { ...updates, timeline };
     if (newStatus) updated.status = newStatus;
+    if (isArchived) throw new Error("الطلب مؤرشف. استعده أولًا قبل التعديل");
     await base44.entities.PharmacyOrder.update(order.id, updated);
     setSaving(false);
     onUpdated?.({ ...order, ...updated });
@@ -137,12 +140,12 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               </DialogTitle>
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg}`}>{order.status}</span>
-                {isManager && !isCancelled && !isDelivered && (
+                {canOperate && (
                   <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} className="gap-1 h-7 text-xs">
                     <Edit2 className="w-3 h-3" /> تعديل
                   </Button>
                 )}
-                {isManager && (
+                {isManager && !isArchived && (
                   <Button size="sm" variant="outline" onClick={handleMoveToCustomer} disabled={saving}
                     className="gap-1 h-7 text-xs border-teal-300 text-teal-700 hover:bg-teal-50">
                     {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowLeftRight className="w-3 h-3" />}
@@ -154,6 +157,22 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
           </DialogHeader>
 
           <div className="space-y-4">
+
+            {isArchived && (
+              <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold text-amber-800">هذا الطلب مؤرشف</p>
+                  <p className="text-xs text-amber-700 mt-0.5">السبب: {order.archive_reason || "أرشفة إدارية"}</p>
+                  {order.archive_note && <p className="text-xs text-amber-700 mt-1">الملاحظة: {order.archive_note}</p>}
+                  {order.archived_by && <p className="text-[11px] text-amber-600 mt-1">بواسطة: {order.archived_by}{order.archived_at ? ` — ${new Date(order.archived_at).toLocaleString("ar-EG")}` : ""}</p>}
+                </div>
+                {onRestoreArchive && (
+                  <Button size="sm" variant="outline" onClick={onRestoreArchive} disabled={saving} className="border-amber-300 bg-white text-amber-800 hover:bg-amber-100">
+                    <RotateCcw className="w-3.5 h-3.5" /> استعادة من الأرشيف
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Progress Bar */}
             {!isCancelled && (
@@ -194,7 +213,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               </div>
             )}
 
-            {showCancelPanel && isManager && (
+            {showCancelPanel && canOperate && (
               <div className="border border-red-200 bg-red-50 rounded-xl p-3 space-y-2">
                 <p className="text-sm font-semibold text-red-700 flex items-center gap-1"><Ban className="w-4 h-4" /> إلغاء الطلب</p>
                 <Select value={cancelReason} onValueChange={setCancelReason}>
@@ -246,7 +265,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               active={!isCancelled && !isDelivered}
               done={progressIdx > 1 || isDelivered}
               color="yellow">
-              {isManager && !isCancelled && !isDelivered ? (
+              {canOperate ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
@@ -305,7 +324,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               active={!isCancelled && !isDelivered && progressIdx >= 1}
               done={progressIdx >= 3 || isDelivered}
               color="indigo">
-              {isManager && !isCancelled && !isDelivered ? (
+              {canOperate ? (
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <label className="text-xs text-gray-500">اسم المورد الذي تم الطلب منه *</label>
@@ -357,7 +376,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               active={!isCancelled && !isDelivered && progressIdx >= 2}
               done={progressIdx >= 4 || isDelivered}
               color="teal">
-              {isManager && !isCancelled && !isDelivered ? (
+              {canOperate ? (
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="checkbox" checked={customerContacted}
@@ -412,7 +431,7 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
               active={!isCancelled && (progressIdx >= 4 || order.status === "تم توفير الصنف" || order.status === "تم توفير بديل")}
               done={isDelivered}
               color={order.status === "تم توفير بديل" && !isDelivered ? "amber" : isDelivered && order.timeline?.slice().reverse().find(t => t.status === "تم توفير بديل") ? "amber" : "green"}>
-              {isManager && !isCancelled && !isDelivered ? (
+              {canOperate ? (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs h-8"
                   onClick={handleDeliver} disabled={saving || (order.status !== "تم توفير الصنف" && order.status !== "تم توفير بديل")}>
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
