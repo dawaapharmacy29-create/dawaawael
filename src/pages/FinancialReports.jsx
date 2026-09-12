@@ -59,7 +59,7 @@ export default function FinancialReports() {
   });
   const { data: adminExpenseRecords = [] } = useQuery({ queryKey: ["admin-expense-records-fr"], queryFn: () => base44.entities.AdminExpenseRecord.list() });
 
-  const fHandovers = useMemo(() => handovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo) && (branch === "all" || h.branch === branch)), [handovers, dateFrom, dateTo, branch]);
+  const fHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true && inDateRange(h.shift_date, dateFrom, dateTo) && (branch === "all" || h.branch === branch)), [handovers, dateFrom, dateTo, branch]);
   const fInvoices = useMemo(() => invoices.filter(i => inDateRange(i.invoice_date, dateFrom, dateTo) && (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [invoices, dateFrom, dateTo, branch, supplier]);
   const fPayments = useMemo(() => payments.filter(p => inDateRange(p.payment_date, dateFrom, dateTo) && (supplier === "all" || p.supplier_name === supplier)), [payments, dateFrom, dateTo, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
@@ -82,7 +82,7 @@ export default function FinancialReports() {
 
   // متوسط المبيعات اليومي لكل فرع على حدة (بغض النظر عن فلتر الفرع المختار) عشان مودال "متوسط المبيعات اليومي"
   const branchAvgSales = useMemo(() => {
-    const dateFilteredHandovers = handovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo));
+    const dateFilteredHandovers = handovers.filter(h => h.is_archived !== true && inDateRange(h.shift_date, dateFrom, dateTo));
     return BRANCHES.map(b => {
       const bHandovers = dateFilteredHandovers.filter(h => h.branch === b);
       const bTotalSales = bHandovers.reduce((s, h) => s + (h.total_sales || 0), 0);
@@ -118,7 +118,7 @@ export default function FinancialReports() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">التقارير المالية</h1>
         <FinancialReportExport
-          handovers={handovers}
+          handovers={handovers.filter(h => h.is_archived !== true)}
           invoices={invoices}
           suppliers={suppliers}
           dateFrom={dateFrom}
