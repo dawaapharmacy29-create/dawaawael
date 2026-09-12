@@ -14,6 +14,7 @@ import OrderAlerts from "@/components/orders/OrderAlerts";
 import PharmacyOrderFormDialog from "@/components/orders/PharmacyOrderFormDialog";
 import PharmacyOrderDetailDialog from "@/components/orders/PharmacyOrderDetailDialog";
 import { logActivity } from "@/lib/activityLogger";
+import { getCurrentOrderCycle, isOrderInCycle } from "@/lib/orderCycle";
 
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -54,6 +55,7 @@ function exportPharmacyOrdersToExcel(orders) {
 export default function PharmacyOrders() {
   const { isAdmin, isManager, canAccessBranch } = useUserRole();
   const qc = useQueryClient();
+  const currentCycle = getCurrentOrderCycle();
 
   const [search, setSearch] = useState("");
   const [filterBranch, setFilterBranch] = useState("all");
@@ -111,8 +113,9 @@ export default function PharmacyOrders() {
   });
 
   const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
-  const operationalOrders = accessibleOrders.filter((o) => o.is_archived !== true);
-  const visibleOrders = showArchived ? accessibleOrders.filter((o) => o.is_archived === true) : operationalOrders;
+  const operationalOrders = accessibleOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
+  const archivedOrders = accessibleOrders.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
+  const visibleOrders = showArchived ? archivedOrders : operationalOrders;
   const filteredOrders = visibleOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
@@ -147,7 +150,7 @@ export default function PharmacyOrders() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800">طلبات الصيدليات</h1>
-            <p className="text-xs text-gray-500">{operationalOrders.length} طلب نشط{orders.length !== operationalOrders.length ? ` — ${orders.length - operationalOrders.length} مؤرشف` : ""}</p>
+            <p className="text-xs text-gray-500">{operationalOrders.length} طلب في الدورة الحالية <span className="text-gray-400">({currentCycle.label})</span>{archivedOrders.length ? ` — ${archivedOrders.length} في الأرشيف` : ""}</p>
             {operationalOrders.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1">
                 {STATUS_LIST_PHARMACY.map((status) => {
