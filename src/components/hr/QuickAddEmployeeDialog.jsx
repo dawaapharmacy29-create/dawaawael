@@ -45,6 +45,7 @@ export default function QuickAddEmployeeDialog({ onAdded }) {
     mutationFn: (data) => base44.entities.TeamMember.create(data),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      queryClient.invalidateQueries({ queryKey: ["active-team-members"] });
       setOpen(false);
       onAdded?.(created);
     },
