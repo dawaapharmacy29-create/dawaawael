@@ -41,11 +41,21 @@ export default function PendingInvoices() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PurchaseInvoice.delete(id),
-    onSuccess: (_, id) => {
+    mutationFn: async (id) => {
+      const inv = invoices.find((i) => i.id === id);
+      const res = await base44.functions.invoke("deletePurchaseInvoiceSafe", {
+        id,
+        reason: "حذف فاتورة من شاشة انتظار المراجعة",
+        note: inv ? `فاتورة ${inv.system_invoice_number || id} — ${inv.supplier_name || ""}` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حذف الفاتورة بأمان");
+      return id;
+    },
+    onSuccess: (id) => {
       qc.setQueryData(["purchase-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
       setSelectedIds((prev) => prev.filter((s) => s !== id));
-      logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف فاتورة` });
+      logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
   });
 
