@@ -13,6 +13,7 @@ import TopSuppliers from "@/components/reports/TopSuppliers";
 import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
 import { useUserRole } from "@/lib/useUserRole";
 import { Lock, Settings2, Save } from "lucide-react";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -70,6 +71,7 @@ export default function ReportsBranch() {
     staleTime: 60000,
   });
   const { data: allExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
 
   // Filter to this branch only
@@ -113,7 +115,7 @@ export default function ReportsBranch() {
       const k = getMonthKey(i.invoice_date || i.created_date);
       if (!k) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
-      map[k].invoices += i.total_value || 0;
+      map[k].invoices += getInvoiceNetAmount(i, suppliers);
     });
     filteredExpenses.forEach((e) => {
       const k = getMonthKey(e.date);
@@ -122,9 +124,9 @@ export default function ReportsBranch() {
       map[k].expenses += e.amount || 0;
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [filteredInvoices, filteredExpenses]);
+  }, [filteredInvoices, filteredExpenses, suppliers]);
 
-  const totalInvoices = filteredInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalInvoices = filteredInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const fmt = (n) => n.toLocaleString("ar-EG");
   const changed = pendingFrom !== activeFrom || pendingTo !== activeTo;
