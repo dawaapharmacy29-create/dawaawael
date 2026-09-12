@@ -237,18 +237,9 @@
       ]
     },
     "delete": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "data.can_delete_invoice": true
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "__server_safe_delete_only__"
+      }
     }
   }
 }
