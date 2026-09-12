@@ -101,6 +101,11 @@ export default function SmartCommerceAnalytics() {
     queryFn: () => base44.entities.BranchBudget.list(),
     staleTime: 60000,
   });
+  const { data: purchaseTargetHistory = [] } = useQuery({
+    queryKey: ["smart-analytics-purchase-target-history"],
+    queryFn: () => base44.entities.PurchaseTargetHistory.list("-month"),
+    staleTime: 60000,
+  });
 
   const fullRange = useMemo(() => {
     if (mode === "month") return calendarMonthRange(today);
@@ -130,7 +135,10 @@ export default function SmartCommerceAnalytics() {
   const selectedSalesTarget = branch === "all"
     ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + targetForRange(targets, b, fullRange), 0)
     : targetForRange(targets, branch, fullRange);
-  const purchaseBudgetFor = (b) => purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0;
+  const managementMonth = (fullRange.to || fullRange.from || "").slice(0, 7);
+  const purchaseBudgetFor = (b) => purchaseTargetHistory.find((x) => x.branch === b && x.month === managementMonth)?.target_amount
+    || purchaseBudgets.find((x) => x.branch === b)?.budget_limit
+    || 0;
   const selectedPurchaseTarget = branch === "all"
     ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + purchaseBudgetFor(b), 0)
     : purchaseBudgetFor(branch);
@@ -148,7 +156,9 @@ export default function SmartCommerceAnalytics() {
     const now = summarizePeriod({ handovers, invoices, suppliers, ...currentRange, branch: b });
     const prev = summarizePeriod({ handovers, invoices, suppliers, ...prevRange, branch: b });
     const salesTarget = targetForRange(targets, b, fullRange);
-    const purchaseTarget = purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0;
+    const purchaseTarget = purchaseTargetHistory.find((x) => x.branch === b && x.month === managementMonth)?.target_amount
+      || purchaseBudgets.find((x) => x.branch === b)?.budget_limit
+      || 0;
     const projected = elapsedDays > 0 ? (now.sales / elapsedDays) * totalPeriodDays : 0;
     const projectedPurchasesBranch = elapsedDays > 0 ? (now.purchases / elapsedDays) * totalPeriodDays : 0;
     return {
@@ -160,7 +170,7 @@ export default function SmartCommerceAnalytics() {
       projected, projectedPct: salesTarget > 0 ? (projected / salesTarget) * 100 : null,
       projectedPurchasesBranch, projectedPurchasePct: purchaseTarget > 0 ? (projectedPurchasesBranch / purchaseTarget) * 100 : null,
     };
-  }), [handovers, invoices, suppliers, targets, purchaseBudgets, currentRange, prevRange, fullRange, elapsedDays, totalPeriodDays]);
+  }), [handovers, invoices, suppliers, targets, purchaseBudgets, purchaseTargetHistory, managementMonth, currentRange, prevRange, fullRange, elapsedDays, totalPeriodDays]);
 
   const todaySummary = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, from: today, to: today, branch }), [handovers, invoices, suppliers, today, branch]);
   const yesterdayKey = useMemo(() => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }, [today]);
@@ -172,7 +182,11 @@ export default function SmartCommerceAnalytics() {
     const uncategorizedValue = uncategorized.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
     const selectedBranches = branch === "all" ? ANALYTICS_BRANCHES : [branch];
     const missingTargets = selectedBranches.filter((b) => targetForRange(targets, b, fullRange) <= 0);
-    const missingPurchaseBudgets = selectedBranches.filter((b) => (purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0) <= 0);
+    const missingPurchaseBudgets = selectedBranches.filter((b) => {
+      const monthlyTarget = purchaseTargetHistory.find((x) => x.branch === b && x.month === managementMonth)?.target_amount || 0;
+      const fallbackBudget = purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0;
+      return (monthlyTarget || fallbackBudget) <= 0;
+    });
     return {
       uncategorizedCount: uncategorized.length,
       uncategorizedValue,
@@ -182,7 +196,7 @@ export default function SmartCommerceAnalytics() {
       reviewRecords: current.reviewRecords,
       scoreIssues: (current.reviewRecords > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0) + (missingTargets.length > 0 ? 1 : 0) + (missingPurchaseBudgets.length > 0 ? 1 : 0) + (historyPeriodCount < 3 ? 1 : 0),
     };
-  }, [invoices, suppliers, targets, purchaseBudgets, currentRange, branch, fullRange, historyPeriodCount, current.reviewRecords]);
+  }, [invoices, suppliers, targets, purchaseBudgets, purchaseTargetHistory, managementMonth, currentRange, branch, fullRange, historyPeriodCount, current.reviewRecords]);
 
   const rankedDays = useMemo(() => {
     const withSales = dailyComparison.filter((d) => d.sales > 0);
