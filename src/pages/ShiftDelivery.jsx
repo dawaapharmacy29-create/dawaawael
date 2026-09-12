@@ -30,6 +30,8 @@ export default function ShiftDelivery() {
     staleTime: 30000,
   });
 
+  const activeDeliveries = deliveries.filter((d) => d.is_archived !== true);
+
   const tabs = canViewAll
     ? [
         { key: "new", label: "تسليم جديد", icon: PlusCircle },
@@ -67,8 +69,8 @@ export default function ShiftDelivery() {
         {activeTab === "history" && canViewAll && (
           <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} />
         )}
-        {activeTab === "stats" && canViewAll && <ShiftDeliveryStats deliveries={deliveries} />}
-        {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={deliveries} />}
+        {activeTab === "stats" && canViewAll && <ShiftDeliveryStats deliveries={activeDeliveries} />}
+        {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={activeDeliveries} />}
         {activeTab === "items" && canViewAll && <ExpenseItemsTab />}
       </div>
     </div>
