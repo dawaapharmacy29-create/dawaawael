@@ -16,6 +16,12 @@ function numberOrZero(value: unknown) {
   return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
+function normalizeInvoiceNumber(value: unknown) {
+  return clean(value)
+    .replace(/\s+/g, '')
+    .replace(/[.،,*-]+$/g, '');
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -70,12 +76,30 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'هذا المورد مؤرشف ولا يمكن استخدامه في فاتورة جديدة. استعد المورد أولًا من صفحة الموردين.' }, { status: 400 });
     }
 
-    const duplicates: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({
+    const now = new Date();
+    const invoiceDate = clean(invoice.invoice_date) || now.toISOString().slice(0, 10);
+    const sameDayInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({
       branch,
-      system_invoice_number: systemInvoiceNumber,
+      invoice_date: invoiceDate,
     });
-    if (duplicates.length > 0) {
-      return Response.json({ error: `رقم الفاتورة ${systemInvoiceNumber} موجود بالفعل في ${branch}`, code: 'duplicate_invoice' }, { status: 409 });
+    const exactDuplicate = sameDayInvoices.find((item: any) => clean(item.system_invoice_number) === systemInvoiceNumber);
+    if (exactDuplicate) {
+      return Response.json({
+        error: `رقم الفاتورة ${systemInvoiceNumber} موجود بالفعل في ${branch} بتاريخ ${invoiceDate}`,
+        code: 'duplicate_invoice',
+        existing_id: exactDuplicate.id,
+      }, { status: 409 });
+    }
+    const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
+    const nearDuplicate = normalizedNumber
+      ? sameDayInvoices.find((item: any) => normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber)
+      : null;
+    if (nearDuplicate) {
+      return Response.json({
+        error: `يوجد رقم فاتورة مشابه جدًا (${nearDuplicate.system_invoice_number}) في ${branch} بتاريخ ${invoiceDate}. راجع الرقم قبل الحفظ لمنع التكرار.`,
+        code: 'near_duplicate_invoice',
+        existing_id: nearDuplicate.id,
+      }, { status: 409 });
     }
 
     const totalValue = numberOrZero(invoice.total_value);
@@ -109,7 +133,6 @@ export default async function(req: Request): Promise<Response> {
 
     const isCash = ['كاش', 'انستا', 'فودافون'].includes(paymentType);
     const paidValue = isCash ? totalValue - returnedValue : (paymentType === 'مختلط' ? cashAmount : 0);
-    const now = new Date();
 
     const created = await base44.asServiceRole.entities.PurchaseInvoice.create({
       system_invoice_number: systemInvoiceNumber,
@@ -120,7 +143,7 @@ export default async function(req: Request): Promise<Response> {
       branch,
       entered_by: clean(employee.canonical_name),
       entered_by_staff_id: clean(employee.admin_staff_id),
-      invoice_date: clean(invoice.invoice_date) || now.toISOString().slice(0, 10),
+      invoice_date: invoiceDate,
       total_value: totalValue,
       returned_value: returnedValue,
       paid_value: paidValue,
