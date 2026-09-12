@@ -7,6 +7,7 @@ import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
 import DateRangeFilter from "./DateRangeFilter";
+import ArchiveDialog from "@/components/common/ArchiveDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
 import { SHIFT_TYPE_ORDER } from "@/lib/sortUtils";
@@ -187,15 +188,18 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // cards | table
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveItem, setArchiveItem] = useState(null);
 
   const dateFilteredRaw = useMemo(() => {
     return (deliveries || []).filter((d) => {
+      if (showArchived ? d.is_archived !== true : d.is_archived === true) return false;
       if (!d.shift_date) return false;
       if (fromDate && d.shift_date < fromDate) return false;
       if (toDate && d.shift_date > toDate) return false;
       return true;
     });
-  }, [deliveries, fromDate, toDate]);
+  }, [deliveries, fromDate, toDate, showArchived]);
 
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: SHIFT_SORT_COLUMNS,
@@ -205,7 +209,17 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
   const dateFiltered = useMemo(() => sortData(dateFilteredRaw), [dateFilteredRaw, sortData]);
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ShiftDelivery.delete(id),
+    mutationFn: async ({ id, reason, note }) => {
+      const res = await base44.functions.invoke("updateShiftDeliveryAdmin", {
+        id,
+        action: "archive",
+        archive_reason: reason || "أرشفة تسليم شيفت",
+        archive_note: note || "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة التسليم");
+      return result.record;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
   });
 
@@ -280,6 +294,11 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
               <Table2 className="w-3.5 h-3.5" /> جدول يومي
             </button>
           </div>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setShowArchived((v) => !v)} className={showArchived ? "border-amber-300 bg-amber-50 text-amber-700" : ""}>
+              {showArchived ? "عرض التسليمات الحالية" : "عرض الأرشيف"}
+            </Button>
+          )}
           <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
           <SortControls
             columns={SHIFT_SORT_COLUMNS}
@@ -374,12 +393,25 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
             isAdmin={isAdmin}
             onView={setDetailItem}
             onEdit={setEditItem}
-            onDelete={(item) => deleteMutation.mutate(item.id)}
+            onDelete={setArchiveItem}
           />
         ))
       )}
 
-      {detailItem && <ShiftDeliveryDetail item={detailItem} onClose={() => setDetailItem(null)} />}
+      <ArchiveDialog
+        open={!!archiveItem}
+        onOpenChange={(open) => !open && setArchiveItem(null)}
+        title="أرشفة تسليم الشيفت"
+        description="سيتم استبعاد التسليم من الحسابات والتقارير العادية مع الاحتفاظ به كاملًا في الأرشيف."
+        defaultReason="أرشفة تسليم شيفت"
+        isLoading={deleteMutation.isPending}
+        onConfirm={async ({ reason, note }) => {
+          await deleteMutation.mutateAsync({ id: archiveItem.id, reason, note });
+          setArchiveItem(null);
+        }}
+      />
+
+      {detailItem && <ShiftDeliveryDetail item={detailItem} onClose={() => setDetailItem(null)} />
       {editItem && <ShiftDeliveryEditDialog item={editItem} onClose={() => setEditItem(null)} />}
     </div>
   );
