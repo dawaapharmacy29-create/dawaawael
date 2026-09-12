@@ -70,21 +70,29 @@ export default function ProductUploader({ onClose }) {
     setImporting(true);
     setProgress(0);
 
-    // Step 1: Delete all existing products for this branch one by one with delay
+    // مزامنة آمنة: تحديث الموجود، إنشاء الجديد، وتعطيل ما لم يعد موجودًا في الملف.
+    // لا نحذف السجلات القديمة حتى لا نفقد حدود الطلب أو تاريخ الجرد أو مؤشرات الصنف.
     const existing = await base44.entities.InventoryProduct.filter({ branch }, null, 500);
-    for (let i = 0; i < existing.length; i++) {
-      await base44.entities.InventoryProduct.delete(existing[i].id);
-      if (i % 5 === 4) await new Promise(r => setTimeout(r, 800));
-    }
+    const normalize = (v) => String(v || "").trim().toLowerCase();
+    const byCode = new Map(existing.filter((p) => p.product_code).map((p) => [normalize(p.product_code), p]));
+    const byName = new Map(existing.map((p) => [normalize(p.product_name), p]));
+    const matchedIds = new Set();
+    const toCreate = [];
 
-    // Step 2: Import new products in batches of 20 with small delay
-    const BATCH = 20;
-    const chunks = [];
-    for (let i = 0; i < preview.length; i += BATCH) chunks.push(preview.slice(i, i + BATCH));
-
-    for (let ci = 0; ci < chunks.length; ci++) {
-      await base44.entities.InventoryProduct.bulkCreate(
-        chunks[ci].map(item => ({
+    for (let i = 0; i < preview.length; i++) {
+      const item = preview[i];
+      const existingItem = (item.product_code && byCode.get(normalize(item.product_code))) || byName.get(normalize(item.product_name));
+      if (existingItem) {
+        matchedIds.add(existingItem.id);
+        await base44.entities.InventoryProduct.update(existingItem.id, {
+          product_name: item.product_name,
+          stock_quantity: item.stock_quantity,
+          product_code: item.product_code || existingItem.product_code || "",
+          branch,
+          is_active: true,
+        });
+      } else {
+        toCreate.push({
           product_name: item.product_name,
           stock_quantity: item.stock_quantity,
           product_code: item.product_code || "",
@@ -92,11 +100,26 @@ export default function ProductUploader({ onClose }) {
           is_active: true,
           priority_score: 0,
           discrepancy_count: 0,
-        }))
-      );
-      setProgress(Math.round(((ci + 1) / chunks.length) * 100));
-      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 400));
+        });
+      }
+      setProgress(Math.round(((i + 1) / Math.max(preview.length, 1)) * 70));
     }
+
+    for (const oldItem of existing) {
+      if (!matchedIds.has(oldItem.id) && oldItem.is_active !== false) {
+        await base44.entities.InventoryProduct.update(oldItem.id, { is_active: false });
+      }
+    }
+
+    const BATCH = 20;
+    const chunks = [];
+    for (let i = 0; i < toCreate.length; i += BATCH) chunks.push(toCreate.slice(i, i + BATCH));
+    for (let ci = 0; ci < chunks.length; ci++) {
+      await base44.entities.InventoryProduct.bulkCreate(chunks[ci]);
+      setProgress(70 + Math.round(((ci + 1) / Math.max(chunks.length, 1)) * 30));
+      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 250));
+    }
+    if (chunks.length === 0) setProgress(100);
 
     qc.invalidateQueries(["inventory-products"]);
     qc.invalidateQueries(["inventory-products-all"]);
@@ -174,7 +197,7 @@ export default function ProductUploader({ onClose }) {
       {importing && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-gray-500">
-            <span>{progress === 0 ? "جاري حذف الأصناف القديمة..." : "جاري الاستيراد..."}</span>
+            <span>{progress === 0 ? "جاري تجهيز المزامنة الآمنة..." : "جاري تحديث واستيراد الأصناف..."}</span>
             <span>{progress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
