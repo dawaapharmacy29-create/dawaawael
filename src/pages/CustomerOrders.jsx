@@ -196,7 +196,9 @@ export default function CustomerOrders() {
   // Role-based filtering: non-admin sees only their branch
   const userBranch = user?.branch;
   const accessibleOrders = orders.filter((o) => !(!isManager && userBranch && o.branch !== userBranch));
+  const operationalAccessibleOrders = accessibleOrders.filter((o) => o.is_archived !== true);
   const branchOrders = filterBranch === "all" ? accessibleOrders : accessibleOrders.filter((o) => o.branch === filterBranch);
+  const operationalBranchOrders = filterBranch === "all" ? operationalAccessibleOrders : operationalAccessibleOrders.filter((o) => o.branch === filterBranch);
   const filteredOrders = accessibleOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
@@ -273,7 +275,7 @@ export default function CustomerOrders() {
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <OrderAlerts orders={orders} />
+          <OrderAlerts orders={orders.filter((o) => o.is_archived !== true)} />
           {isManager && (
             <Button variant="outline" onClick={() => { setSyncResult(null); syncMutation.mutate(); }} disabled={syncMutation.isPending} className="gap-2 border-sky-200 text-sky-700 hover:bg-sky-50 flex-1 sm:flex-none" title="إرسال لقطة كاملة ومحدثة إلى تطبيق الإدارة">
               <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
@@ -295,7 +297,7 @@ export default function CustomerOrders() {
         </div>
       )}
 
-      <OrderBranchOverview orders={accessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
+      <OrderBranchOverview orders={operationalAccessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
 
       <OrderOperationsBar orders={branchOrders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
 
@@ -315,7 +317,7 @@ export default function CustomerOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <OrderAnalytics orders={branchOrders} />
+        <OrderAnalytics orders={operationalBranchOrders} />
       ) : (
         <>
           {/* Search and view controls */}
@@ -367,7 +369,7 @@ export default function CustomerOrders() {
           <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {accessibleOrders.length} طلب</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
-          {showEfficiency && <BranchEfficiencyCard orders={filteredOrders} />}
+          {showEfficiency && <BranchEfficiencyCard orders={filteredOrders.filter((o) => o.is_archived !== true)} />}
 
           {/* Table */}
           <OrderTable
