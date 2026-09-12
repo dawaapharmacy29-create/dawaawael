@@ -277,21 +277,9 @@
       ]
     },
     "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "manager"
-          }
-        },
-        {
-          "created_by_id": "{{user.id}}"
-        }
-      ]
+      "user_condition": {
+        "role": "__server_verified_only__"
+      }
     },
     "delete": {
       "$or": [
