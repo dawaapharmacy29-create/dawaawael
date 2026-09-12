@@ -362,7 +362,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               <SearchableSelect
                 value={form.supplier_name}
                 onChange={handleSupplierChange}
-                options={suppliers.map((s) => s.name)}
+                options={suppliers.filter((s) => s.is_active !== false || (invoice && (s.id === invoice.supplier_id || s.name === invoice.supplier_name))).map((s) => s.name)}
                 placeholder="اختر المورد"
               />
             </div>
