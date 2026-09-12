@@ -33,6 +33,19 @@
     },
     "snapshot": {
       "type": "object"
+    },
+    "restored_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "restored_by": {
+      "type": "string"
+    },
+    "restored_entity_id": {
+      "type": "string"
+    },
+    "restore_note": {
+      "type": "string"
     }
   },
   "required": [
