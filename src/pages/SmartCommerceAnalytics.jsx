@@ -160,7 +160,7 @@ export default function SmartCommerceAnalytics() {
       projected, projectedPct: salesTarget > 0 ? (projected / salesTarget) * 100 : null,
       projectedPurchasesBranch, projectedPurchasePct: purchaseTarget > 0 ? (projectedPurchasesBranch / purchaseTarget) * 100 : null,
     };
-  }), [handovers, invoices, suppliers, targets, currentRange, prevRange, fullRange, elapsedDays, totalPeriodDays]);
+  }), [handovers, invoices, suppliers, targets, purchaseBudgets, currentRange, prevRange, fullRange, elapsedDays, totalPeriodDays]);
 
   const todaySummary = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, from: today, to: today, branch }), [handovers, invoices, suppliers, today, branch]);
   const yesterdayKey = useMemo(() => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }, [today]);
@@ -170,16 +170,19 @@ export default function SmartCommerceAnalytics() {
     const periodInvoices = invoices.filter((i) => i.invoice_date >= currentRange.from && i.invoice_date <= currentRange.to && (branch === "all" || i.branch === branch));
     const uncategorized = periodInvoices.filter((i) => !i.purchase_category || i.purchase_category === "unclassified");
     const uncategorizedValue = uncategorized.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
-    const missingTargets = (branch === "all" ? ANALYTICS_BRANCHES : [branch]).filter((b) => targetForRange(targets, b, fullRange) <= 0);
+    const selectedBranches = branch === "all" ? ANALYTICS_BRANCHES : [branch];
+    const missingTargets = selectedBranches.filter((b) => targetForRange(targets, b, fullRange) <= 0);
+    const missingPurchaseBudgets = selectedBranches.filter((b) => (purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0) <= 0);
     return {
       uncategorizedCount: uncategorized.length,
       uncategorizedValue,
       missingTargets,
+      missingPurchaseBudgets,
       historyPeriodCount,
       reviewRecords: current.reviewRecords,
-      scoreIssues: (current.reviewRecords > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0) + (missingTargets.length > 0 ? 1 : 0) + (historyPeriodCount < 3 ? 1 : 0),
+      scoreIssues: (current.reviewRecords > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0) + (missingTargets.length > 0 ? 1 : 0) + (missingPurchaseBudgets.length > 0 ? 1 : 0) + (historyPeriodCount < 3 ? 1 : 0),
     };
-  }, [invoices, suppliers, targets, currentRange, branch, fullRange, historyPeriodCount, current.reviewRecords]);
+  }, [invoices, suppliers, targets, purchaseBudgets, currentRange, branch, fullRange, historyPeriodCount, current.reviewRecords]);
 
   const rankedDays = useMemo(() => {
     const withSales = dailyComparison.filter((d) => d.sales > 0);
@@ -209,7 +212,7 @@ export default function SmartCommerceAnalytics() {
     <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
         <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2"><BarChart3 className="w-7 h-7 text-teal-600" /> تحليلات المبيعات والمشتريات</h1>
-        <p className="text-sm text-gray-500 mt-1">متابعة يومية وشهرية ذكية لمسار البيع والشراء والتارجت — {periodTitle}</p>
+        <p className="text-sm text-gray-500 mt-1">متابعة يومية وشهرية ذكية لمسار البيع والشراء وتارجت المبيعات وسقف المشتريات — {periodTitle}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {[{k:"cycle",l:"الدورة 26 → 25"},{k:"month",l:"الشهر الميلادي"},{k:"custom",l:"فترة مخصصة"}].map((x) => <Button key={x.k} size="sm" variant={mode===x.k?"default":"outline"} onClick={()=>setMode(x.k)}>{x.l}</Button>)}
@@ -230,30 +233,33 @@ export default function SmartCommerceAnalytics() {
 
     <Card className={`p-4 border ${ratioStatus.tone === "red" ? "border-red-300 bg-red-50" : ratioStatus.tone === "green" ? "border-emerald-300 bg-emerald-50" : "border-blue-200 bg-blue-50"}`}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div><p className="font-black text-gray-800 flex items-center gap-2"><Gauge className="w-5 h-5"/> مؤشر سرعة الشراء: {ratioStatus.label}</p><p className="text-xs text-gray-500 mt-1">المؤشر يقارن نسبة الشراء/البيع الحالية بمتوسط نفس المدة في آخر 3 دورات، وليس بتارجت المبيعات بشكل خاطئ.</p></div>
-        <div className="text-left"><p className="text-xl font-black">{current.ratio === null ? "—" : `${current.ratio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%`}</p>{ratioStatus.delta !== null && <p className="text-xs text-gray-500">فرق عن المعتاد: {fmtPct(ratioStatus.delta)}</p>}</div>
+        <div><p className="font-black text-gray-800 flex items-center gap-2"><Gauge className="w-5 h-5"/> مؤشر سرعة الشراء: {ratioStatus.label}</p><p className="text-xs text-gray-500 mt-1">المؤشر الأساسي يقارن نسبة الشراء/البيع الحالية بالنسبة المستهدفة الناتجة من سقف المشتريات ÷ تارجت المبيعات، مع عرض التاريخ السابق كمرجع إضافي.</p></div>
+        <div className="text-left"><p className="text-xl font-black">{current.ratio === null ? "—" : `${current.ratio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%`}</p><p className="text-xs text-gray-500">المستهدف: {targetPurchaseRatio === null ? "—" : `${targetPurchaseRatio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%`}</p>{avg3Ratio > 0 && <p className="text-[11px] text-gray-400">تاريخي: {avg3Ratio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%</p>}</div>
       </div>
     </Card>
 
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       <Card className="p-4 border-violet-200 bg-violet-50">
         <p className="text-xs text-gray-500">المبيعات المطلوبة يوميًا لباقي الفترة</p>
-        <p className="text-2xl font-black text-violet-700 mt-1">{selectedTarget > 0 ? money(requiredSalesPerDay) : "لا يوجد تارجت"}</p>
-        <p className="text-[11px] text-gray-500 mt-1">{selectedTarget > 0 ? `متبقي ${remainingDays.toLocaleString("ar-EG")} يوم · التارجت ${money(selectedTarget)}` : "حدد تارجت الفروع ليظهر معدل التنفيذ المطلوب"}</p>
+        <p className="text-2xl font-black text-violet-700 mt-1">{selectedSalesTarget > 0 ? money(requiredSalesPerDay) : "لا يوجد تارجت مبيعات"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{selectedSalesTarget > 0 ? `متبقي ${remainingDays.toLocaleString("ar-EG")} يوم · تارجت المبيعات ${money(selectedSalesTarget)}` : "حدد تارجت المبيعات ليظهر معدل التنفيذ المطلوب"}</p>
       </Card>
       <Card className="p-4 border-emerald-200 bg-emerald-50">
         <p className="text-xs text-gray-500">معدل شراء يومي مقترح لباقي الفترة</p>
-        <p className="text-2xl font-black text-emerald-700 mt-1">{referenceRatio > 0 ? money(suggestedPurchasePerDay) : "—"}</p>
-        <p className="text-[11px] text-gray-500 mt-1">{referenceRatioSource}: {referenceRatio > 0 ? `${referenceRatio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%` : "غير متاحة"}</p>
+        <p className="text-2xl font-black text-emerald-700 mt-1">{selectedPurchaseTarget > 0 ? money(suggestedPurchasePerDay) : "لا يوجد سقف مشتريات"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{selectedPurchaseTarget > 0 ? `سقف المشتريات ${money(selectedPurchaseTarget)} · النسبة المستهدفة ${targetPurchaseRatio?.toLocaleString("ar-EG", {maximumFractionDigits:1})}%` : "حدد سقف المشتريات للفرع"}</p>
       </Card>
       <Card className={`p-4 ${purchaseSurplusVsReference > 0 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}`}>
-        <p className="text-xs text-gray-500">فرق الشراء عن المسار التاريخي حتى الآن</p>
+        <p className="text-xs text-gray-500">فرق الشراء عن المسار المستهدف حتى الآن</p>
         <p className={`text-2xl font-black mt-1 ${purchaseSurplusVsReference > 0 ? "text-amber-700" : "text-blue-700"}`}>{purchaseSurplusVsReference >= 0 ? "+" : "−"}{money(Math.abs(purchaseSurplusVsReference))}</p>
-        <p className="text-[11px] text-gray-500 mt-1">{purchaseSurplusVsReference > 0 ? "أعلى من المتوقع وفق حركة البيع الحالية" : "أقل من المتوقع وفق حركة البيع الحالية"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{purchaseSurplusVsReference > 0 ? "أعلى من نصيب الفترة من سقف المشتريات" : "أقل من نصيب الفترة من سقف المشتريات"}</p>
       </Card>
     </div>
 
-    {selectedTarget > 0 && <Card className={`p-4 border ${targetProjectedPct !== null && targetProjectedPct < 90 ? "border-red-300 bg-red-50" : targetProjectedPct !== null && targetProjectedPct >= 105 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black text-gray-800 flex items-center gap-2"><Target className="w-5 h-5"/> توقع التارجت بنهاية الفترة</p><p className="text-xs text-gray-500 mt-1">بناءً على متوسط المبيعات الفعلي المسجل حتى الآن</p></div><div className="text-left"><p className="text-2xl font-black">{targetProjectedPct?.toLocaleString("ar-EG", {maximumFractionDigits:1})}%</p><p className="text-xs text-gray-500">متوقع {money(projectedSales)} من {money(selectedTarget)}</p></div></div></Card>}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {selectedSalesTarget > 0 && <Card className={`p-4 border ${targetProjectedPct !== null && targetProjectedPct < 90 ? "border-red-300 bg-red-50" : targetProjectedPct !== null && targetProjectedPct >= 105 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black text-gray-800 flex items-center gap-2"><Target className="w-5 h-5"/> توقع تارجت المبيعات</p><p className="text-xs text-gray-500 mt-1">بناءً على متوسط المبيعات الفعلي المسجل حتى الآن</p></div><div className="text-left"><p className="text-2xl font-black">{targetProjectedPct?.toLocaleString("ar-EG", {maximumFractionDigits:1})}%</p><p className="text-xs text-gray-500">متوقع {money(projectedSales)} من {money(selectedSalesTarget)}</p></div></div></Card>}
+      {selectedPurchaseTarget > 0 && <Card className={`p-4 border ${purchaseTargetProjectedPct !== null && purchaseTargetProjectedPct > 105 ? "border-red-300 bg-red-50" : purchaseTargetProjectedPct !== null && purchaseTargetProjectedPct <= 100 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black text-gray-800 flex items-center gap-2"><ShoppingCart className="w-5 h-5"/> توقع سقف المشتريات</p><p className="text-xs text-gray-500 mt-1">كلما تجاوز التوقع 100% فده إنذار إن الشراء أسرع من الخطة</p></div><div className="text-left"><p className="text-2xl font-black">{purchaseTargetProjectedPct?.toLocaleString("ar-EG", {maximumFractionDigits:1})}%</p><p className="text-xs text-gray-500">متوقع {money(projectedPurchases)} من {money(selectedPurchaseTarget)}</p></div></div></Card>}
+    </div>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <Card className="p-4"><p className="text-xs text-gray-500">مبيعات اليوم</p><p className="text-2xl font-black text-teal-700 mt-1">{money(todaySummary.sales)}</p><Trend value={growth(todaySummary.sales, yesterdaySummary.sales)} label="مقارنة بأمس"/></Card>
@@ -274,8 +280,8 @@ export default function SmartCommerceAnalytics() {
     </Card>
 
     <Card className="overflow-hidden">
-      <div className="p-4 border-b"><h2 className="font-black text-gray-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-violet-600"/> مقارنة الفروع والتارجت</h2></div>
-      <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr>{["الفرع","المبيعات","نمو المبيعات","المشتريات","نمو المشتريات","شراء/بيع","التارجت","المتوقع نهاية الفترة"].map((h)=><th key={h} className="p-3 text-right text-xs text-gray-500">{h}</th>)}</tr></thead><tbody>{branchRows.map((r)=><tr key={r.branch} className="border-t"><td className="p-3 font-bold">{r.branch}</td><td className="p-3 font-bold text-teal-700">{money(r.sales)}</td><td className={`p-3 font-bold ${r.salesGrowth !== null && r.salesGrowth < 0 ? "text-red-600":"text-emerald-600"}`}>{fmtPct(r.salesGrowth)}</td><td className="p-3 font-bold text-blue-700">{money(r.purchases)}</td><td className={`p-3 font-bold ${r.purchaseGrowth !== null && r.purchaseGrowth > 0 ? "text-amber-600":"text-gray-600"}`}>{fmtPct(r.purchaseGrowth)}</td><td className="p-3">{r.ratio===null?"—":`${r.ratio.toLocaleString("ar-EG",{maximumFractionDigits:1})}%`}</td><td className="p-3">{r.target>0?<><div className="font-bold">{r.achievedPct?.toLocaleString("ar-EG",{maximumFractionDigits:1})}%</div><div className="text-[10px] text-gray-400">{money(r.sales)} من {money(r.target)}</div></>:"غير محدد"}</td><td className={`p-3 font-bold ${r.projectedPct !== null && r.projectedPct < 90 ? "text-red-600":"text-emerald-600"}`}>{r.projectedPct===null?money(r.projected):`${r.projectedPct.toLocaleString("ar-EG",{maximumFractionDigits:0})}% · ${money(r.projected)}`}</td></tr>)}</tbody></table></div>
+      <div className="p-4 border-b"><h2 className="font-black text-gray-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-violet-600"/> مقارنة الفروع — المبيعات والمشتريات</h2></div>
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr>{["الفرع","المبيعات","المشتريات","شراء/بيع فعلي","النسبة المستهدفة","تارجت المبيعات","سقف المشتريات","توقع المبيعات","توقع المشتريات"].map((h)=><th key={h} className="p-3 text-right text-xs text-gray-500">{h}</th>)}</tr></thead><tbody>{branchRows.map((r)=><tr key={r.branch} className="border-t"><td className="p-3 font-bold">{r.branch}</td><td className="p-3 font-bold text-teal-700">{money(r.sales)}</td><td className="p-3 font-bold text-blue-700">{money(r.purchases)}</td><td className="p-3">{r.ratio===null?"—":`${r.ratio.toLocaleString("ar-EG",{maximumFractionDigits:1})}%`}</td><td className="p-3 font-bold">{r.targetRatio===null?"—":`${r.targetRatio.toLocaleString("ar-EG",{maximumFractionDigits:1})}%`}</td><td className="p-3">{r.salesTarget>0?<><div className="font-bold">{r.achievedPct?.toLocaleString("ar-EG",{maximumFractionDigits:1})}%</div><div className="text-[10px] text-gray-400">{money(r.sales)} من {money(r.salesTarget)}</div></>:"غير محدد"}</td><td className="p-3">{r.purchaseTarget>0?<><div className={`font-bold ${r.purchaseAchievedPct > 100 ? "text-red-600":"text-blue-700"}`}>{r.purchaseAchievedPct?.toLocaleString("ar-EG",{maximumFractionDigits:1})}%</div><div className="text-[10px] text-gray-400">{money(r.purchases)} من {money(r.purchaseTarget)}</div></>:"غير محدد"}</td><td className={`p-3 font-bold ${r.projectedPct !== null && r.projectedPct < 90 ? "text-red-600":"text-emerald-600"}`}>{r.projectedPct===null?money(r.projected):`${r.projectedPct.toLocaleString("ar-EG",{maximumFractionDigits:0})}% · ${money(r.projected)}`}</td><td className={`p-3 font-bold ${r.projectedPurchasePct !== null && r.projectedPurchasePct > 100 ? "text-red-600":"text-emerald-600"}`}>{r.projectedPurchasePct===null?money(r.projectedPurchasesBranch):`${r.projectedPurchasePct.toLocaleString("ar-EG",{maximumFractionDigits:0})}% · ${money(r.projectedPurchasesBranch)}`}</td></tr>)}</tbody></table></div>
     </Card>
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -290,7 +296,8 @@ export default function SmartCommerceAnalytics() {
           <p>• تسليمات تحت المراجعة: <b>{dataQuality.reviewRecords.toLocaleString("ar-EG")}</b>.</p>
           <p>• فواتير مشتريات غير مصنفة: <b>{dataQuality.uncategorizedCount.toLocaleString("ar-EG")}</b> بقيمة <b>{money(dataQuality.uncategorizedValue)}</b>.</p>
           <p>• فترات تاريخية متاحة للمقارنة: <b>{dataQuality.historyPeriodCount.toLocaleString("ar-EG")} من 3</b>.</p>
-          <p>• التارجت: <b>{dataQuality.missingTargets.length === 0 ? "محدد لكل الفروع المختارة" : `ناقص لـ ${dataQuality.missingTargets.join("، ")}`}</b>.</p>
+          <p>• تارجت المبيعات: <b>{dataQuality.missingTargets.length === 0 ? "محدد لكل الفروع المختارة" : `ناقص لـ ${dataQuality.missingTargets.join("، ")}`}</b>.</p>
+          <p>• سقف المشتريات: <b>{dataQuality.missingPurchaseBudgets.length === 0 ? "محدد لكل الفروع المختارة" : `ناقص لـ ${dataQuality.missingPurchaseBudgets.join("، ")}`}</b>.</p>
         </div>
       </Card>
       <Card className="p-4">
