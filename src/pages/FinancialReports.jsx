@@ -120,6 +120,7 @@ export default function FinancialReports() {
         <FinancialReportExport
           handovers={handovers}
           invoices={invoices}
+          suppliers={suppliers}
           dateFrom={dateFrom}
           dateTo={dateTo}
           periodLabel={`${PERIOD_OPTIONS.find(o => o.value === periodType)?.label || ""} (${dateFrom} ← ${dateTo})`}
