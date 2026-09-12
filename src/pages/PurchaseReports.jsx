@@ -48,6 +48,17 @@ function monthLabel() {
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
+async function loadAllPurchaseInvoices(maxRows = 10000) {
+  const pageSize = 500;
+  const rows = [];
+  for (let page = 0; rows.length < maxRows; page += 1) {
+    const batch = await base44.entities.PurchaseInvoice.list("-invoice_date", pageSize, page * pageSize);
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function PurchaseReports() {
   const { isAdmin } = useUserRole();
   const qc = useQueryClient();
@@ -63,7 +74,7 @@ export default function PurchaseReports() {
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 5000),
+    queryFn: () => loadAllPurchaseInvoices(),
     staleTime: 60000,
   });
   const { data: suppliers = [] } = useQuery({
