@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock, RotateCcw } from "lucide-react";
+import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock, RotateCcw, AlertTriangle } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
@@ -206,7 +206,18 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
     });
   }, [deliveries, fromDate, toDate, showArchived]);
 
-  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
+  const duplicateShiftGroups = useMemo(() => {
+    if (showArchived) return [];
+    const groups = new Map();
+    dateFilteredRaw.forEach((record) => {
+      const key = `${record.branch || ""}|${record.shift_date || ""}|${record.shift_type || ""}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    });
+    return Array.from(groups.values()).filter((records) => records.length > 1);
+  }, [dateFilteredRaw, showArchived]);
+
+  const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({ 
     columns: SHIFT_SORT_COLUMNS,
     defaultSort: { field: "shift_type", direction: "asc" },
     paramPrefix: "shift",
@@ -329,6 +340,28 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
           </Button>
         </div>
       </div>
+
+      {duplicateShiftGroups.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="space-y-2 min-w-0">
+              <p className="font-bold text-sm">تنبيه: يوجد {duplicateShiftGroups.length} شيفت مكرر لنفس الفرع والتاريخ ونوع الشيفت</p>
+              <p className="text-xs">هذه السجلات تُعرض للمراجعة ولا يتم حذف أو استبعاد أي سجل تلقائيًا حتى يحدد المدير السجل الصحيح.</p>
+              <div className="space-y-1">
+                {duplicateShiftGroups.map((records) => {
+                  const first = records[0];
+                  return (
+                    <div key={`${first.branch}-${first.shift_date}-${first.shift_type}`} className="text-xs bg-white/70 rounded-lg px-2 py-1.5">
+                      <b>{first.shift_date}</b> — {first.branch} — {first.shift_type}: {records.map((r) => `${r.submitted_by || "غير محدد"} (${Number(r.total_sales || 0).toLocaleString("ar-EG")})`).join(" / ")}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {dateFiltered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
