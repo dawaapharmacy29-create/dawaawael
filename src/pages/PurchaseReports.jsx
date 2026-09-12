@@ -319,8 +319,8 @@ export default function PurchaseReports() {
       ) : (
         <>
           {tab === "overview" && <ReportsDashboard invoices={filtered} branchTotals={branchTotals} supplierTotals={supplierTotals} />}
-          {tab === "branches" && <BranchBreakdown invoices={filtered} />}
-          {tab === "suppliers" && <SupplierBreakdown invoices={filtered} dateFrom={dateFrom} dateTo={dateTo} />}
+          {tab === "branches" && <BranchBreakdown invoices={filtered} suppliers={suppliers} />}
+          {tab === "suppliers" && <SupplierBreakdown invoices={filtered} suppliers={suppliers} dateFrom={dateFrom} dateTo={dateTo} />}
           {tab === "admin" && <AdminSummary invoices={filtered} branchTotals={branchTotals} supplierTotals={supplierTotals} topSupplier={topSupplier} topBranch={topBranch} totalPurchases={totalPurchases} totalInvoices={totalInvoices} />}
         </>
       )}
@@ -369,7 +369,7 @@ export default function PurchaseReports() {
       </div>
 
       {/* مقارنة إجمالي المبيعات وإجمالي المشتريات يومياً على مدار الشهر */}
-      <MonthlySalesPurchasesChart invoices={invoices} />
+      <MonthlySalesPurchasesChart invoices={invoices} suppliers={suppliers} />
 
       {/* Dialog: مراجعة تصنيف فواتير الشهر الحالي */}
       <Dialog open={categorizeOpen} onOpenChange={setCategorizeOpen}>
