@@ -37,6 +37,23 @@
       "type": "string",
       "description": "\u0627\u0644\u0645\u0648\u0638\u0641 \u0627\u0644\u0645\u0633\u0624\u0648\u0644"
     },
+    "submitted_by_staff_id": {
+      "type": "string",
+      "description": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0638\u0641 \u0627\u0644\u0645\u062a\u062d\u0642\u0642 \u0645\u0646\u0647 \u0641\u064a \u062a\u0637\u0628\u064a\u0642 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"
+    },
+    "submitted_by_admin_staff_id": {
+      "type": "string",
+      "description": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0631\u0628\u0637 \u0628\u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0638\u0641 \u0641\u064a \u0627\u0644\u0625\u062f\u0627\u0631\u0629"
+    },
+    "identity_verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u0648\u0642\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0647\u0648\u064a\u0629 \u0627\u0644\u0645\u0648\u0638\u0641"
+    },
+    "identity_verification_source": {
+      "type": "string",
+      "description": "\u0645\u0635\u062f\u0631 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0647\u0648\u064a\u0629"
+    },
     "total_sales": {
       "type": "number",
       "default": 0,
@@ -88,6 +105,9 @@
     "branch",
     "shift_type",
     "shift_date",
+    "submitted_by",
+    "submitted_by_staff_id",
+    "identity_verified_at",
     "total_sales"
   ],
   "rls": {
