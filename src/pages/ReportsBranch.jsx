@@ -104,13 +104,13 @@ export default function ReportsBranch() {
     setSaving(false);
   };
 
-  const filteredInvoices = useMemo(() => invoices.filter(i => inRange(i.created_date, activeFrom, activeTo)), [invoices, activeFrom, activeTo]);
+  const filteredInvoices = useMemo(() => invoices.filter(i => inRange(i.invoice_date || i.created_date, activeFrom, activeTo)), [invoices, activeFrom, activeTo]);
   const filteredExpenses = useMemo(() => expenses.filter(e => inRange(e.date, activeFrom, activeTo)), [expenses, activeFrom, activeTo]);
 
   const monthlyData = useMemo(() => {
     const map = {};
     filteredInvoices.forEach((i) => {
-      const k = getMonthKey(i.created_date);
+      const k = getMonthKey(i.invoice_date || i.created_date);
       if (!k) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
       map[k].invoices += i.total_value || 0;
