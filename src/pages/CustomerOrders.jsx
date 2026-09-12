@@ -141,17 +141,19 @@ export default function CustomerOrders() {
 
   const quickActionMutation = useMutation({
     mutationFn: async ({ order, status }) => {
-      const currentUser = await base44.auth.me();
-      const actor = currentUser?.full_name || currentUser?.email || "مستخدم النظام";
       const now = new Date().toISOString();
       const updates = {
         status,
-        timeline: [...(order.timeline || []), { status, by: actor, at: now, note: `إجراء سريع: ${status}` }],
         ...(status === "تم توفير الصنف" ? { product_available: true } : {}),
         ...(status === "تم التوصيل" ? { customer_contacted: true, last_followup_date: now.slice(0, 10) } : {}),
       };
-      await base44.entities.CustomerOrder.update(order.id, updates);
-      await syncCustomerOrderToManagement(order.id);
+      const res = await base44.functions.invoke("updateCustomerOrderSafe", {
+        id: order.id,
+        updates,
+        timeline_note: `إجراء سريع: ${status}`,
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر تحديث الطلب");
       return { id: order.id, updates };
     },
     onMutate: async ({ order, status }) => {
