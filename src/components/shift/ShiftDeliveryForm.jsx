@@ -82,7 +82,6 @@ export default function ShiftDeliveryForm({ onSaved }) {
       }));
 
     setSaving(true);
-    const recordedAt = getRecordedAt();
     try {
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
       if (!selectedEmployee?.admin_staff_id) {
