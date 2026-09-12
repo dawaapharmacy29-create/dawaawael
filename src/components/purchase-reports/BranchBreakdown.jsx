@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { Building2, ChevronDown, Users, Receipt, TrendingUp } from "lucide-react";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
-export default function BranchBreakdown({ invoices }) {
+export default function BranchBreakdown({ invoices, suppliers = [] }) {
   const [expanded, setExpanded] = useState(null);
 
   const branchesData = useMemo(() => BRANCHES.map((branch) => {
@@ -15,17 +16,17 @@ export default function BranchBreakdown({ invoices }) {
     list.forEach((i) => {
       const name = i.supplier_name || "غير محدد";
       if (!supplierMap[name]) supplierMap[name] = { name, total: 0, count: 0 };
-      supplierMap[name].total += i.total_value || 0;
+      supplierMap[name].total += getInvoiceNetAmount(i, suppliers);
       supplierMap[name].count += 1;
     });
     return {
       branch,
-      total: list.reduce((s, i) => s + (i.total_value || 0), 0),
+      total: list.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0),
       count: list.length,
       color: BRANCH_COLORS[branch],
       suppliers: Object.values(supplierMap).sort((a, b) => b.total - a.total),
     };
-  }), [invoices]);
+  }), [invoices, suppliers]);
 
   return (
     <div className="space-y-3">
