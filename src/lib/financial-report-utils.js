@@ -1,4 +1,6 @@
-export const BRANCHES = ["دواء شكري", "دواء الشامي"];
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+
+export const BRANCHES = ["دواء شكري", "دواء الشامي"]; 
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -51,7 +53,7 @@ export function fmtNumber(n) {
   return (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 }
 
-export function buildChartData(handovers, invoices, dateFrom, dateTo) {
+export function buildChartData(handovers, invoices, dateFrom, dateTo, suppliers = []) {
   if (!dateFrom || !dateTo) return [];
   const diffDays = (new Date(dateTo) - new Date(dateFrom)) / (1000 * 60 * 60 * 24);
   const isDaily = diffDays <= 45;
@@ -75,19 +77,19 @@ export function buildChartData(handovers, invoices, dateFrom, dateTo) {
   invoices.forEach(i => {
     if (!i.invoice_date) return;
     const key = isDaily ? i.invoice_date.slice(0,10) : i.invoice_date.slice(0,7);
-    ensure(key).purchases += i.total_value || 0;
+    ensure(key).purchases += getInvoiceNetAmount(i, suppliers);
   });
 
   return Object.entries(map).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 }
 
-export function buildBranchComparison(handovers, invoices) {
+export function buildBranchComparison(handovers, invoices, suppliers = []) {
   return BRANCHES.map(branch => {
     const bHandovers = handovers.filter(h => h.branch === branch);
     const bInvoices = invoices.filter(i => i.branch === branch);
     const totalSales = bHandovers.reduce((s,h) => s + (h.total_sales || 0), 0);
     const netSales = bHandovers.reduce((s,h) => s + (h.net_amount || 0), 0);
-    const totalPurchases = bInvoices.reduce((s,i) => s + (i.total_value || 0), 0);
+    const totalPurchases = bInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0);
     const diff = netSales - totalPurchases;
     const ratio = netSales > 0 ? (totalPurchases / netSales) * 100 : 0;
     return { branch, totalSales, netSales, totalPurchases, diff, ratio, invoiceCount: bInvoices.length, handoverCount: bHandovers.length };
@@ -129,7 +131,7 @@ const realExpensesTotal = (expenses) =>
     return PAYMENT_METHOD_KEYWORDS.some(k => label.includes(k)) ? sum : sum + (e.amount || 0);
   }, 0);
 
-export function buildFinancialSummary(handovers, invoices, dateFrom, dateTo, branch) {
+export function buildFinancialSummary(handovers, invoices, dateFrom, dateTo, branch, suppliers = []) {
   const days = dateFrom && dateTo
     ? Math.max(Math.round((new Date(dateTo) - new Date(dateFrom)) / (1000 * 60 * 60 * 24)) + 1, 1)
     : 1;
@@ -138,7 +140,7 @@ export function buildFinancialSummary(handovers, invoices, dateFrom, dateTo, bra
 
   const totalSales = h.reduce((s, x) => s + (x.total_sales || 0), 0);
   const netSales = h.reduce((s, x) => s + (x.net_amount || 0) + paymentMethodTotal(x.expenses), 0);
-  const totalPurchases = inv.reduce((s, x) => s + (x.total_value || 0), 0);
+  const totalPurchases = inv.reduce((s, x) => s + getInvoiceNetAmount(x, suppliers), 0);
   const totalExpenses = h.reduce((s, x) => s + realExpensesTotal(x.expenses), 0);
 
   return {
