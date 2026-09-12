@@ -26,16 +26,67 @@ export default async function(req: Request): Promise<Response> {
 
     const body = await req.json().catch(() => ({}));
     const id = clean(body?.id);
+    const action = clean(body?.action) || 'update';
     if (!id) return Response.json({ error: 'معرف الطلب مطلوب' }, { status: 400 });
 
     const item = await base44.asServiceRole.entities.CustomerOrder.get(id);
     if (!item) return Response.json({ error: 'طلب العميل غير موجود' }, { status: 404 });
 
     const role = String(user.role || '');
+    const actor = clean(user.full_name) || clean(user.email) || 'مستخدم النظام';
+    const isManagement = ['admin', 'manager'].includes(role);
     const ownsLegacyRecord = clean(item.created_by_id) === clean(user.id);
     const ownsVerifiedRecord = clean(item.registered_by_user_id) === clean(user.id);
-    if (!['admin', 'manager'].includes(role) && !ownsLegacyRecord && !ownsVerifiedRecord) {
+
+    // الأرشفة والاستعادة قرارات إدارية ولا تغيّر هوية مسجل الطلب أو مصدره.
+    if (action === 'archive') {
+      if (!isManagement) return Response.json({ error: 'الأرشفة متاحة للإدارة فقط' }, { status: 403 });
+      const reason = clean(body?.archive_reason) || 'أرشفة إدارية';
+      const note = clean(body?.archive_note);
+      const now = new Date().toISOString();
+      const timeline = [...(Array.isArray(item.timeline) ? item.timeline : []), {
+        status: clean(item.status) || 'طلب جديد',
+        by: actor,
+        at: now,
+        note: `أرشفة: ${reason}${note ? ` — ${note}` : ''}`,
+      }];
+      const updated = await base44.asServiceRole.entities.CustomerOrder.update(id, {
+        is_archived: true,
+        archived_at: now,
+        archived_by: actor,
+        archive_reason: reason,
+        archive_note: note,
+        timeline,
+      });
+      return Response.json({ success: true, archived: true, record: updated });
+    }
+
+    if (action === 'restore_archive') {
+      if (!isManagement) return Response.json({ error: 'استعادة الأرشيف متاحة للإدارة فقط' }, { status: 403 });
+      const note = clean(body?.archive_note);
+      const now = new Date().toISOString();
+      const timeline = [...(Array.isArray(item.timeline) ? item.timeline : []), {
+        status: clean(item.status) || 'طلب جديد',
+        by: actor,
+        at: now,
+        note: `استعادة من الأرشيف${note ? ` — ${note}` : ''}`,
+      }];
+      const updated = await base44.asServiceRole.entities.CustomerOrder.update(id, {
+        is_archived: false,
+        archived_at: '',
+        archived_by: '',
+        archive_reason: '',
+        archive_note: '',
+        timeline,
+      });
+      return Response.json({ success: true, restored: true, record: updated });
+    }
+
+    if (!isManagement && !ownsLegacyRecord && !ownsVerifiedRecord) {
       return Response.json({ error: 'ليس لديك صلاحية تعديل هذا الطلب' }, { status: 403 });
+    }
+    if (item.is_archived === true) {
+      return Response.json({ error: 'الطلب مؤرشف. استعده من الأرشيف قبل تعديله' }, { status: 409 });
     }
 
     const requested = body?.updates || {};
@@ -60,7 +111,6 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const timelineNote = clean(body?.timeline_note);
-    const actor = clean(user.full_name) || clean(user.email) || 'مستخدم النظام';
     if (timelineNote || ('status' in updates && clean(updates.status) !== clean(item.status))) {
       const status = clean(updates.status) || clean(item.status);
       updates.timeline = [...(Array.isArray(item.timeline) ? item.timeline : []), {
@@ -71,8 +121,8 @@ export default async function(req: Request): Promise<Response> {
       }];
     }
 
-    // deliberately impossible to alter identity/provenance/branch here:
-    // branch, recorded_by*, identity_*, creation_source, source_pharmacy_order_id, converted_* are not whitelisted.
+    // deliberately impossible to alter identity/provenance/branch/archive metadata here:
+    // branch, recorded_by*, identity_*, creation_source, source_pharmacy_order_id, converted_*, archive_* are not whitelisted.
     const updated = await base44.asServiceRole.entities.CustomerOrder.update(id, updates);
     return Response.json({ success: true, record: updated });
   } catch (error) {
