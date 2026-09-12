@@ -18,6 +18,7 @@ import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 import OrderBranchOverview from "@/components/orders/OrderBranchOverview";
 import { logActivity } from "@/lib/activityLogger";
 import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
+import { getCurrentOrderCycle, isOrderInCycle } from "@/lib/orderCycle";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
@@ -69,6 +70,7 @@ async function loadAllCustomerOrders() {
 export default function CustomerOrders() {
   const { isAdmin, isManager, canAccessBranch } = useUserRole();
   const qc = useQueryClient();
+  const currentCycle = getCurrentOrderCycle();
 
   const [search, setSearch] = useState("");
   const [filterBranch, setFilterBranch] = useState("all");
@@ -196,10 +198,13 @@ export default function CustomerOrders() {
   // Branch access is backward-compatible: users without an explicit branch_access
   // keep their current visibility; once configured, only allowed branches are shown.
   const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
-  const operationalAccessibleOrders = accessibleOrders.filter((o) => o.is_archived !== true);
-  const branchOrders = filterBranch === "all" ? accessibleOrders : accessibleOrders.filter((o) => o.branch === filterBranch);
-  const operationalBranchOrders = filterBranch === "all" ? operationalAccessibleOrders : operationalAccessibleOrders.filter((o) => o.branch === filterBranch);
-  const filteredOrders = accessibleOrders.filter((o) => {
+  const currentCycleOrders = accessibleOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
+  const archivedOrders = accessibleOrders.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
+  const activeSourceOrders = activeQueue === "archived" ? archivedOrders : currentCycleOrders;
+  const branchOrders = filterBranch === "all" ? activeSourceOrders : activeSourceOrders.filter((o) => o.branch === filterBranch);
+  const operationalAccessibleOrders = currentCycleOrders;
+  const operationalBranchOrders = filterBranch === "all" ? currentCycleOrders : currentCycleOrders.filter((o) => o.branch === filterBranch);
+  const filteredOrders = activeSourceOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (filterEmployee && o.assigned_employee !== filterEmployee) return false;
@@ -245,7 +250,7 @@ export default function CustomerOrders() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg md:text-xl font-bold text-gray-800">طلبات العملاء</h1>
-              {orders.length > 0 && (
+              {currentCycleOrders.length > 0 && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <button className="w-5 h-5 rounded-full bg-teal-100 hover:bg-teal-200 flex items-center justify-center transition-colors shrink-0" title="نسب الحالات">
@@ -256,9 +261,9 @@ export default function CustomerOrders() {
                     <p className="text-xs font-semibold text-gray-600 mb-2">نسب الحالات</p>
                     <div className="flex flex-col gap-1">
                       {STATUS_LIST.map((status) => {
-                        const count = orders.filter((o) => o.status === status).length;
+                        const count = currentCycleOrders.filter((o) => o.status === status).length;
                         if (count === 0) return null;
-                        const pct = ((count / orders.length) * 100).toFixed(1);
+                        const pct = ((count / currentCycleOrders.length) * 100).toFixed(1);
                         return (
                           <div key={status} className="flex items-center justify-between text-xs">
                             <span className="text-gray-600">{status}</span>
@@ -271,11 +276,11 @@ export default function CustomerOrders() {
                 </Popover>
               )}
             </div>
-            <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
+            <p className="text-xs text-gray-500">{currentCycleOrders.length} طلب في الدورة الحالية <span className="text-gray-400">({currentCycle.label})</span></p>
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <OrderAlerts orders={orders.filter((o) => o.is_archived !== true)} />
+          <OrderAlerts orders={currentCycleOrders} />
           {isManager && (
             <Button variant="outline" onClick={() => { setSyncResult(null); syncMutation.mutate(); }} disabled={syncMutation.isPending} className="gap-2 border-sky-200 text-sky-700 hover:bg-sky-50 flex-1 sm:flex-none" title="إرسال لقطة كاملة ومحدثة إلى تطبيق الإدارة">
               <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
@@ -366,7 +371,7 @@ export default function CustomerOrders() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {accessibleOrders.length} طلب</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {activeSourceOrders.length} طلب {activeQueue === "archived" ? "في الأرشيف" : "في الدورة الحالية"}</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
           {showEfficiency && <BranchEfficiencyCard orders={filteredOrders.filter((o) => o.is_archived !== true)} />}
