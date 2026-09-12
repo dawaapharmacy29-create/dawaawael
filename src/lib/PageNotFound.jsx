@@ -49,7 +49,7 @@ export default function PageNotFound({}) {
                                 <div className="text-left space-y-1">
                                     <p className="text-sm font-medium text-slate-700">ملاحظة للمدير</p>
                                     <p className="text-sm text-slate-600 leading-relaxed">
-                                        This could mean that the AI hasn't implemented this page yet. Ask it to implement it in the chat.
+                                        قد يعني ذلك أن هذه الصفحة لم يتم تنفيذها بعد. يمكنك طلب تنفيذها من خلال المحادثة.
                                     </p>
                                 </div>
                             </div>
