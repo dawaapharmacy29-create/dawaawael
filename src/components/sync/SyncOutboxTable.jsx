@@ -11,6 +11,28 @@ const STATUS_STYLES = {
   failed: "bg-red-100 text-red-700 border-red-300",
 };
 
+const STATUS_LABELS = {
+  synced: "تمت المزامنة",
+  pending: "بانتظار الإرسال",
+  pending_retry: "بانتظار إعادة المحاولة",
+  failed: "فشل",
+};
+
+const ENTITY_LABELS = {
+  Supplier: "الموردون",
+  ShiftDelivery: "تسليمات الشيفت",
+  PharmacyOrder: "طلبات الصيدليات",
+  CustomerOrder: "طلبات العملاء",
+  SupplierPayment: "دفعات الموردين",
+  PurchaseInvoice: "فواتير الشراء",
+  Expense: "المصروفات",
+  Return: "المرتجعات",
+  TeamMember: "فريق العمل",
+  EmployeeLoan: "السلف",
+  EmployeeLeave: "الإجازات",
+  EmployeePermission: "الأذونات",
+};
+
 const EVENT_LABELS = {
   create: "إنشاء",
   update: "تعديل",
@@ -64,9 +86,9 @@ export default function SyncOutboxTable({ records, onRetry, retryingId }) {
             ) : (
               filtered.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 font-medium text-gray-800">{r.entity_name}</td>
+                  <td className="px-3 py-2 font-medium text-gray-800">{ENTITY_LABELS[r.entity_name] || "سجل نظام"}</td>
                   <td className="px-3 py-2">
-                    <span className="text-gray-600">{EVENT_LABELS[r.event_type] || r.event_type}</span>
+                    <span className="text-gray-600">{EVENT_LABELS[r.event_type] || "عملية نظام"}</span>
                   </td>
                   <td className="px-3 py-2 text-gray-500 font-mono text-xs max-w-[120px] truncate" title={r.record_id}>
                     {r.record_id}
@@ -74,7 +96,7 @@ export default function SyncOutboxTable({ records, onRetry, retryingId }) {
                   <td className="px-3 py-2 text-center text-gray-600">{r.attempts || 0}</td>
                   <td className="px-3 py-2 text-center">
                     <Badge variant="outline" className={STATUS_STYLES[r.status] || "border-gray-300"}>
-                      {r.status}
+                      {STATUS_LABELS[r.status] || "حالة غير محددة"}
                     </Badge>
                   </td>
                   <td className="px-3 py-2 text-red-600 text-xs max-w-[200px] truncate" title={r.last_error}>
