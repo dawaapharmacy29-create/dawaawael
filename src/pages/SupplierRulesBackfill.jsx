@@ -121,7 +121,7 @@ export default function SupplierRulesBackfill() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="إجمالي المراجعة" value={preview.total_invoices_reviewed} color="text-gray-700" bg="bg-gray-50" />
             <StatCard label="فواتير ستتغير" value={preview.total_will_change} color="text-blue-600" bg="bg-blue-50" />
-            <StatCard label="القيمة المتأثرة" value={preview.total_value_affected.toLocaleString('en-US', { maximumFractionDigits: 0 })} color="text-teal-600" bg="bg-teal-50" suffix=" ج" />
+            <StatCard label="القيمة المتأثرة" value={preview.total_value_affected.toLocaleString('ar-EG', { maximumFractionDigits: 0 })} color="text-teal-600" bg="bg-teal-50" suffix=" ج" />
             <StatCard label="استثناءات يدوية محفوظة" value={preview.manual_preserved_count} color="text-green-600" bg="bg-green-50" icon={<CheckCircle className="w-4 h-4" />} />
           </div>
 
@@ -240,7 +240,7 @@ export default function SupplierRulesBackfill() {
                 <div><span className="text-gray-500">تم تحديث:</span> <strong>{result.updated_count}</strong></div>
                 <div><span className="text-gray-500">فشل:</span> <strong>{result.failed_count}</strong></div>
                 <div><span className="text-gray-500">تحويلات داخلية جديدة:</span> <strong>{result.new_internal_transfers}</strong></div>
-                <div><span className="text-gray-500">Batch:</span> <strong className="text-xs">{result.batch_id?.slice(0, 20)}...</strong></div>
+                <div><span className="text-gray-500">معرّف الدفعة:</span> <strong className="text-xs">{result.batch_id?.slice(0, 20)}...</strong></div>
               </div>
             </Card>
           )}
