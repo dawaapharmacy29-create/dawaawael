@@ -9,6 +9,7 @@ import {
   MapPin, Calendar, CheckCircle2, Package, Truck, Search, ShoppingCart, ZoomIn, ArrowLeftRight
 } from "lucide-react";
 import OrderFormDialog from "./OrderFormDialog";
+import ArchiveDialog from "@/components/common/ArchiveDialog";
 
 const STATUS_STYLE = {
   "طلب جديد":              "bg-blue-100 text-blue-700 border-blue-200",
@@ -44,6 +45,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [lightbox, setLightbox] = useState(null);
+  const [showTransferArchive, setShowTransferArchive] = useState(false);
 
   // Stage 2: جاري البحث
   const [supplierSearch, setSupplierSearch] = useState(order.supplier_found || "");
@@ -115,14 +117,22 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
   const handleRestore = (newStatus) =>
     updateOrder({ cancellation_reason: "" }, newStatus, `استعادة إلى: ${newStatus}`);
 
-  const handleMoveToPharmacy = async () => {
+  const handleMoveToPharmacy = async ({ reason, note } = {}) => {
     setSaving(true);
-    const { id, created_date, updated_date, created_by_id, ...data } = order;
-    await base44.entities.PharmacyOrder.create({ ...data, timeline: [...(order.timeline || []), { status: order.status, by: "النظام", at: new Date().toISOString(), note: "تم النقل من طلبات العملاء" }] });
-    await base44.entities.CustomerOrder.delete(order.id);
-    setSaving(false);
-    onUpdated?.(null);
-    onOpenChange(false);
+    try {
+      const transferNote = [reason && reason !== "تم النقل إلى طلبات الصيدليات" ? reason : "", note || ""].filter(Boolean).join(" — ");
+      const res = await base44.functions.invoke("transferCustomerOrderToPharmacy", {
+        id: order.id,
+        note: transferNote,
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر نقل الطلب");
+      setShowTransferArchive(false);
+      onUpdated?.(null);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cfg = STATUS_STYLE[order.status] || "";
@@ -144,7 +154,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                   </Button>
                 )}
                 {isManager && (
-                  <Button size="sm" variant="outline" onClick={handleMoveToPharmacy} disabled={saving}
+                  <Button size="sm" variant="outline" onClick={() => setShowTransferArchive(true)} disabled={saving}
                     className="gap-1 h-7 text-xs border-violet-300 text-violet-700 hover:bg-violet-50">
                     {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowLeftRight className="w-3 h-3" />}
                     نقل لصيدليات
@@ -485,6 +495,16 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
           </div>
         </DialogContent>
       </Dialog>
+
+      <ArchiveDialog
+        open={showTransferArchive}
+        onOpenChange={setShowTransferArchive}
+        title="نقل الطلب إلى طلبات الصيدليات"
+        description="سيتم إنشاء طلب صيدلية مرتبط بهذا الطلب، ثم أرشفة طلب العميل الأصلي بدون حذف أي بيانات."
+        defaultReason="تم النقل إلى طلبات الصيدليات"
+        isLoading={saving}
+        onConfirm={handleMoveToPharmacy}
+      />
 
       {showEdit && (
         <OrderFormDialog
