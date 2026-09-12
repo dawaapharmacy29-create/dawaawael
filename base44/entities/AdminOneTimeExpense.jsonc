@@ -65,7 +65,7 @@
     },
     "delete": {
       "user_condition": {
-        "role": "admin"
+        "role": "__server_safe_delete_only__"
       }
     }
   }
