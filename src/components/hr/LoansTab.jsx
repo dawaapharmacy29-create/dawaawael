@@ -40,15 +40,27 @@ export default function LoansTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-loans"] }),
   });
   const deleteMut = useMutation({
-    mutationFn: (id) => base44.entities.EmployeeLoan.delete(id),
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archiveHRRecordSafe", {
+        id,
+        entity_type: "EmployeeLoan",
+        action: "archive",
+        archive_reason: "أرشفة سلفة موظف",
+        archive_note: "تمت الأرشفة من سجل السلف بدل الحذف النهائي",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة السلفة");
+      return result.record;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-loans"] }),
   });
 
-  const activeLoans = loans.filter((l) => l.status === "نشطة");
+  const operationalLoans = loans.filter((l) => l.is_archived !== true);
+  const activeLoans = operationalLoans.filter((l) => l.status === "نشطة");
   const totalAmount = activeLoans.reduce((s, l) => s + (l.amount || 0), 0);
   const totalRemaining = activeLoans.reduce((s, l) => s + ((l.amount || 0) - (l.paid_amount || 0)), 0);
 
-  const filtered = loans.filter((l) => !search || l.employee_name?.includes(search));
+  const filtered = operationalLoans.filter((l) => !search || l.employee_name?.includes(search));
 
   const handleSubmit = (data) => {
     if (editing) updateMut.mutate({ id: editing.id, data });
