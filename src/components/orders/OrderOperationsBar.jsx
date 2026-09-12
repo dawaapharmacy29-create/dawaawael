@@ -10,7 +10,10 @@ function ageHours(order) {
 }
 
 export function matchesOrderQueue(order, queue) {
+  const archived = order?.is_archived === true;
   if (queue === "all") return true;
+  if (queue === "archived") return archived || (!archived && ["تم الإلغاء", "الصنف غير متوفر حاليا"].includes(order.status));
+  if (archived) return false;
   if (queue === "active") return ACTIVE.includes(order.status);
   if (queue === "urgent") return order.priority === "عاجل" && !CLOSED.includes(order.status);
   if (queue === "overdue") {
@@ -20,7 +23,6 @@ export function matchesOrderQueue(order, queue) {
   if (queue === "unassigned") return ACTIVE.includes(order.status) && !order.assigned_employee;
   if (queue === "available") return ["تم توفير الصنف", "تم توفير بديل"].includes(order.status) && !order.customer_contacted;
   if (queue === "done") return order.status === "تم التوصيل";
-  if (queue === "archived") return ["تم الإلغاء", "الصنف غير متوفر حاليا"].includes(order.status);
   return true;
 }
 
