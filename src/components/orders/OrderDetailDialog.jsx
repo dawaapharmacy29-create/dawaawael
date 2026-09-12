@@ -66,6 +66,8 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
 
   const isCancelled = order.status === "تم الإلغاء";
   const isDelivered  = order.status === "تم التوصيل";
+  const isArchived = order.is_archived === true;
+  const canOperate = isManager && !isArchived && !isCancelled && !isDelivered;
   const progressIdx  = getProgressIndex(order.status);
 
   const updateOrder = async (updates, newStatus, timelineNote) => {
@@ -116,6 +118,22 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
 
   const handleRestore = (newStatus) =>
     updateOrder({ cancellation_reason: "" }, newStatus, `استعادة إلى: ${newStatus}`);
+
+  const handleRestoreArchive = async () => {
+    setSaving(true);
+    try {
+      const res = await base44.functions.invoke("updateCustomerOrderSafe", {
+        id: order.id,
+        action: "restore_archive",
+        archive_note: "استعادة من شاشة تفاصيل الطلب",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر استعادة الطلب من الأرشيف");
+      onUpdated?.(result.record);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleMoveToPharmacy = async ({ reason, note } = {}) => {
     setSaving(true);
