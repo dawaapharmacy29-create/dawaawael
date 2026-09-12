@@ -15,7 +15,7 @@ import FinancialSupplierAnalysisTable from "@/components/financial-reports/Finan
 import FinancialReportExport from "@/components/financial-reports/FinancialReportExport";
 import FinancialAdminExpensesCard from "@/components/financial-reports/FinancialAdminExpensesCard";
 import FinancialSupplierBalanceTrendChart from "@/components/financial-reports/FinancialSupplierBalanceTrendChart";
-import { Calendar, Building2, Truck } from "lucide-react";
+import { Calendar, Building2, Truck, AlertTriangle } from "lucide-react";
 
 // بنود ليست مصروفات حقيقية بل طرق دفع تُضاف لصافي المبيعات
 const PAYMENT_METHOD_KEYWORDS = ["فودافون كاش", "انستا", "فيزا"];
@@ -59,10 +59,21 @@ export default function FinancialReports() {
   });
   const { data: adminExpenseRecords = [] } = useQuery({ queryKey: ["admin-expense-records-fr"], queryFn: () => base44.entities.AdminExpenseRecord.list() });
 
-  const fHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true && inDateRange(h.shift_date, dateFrom, dateTo) && (branch === "all" || h.branch === branch)), [handovers, dateFrom, dateTo, branch]);
+  const activeHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true), [handovers]);
+  const fHandovers = useMemo(() => activeHandovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo) && (branch === "all" || h.branch === branch)), [activeHandovers, dateFrom, dateTo, branch]);
   const fInvoices = useMemo(() => invoices.filter(i => inDateRange(i.invoice_date, dateFrom, dateTo) && (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [invoices, dateFrom, dateTo, branch, supplier]);
   const fPayments = useMemo(() => payments.filter(p => inDateRange(p.payment_date, dateFrom, dateTo) && (supplier === "all" || p.supplier_name === supplier)), [payments, dateFrom, dateTo, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
+
+  const duplicateHandoverGroups = useMemo(() => {
+    const groups = new Map();
+    fHandovers.forEach((record) => {
+      const key = `${record.branch || ""}|${record.shift_date || ""}|${record.shift_type || ""}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    });
+    return Array.from(groups.values()).filter((records) => records.length > 1);
+  }, [fHandovers]);
 
   const kpiData = useMemo(() => ({
     totalSales: fHandovers.reduce((s,h) => s + (h.total_sales || 0), 0),
@@ -82,14 +93,14 @@ export default function FinancialReports() {
 
   // متوسط المبيعات اليومي لكل فرع على حدة (بغض النظر عن فلتر الفرع المختار) عشان مودال "متوسط المبيعات اليومي"
   const branchAvgSales = useMemo(() => {
-    const dateFilteredHandovers = handovers.filter(h => h.is_archived !== true && inDateRange(h.shift_date, dateFrom, dateTo));
+    const dateFilteredHandovers = activeHandovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo));
     return BRANCHES.map(b => {
       const bHandovers = dateFilteredHandovers.filter(h => h.branch === b);
       const bTotalSales = bHandovers.reduce((s, h) => s + (h.total_sales || 0), 0);
       const bDays = distinctDayCount(bHandovers, "shift_date");
       return { branch: b, avgSales: bDays > 0 ? bTotalSales / bDays : 0, days: bDays };
     });
-  }, [handovers, dateFrom, dateTo]);
+  }, [activeHandovers, dateFrom, dateTo]);
 
   const totalExpenses = useMemo(() =>
     fHandovers.reduce((sum, h) => sum + (h.expenses || []).reduce((s, e) => {
@@ -118,7 +129,7 @@ export default function FinancialReports() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">التقارير المالية</h1>
         <FinancialReportExport
-          handovers={handovers.filter(h => h.is_archived !== true)}
+          handovers={activeHandovers}
           invoices={invoices}
           suppliers={suppliers}
           dateFrom={dateFrom}
@@ -126,6 +137,16 @@ export default function FinancialReports() {
           periodLabel={`${PERIOD_OPTIONS.find(o => o.value === periodType)?.label || ""} (${dateFrom} ← ${dateTo})`}
         />
       </div>
+
+      {duplicateHandoverGroups.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-sm">تنبيه مراجعة: يوجد {duplicateHandoverGroups.length} شيفت مكرر داخل الفترة المختارة</p>
+            <p className="text-xs mt-1">إجماليات المبيعات والتارجت قد تكون أعلى من الرقم الصحيح لحين مراجعة السجلات المكررة من صفحة تسليم الشيفت. لم يتم استبعاد أي سجل تلقائيًا حفاظًا على البيانات.</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border p-4 space-y-3">
@@ -173,7 +194,7 @@ export default function FinancialReports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch">
         <div className="lg:col-span-3"><FinancialAverageCards data={avgData} branchAvgSales={branchAvgSales} /></div>
-        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={handovers} targets={branchTargets} /></div>
+        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={activeHandovers} targets={branchTargets} /></div>
       </div>
       <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       <FinancialBranchComparisonTable data={branchComparison} />
