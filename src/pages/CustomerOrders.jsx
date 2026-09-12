@@ -169,29 +169,27 @@ export default function CustomerOrders() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id) => {
+    mutationFn: async ({ id, reason, note }) => {
       const order = orders.find((item) => item.id === id);
       const res = await base44.functions.invoke("updateCustomerOrderSafe", {
         id,
-        updates: {
-          status: "تم الإلغاء",
-          cancellation_reason: order?.cancellation_reason || "أخرى",
-        },
-        timeline_note: "إلغاء وأرشفة من قائمة الطلبات",
+        action: "archive",
+        archive_reason: reason || "أرشفة طلب عميل",
+        archive_note: note || "",
       });
       const result = res?.data || {};
-      if (!result.success) throw new Error(result.error || "تعذر إلغاء الطلب");
-      return order;
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة الطلب");
+      return { order: result.record || order, reason, note };
     },
-    onSuccess: (order, id) => {
+    onSuccess: ({ order, reason, note }, variables) => {
       logActivity({
         action_type: "update",
         entity_type: "customer_order",
-        entity_id: id,
-        entity_label: order ? `طلب عميل: ${order.customer_name} - ${order.product_name}` : id,
-        details: "إلغاء وأرشفة طلب عميل مع مزامنته للإدارة",
+        entity_id: variables.id,
+        entity_label: order ? `طلب عميل: ${order.customer_name} - ${order.product_name}` : variables.id,
+        details: `أرشفة طلب عميل — ${reason || "أرشفة إدارية"}${note ? ` — ${note}` : ""}`,
       });
-      qc.invalidateQueries(["customer-orders"]);
+      qc.invalidateQueries({ queryKey: ["customer-orders"] });
     },
   });
 
@@ -377,7 +375,7 @@ export default function CustomerOrders() {
             orders={filteredOrders}
             isLoading={isLoading}
             onSelect={setSelectedOrder}
-            onDelete={(id) => deleteMutation.mutate(id)}
+            onDelete={(id, archive) => deleteMutation.mutateAsync({ id, reason: archive?.reason, note: archive?.note })}
             isManager={isManager}
             viewMode={viewMode}
             onQuickStatus={(order, status) => quickActionMutation.mutate({ order, status })}
