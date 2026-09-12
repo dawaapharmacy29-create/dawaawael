@@ -13,6 +13,7 @@ import TopSuppliers from "@/components/reports/TopSuppliers";
 import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
 import { useUserRole } from "@/lib/useUserRole";
 import { Lock, Settings2, Save } from "lucide-react";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -61,6 +62,7 @@ export default function Reports() {
     staleTime: 60000,
   });
   const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
 
   const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
@@ -100,7 +102,7 @@ export default function Reports() {
       const k = getMonthKey(i.invoice_date || i.created_date);
       if (!k) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
-      map[k].invoices += i.total_value || 0;
+      map[k].invoices += getInvoiceNetAmount(i, suppliers);
     });
     filteredExpenses.forEach((e) => {
       const k = getMonthKey(e.date);
@@ -109,16 +111,16 @@ export default function Reports() {
       map[k].expenses += e.amount || 0;
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [filteredInvoices, filteredExpenses]);
+  }, [filteredInvoices, filteredExpenses, suppliers]);
 
   // Branch comparison
   const branchData = useMemo(() => {
     return BRANCHES.map((branch) => ({
       branch: branch,
-      مشتريات: filteredInvoices.filter(i => i.branch === branch).reduce((s, i) => s + (i.total_value || 0), 0),
+      مشتريات: filteredInvoices.filter(i => i.branch === branch).reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0),
       مصروفات: filteredExpenses.filter(e => e.branch === branch).reduce((s, e) => s + (e.amount || 0), 0),
     }));
-  }, [filteredInvoices, filteredExpenses]);
+  }, [filteredInvoices, filteredExpenses, suppliers]);
 
   // Monthly per branch
   const branchMonthlyData = useMemo(() => {
@@ -128,12 +130,12 @@ export default function Reports() {
       const bKey = i.branch;
       if (!k || !bKey) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}` }; BRANCHES.forEach(b => { map[k][b] = 0; }); }
-      map[k][bKey] = (map[k][bKey] || 0) + (i.total_value || 0);
+      map[k][bKey] = (map[k][bKey] || 0) + getInvoiceNetAmount(i, suppliers);
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [filteredInvoices]);
+  }, [filteredInvoices, suppliers]);
 
-  const totalInvoices = filteredInvoices.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalInvoices = filteredInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const fmt = (n) => n.toLocaleString("ar-EG");
 
