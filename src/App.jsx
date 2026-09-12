@@ -37,6 +37,7 @@ import EmployeeHR from './pages/EmployeeHR';
 import AdminExpensesShokry from './pages/AdminExpensesShokry';
 import AdminExpensesShami from './pages/AdminExpensesShami';
 import AdminExpensesReports from './pages/AdminExpensesReports';
+import SmartCommerceAnalytics from './pages/SmartCommerceAnalytics';
 import { useEffect } from "react";
 import { setNumbersHidden } from "@/lib/westernDigits";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
@@ -97,6 +98,7 @@ const AuthenticatedApp = () => {
         <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/financial-reports" element={<FinancialReports />} />
+        <Route path="/smart-commerce-analytics" element={<SmartCommerceAnalytics />} />
         <Route path="/financial-archive" element={<FinancialArchive />} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
