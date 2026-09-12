@@ -100,7 +100,10 @@ export default function Suppliers() {
       if (!result.success) throw new Error(result.error || "تعذر استعادة المورد");
       return result.record;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["active-suppliers"] });
+    },
   });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
