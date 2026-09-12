@@ -21,11 +21,17 @@ export default function ShiftDeliveryForm({ onSaved }) {
     queryFn: () => base44.entities.ExpenseItem.list(),
     staleTime: 60000,
   });
+  const { data: employeeNameMap = [] } = useQuery({
+    queryKey: ["employee-name-map"],
+    queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
+    staleTime: 60000,
+  });
   const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false);
 
   const [form, setForm] = useState({
     branch: "",
     shift_type: "",
+    employee_map_id: "",
     pin: "",
     total_sales: "",
     notes: "",
@@ -63,6 +69,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
+    if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
     if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
     if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
 
@@ -77,8 +84,17 @@ export default function ShiftDeliveryForm({ onSaved }) {
     setSaving(true);
     const recordedAt = getRecordedAt();
     try {
-      // التحقق من هوية الموظف عبر الرقم السري من تطبيق الإدارة (دواء بيلز)
-      const verifyRes = await base44.functions.invoke("verifyStaffPin", { pin: form.pin });
+      const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
+      if (!selectedEmployee?.admin_staff_id) {
+        setError("اسم الموظف غير مربوط بحساب الإدارة");
+        return;
+      }
+
+      // التحقق من أن الرقم السري يخص الموظف المختار فعليًا في تطبيق الإدارة
+      const verifyRes = await base44.functions.invoke("verifyStaffPin", {
+        admin_staff_id: selectedEmployee.admin_staff_id,
+        credential: form.pin,
+      });
       const verified = verifyRes?.data || {};
       if (!verified.valid) {
         setError(verified.error || "الرقم السري غير صحيح");
@@ -90,7 +106,11 @@ export default function ShiftDeliveryForm({ onSaved }) {
         shift_date: recordedAt.slice(0, 10),
         recorded_at: recordedAt,
         calculation_date: recordedAt.slice(0, 10),
-        submitted_by: verified.display_name,
+        submitted_by: verified.display_name || selectedEmployee.canonical_name,
+        submitted_by_staff_id: verified.staff_id || selectedEmployee.admin_staff_id,
+        submitted_by_admin_staff_id: selectedEmployee.admin_staff_id,
+        identity_verified_at: verified.verified_at || new Date().toISOString(),
+        identity_verification_source: verified.source || "DawaaManagement",
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
         total_expenses: totalExpenses,
@@ -102,6 +122,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
       setForm({
         branch: "",
         shift_type: "",
+        employee_map_id: "",
         pin: "",
         total_sales: "",
         notes: "",
@@ -158,16 +179,27 @@ export default function ShiftDeliveryForm({ onSaved }) {
               <Input value={getRecordedAt(now)} disabled className="bg-gray-50 text-gray-500" />
             </div>
             <div className="space-y-1.5">
+              <Label className="text-sm text-gray-600">اسم الموظف <span className="text-red-500">*</span></Label>
+              <Select value={form.employee_map_id} onValueChange={(v) => setForm({ ...form, employee_map_id: v, pin: "" })}>
+                <SelectTrigger><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
+                <SelectContent>
+                  {employeeNameMap
+                    .filter((m) => !form.branch || m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim())
+                    .map((m) => <SelectItem key={m.id} value={m.id}>{m.canonical_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الرقم السري الخاص بك <span className="text-red-500">*</span></Label>
               <Input
                 type="password"
-                inputMode="numeric"
                 placeholder="أدخل الرقم السري من تطبيق الإدارة"
                 value={form.pin}
                 onChange={(e) => setForm({ ...form, pin: e.target.value })}
                 className="text-lg tracking-widest"
+                autoComplete="current-password"
               />
-              <p className="text-[11px] text-gray-400">يتم التحقق من هويتك عبر تطبيق الإدارة وتسجيل اسمك الرسمي تلقائيًا</p>
+              <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا</p>
             </div>
           </div>
           <div className="mt-4 space-y-1.5">
