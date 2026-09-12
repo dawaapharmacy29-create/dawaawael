@@ -50,11 +50,11 @@ export default function TeamMembers() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.TeamMember.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); setDialogOpen(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); qc.invalidateQueries({ queryKey: ["active-team-members"] }); setDialogOpen(false); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.TeamMember.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); setDialogOpen(false); setEditingMember(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); qc.invalidateQueries({ queryKey: ["active-team-members"] }); setDialogOpen(false); setEditingMember(null); },
   });
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
@@ -78,6 +78,7 @@ export default function TeamMembers() {
         details: "أرشفة عضو من فريق العمل بدل الحذف النهائي",
       });
       qc.invalidateQueries({ queryKey: ["team-members"] });
+      qc.invalidateQueries({ queryKey: ["active-team-members"] });
     },
   });
   const restoreMutation = useMutation({
@@ -87,7 +88,7 @@ export default function TeamMembers() {
       if (!result.success) throw new Error(result.error || "تعذر استعادة عضو الفريق");
       return result.record;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["team-members"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); qc.invalidateQueries({ queryKey: ["active-team-members"] }); },
   });
 
   const openAdd = () => { setEditingMember(null); setForm(emptyForm); setDialogOpen(true); };
