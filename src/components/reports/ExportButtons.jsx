@@ -131,14 +131,14 @@ export default function ExportButtons({ invoices, expenses, year, branchData, mo
       y += 8;
     });
 
-    doc.save(`financial_report_${year}.pdf`);
+    doc.save(`تقرير_مالي_${year}.pdf`);
   };
 
   return (
     <div className="flex gap-2">
       <Button variant="outline" size="sm" onClick={exportExcel} className="text-green-700 border-green-300 hover:bg-green-50">
         <FileSpreadsheet className="w-4 h-4 ml-1" />
-        تصدير Excel
+        تصدير إكسل
       </Button>
       <Button variant="outline" size="sm" onClick={exportPDF} className="text-red-600 border-red-300 hover:bg-red-50">
         <FileDown className="w-4 h-4 ml-1" />
