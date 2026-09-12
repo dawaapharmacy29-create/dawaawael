@@ -57,13 +57,13 @@ export default function ExportButtons({ invoices, expenses, year, branchData, mo
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text(`Financial Report - ${year}`, 148, 15, { align: "center" });
+    doc.text(`التقرير المالي - ${year}`, 148, 15, { align: "center" });
 
     // Branch summary table
     doc.setFontSize(12);
-    doc.text("Branch Summary", 14, 28);
+    doc.text("ملخص الفروع", 14, 28);
 
-    const branchHeaders = ["Branch", "Purchases (EGP)", "Expenses (EGP)", "Total (EGP)"];
+    const branchHeaders = ["الفرع", "المشتريات (جنيه)", "المصروفات (جنيه)", "الإجمالي (جنيه)"];
     let y = 35;
     const colW = [50, 50, 50, 50];
     const startX = 14;
@@ -98,10 +98,10 @@ export default function ExportButtons({ invoices, expenses, year, branchData, mo
 
     // Monthly summary
     doc.setFontSize(12);
-    doc.text("Monthly Summary", 14, y);
+    doc.text("الملخص الشهري", 14, y);
     y += 8;
 
-    const mHeaders = ["Month", "Purchases", "Expenses"];
+    const mHeaders = ["الشهر", "المشتريات", "المصروفات"];
     const mColW = [40, 40, 40];
     doc.setFillColor(59, 130, 246);
     doc.setTextColor(255, 255, 255);
