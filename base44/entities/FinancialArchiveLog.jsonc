@@ -6,7 +6,9 @@
       "type": "string",
       "enum": [
         "PurchaseInvoice",
-        "Return"
+        "Return",
+        "Expense",
+        "AdminOneTimeExpense"
       ]
     },
     "entity_id": {
