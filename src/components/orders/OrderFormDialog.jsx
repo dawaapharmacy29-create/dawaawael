@@ -6,20 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Upload, X } from "lucide-react";
-import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SOURCES = ["واتساب", "مكالمة هاتفية", "داخل الصيدلية"];
 const PRIORITIES = ["عاجل", "متوسط", "عادي"];
 
-let orderCounter = Date.now();
-function genOrderNumber() {
-  orderCounter++;
-  return `ORD-${new Date().getFullYear()}-${String(orderCounter).slice(-4)}`;
-}
-
 export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], onSaved, editOrder = null }) {
-  const { user } = useUserRole();
   const [form, setForm] = useState(editOrder || {
     customer_name: "",
     phone: "",
@@ -57,7 +49,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     m.canonical_name === form.recorded_by &&
     (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
   );
-  const recorderNeedsVerification = !editOrder || !editOrder.identity_verified_at || editOrder.recorded_by !== form.recorded_by;
+  const recorderNeedsVerification = !editOrder;
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -74,7 +66,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       setSaveError("يجب استكمال اسم العميل والهاتف والفرع والصنف واسم مُسجِّل الطلب");
       return;
     }
-    if (!selectedRecorder?.admin_staff_id) {
+    if (!editOrder && !selectedRecorder?.admin_staff_id) {
       setSaveError("اسم مُسجِّل الطلب غير مربوط بحساب الإدارة");
       return;
     }
@@ -103,48 +95,28 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
         return;
       }
 
-      let identity = {
-        staff_id: editOrder?.recorded_by_staff_id || selectedRecorder.admin_staff_id,
-        admin_staff_id: editOrder?.recorded_by_admin_staff_id || selectedRecorder.admin_staff_id,
-        verified_at: editOrder?.identity_verified_at || "",
-        source: editOrder?.identity_verification_source || "",
-      };
-
-      if (recorderNeedsVerification) {
-        const verifyRes = await base44.functions.invoke("verifyStaffPin", {
-          admin_staff_id: selectedRecorder.admin_staff_id,
-          credential,
-        });
-        const verified = verifyRes?.data || {};
-        if (!verified.valid) {
-          setSaveError(verified.error || "تعذر التحقق من هوية مُسجِّل الطلب");
-          return;
-        }
-        identity = {
-          staff_id: verified.staff_id || selectedRecorder.admin_staff_id,
-          admin_staff_id: selectedRecorder.admin_staff_id,
-          verified_at: verified.verified_at || new Date().toISOString(),
-          source: verified.source || "DawaaManagement",
-        };
-      }
-
-      const now = new Date().toISOString();
-      const data = {
-        ...form,
-        status: editOrder ? form.status : "طلب جديد",
-        order_number: editOrder ? form.order_number : genOrderNumber(),
-        timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: form.recorded_by, at: now, note: "تم إنشاء الطلب" }],
-        recorded_by: form.recorded_by,
-        recorded_by_staff_id: identity.staff_id,
-        recorded_by_admin_staff_id: identity.admin_staff_id,
-        identity_verified_at: identity.verified_at,
-        identity_verification_source: identity.source,
-        creation_source: editOrder?.creation_source || "direct_customer_order",
-        requested_at: editOrder ? (form.requested_at || now) : now,
-        quantity: Math.max(1, Number(form.quantity || 1)),
-        ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
-      };
-      await base44.entities.CustomerOrder.update(editOrder.id, data);
+      const updateRes = await base44.functions.invoke("updateCustomerOrderSafe", {
+        id: editOrder.id,
+        updates: {
+          customer_name: form.customer_name,
+          phone: form.phone,
+          customer_code: form.customer_code,
+          request_source: form.request_source,
+          product_name: form.product_name,
+          product_image: form.product_image,
+          notes: form.notes,
+          priority: form.priority,
+          assigned_employee: form.assigned_employee,
+          request_date: form.request_date,
+          quantity: Math.max(1, Number(form.quantity || 1)),
+          customer_type: form.customer_type,
+          request_type: form.request_type,
+          promised_at: form.promised_at,
+        },
+        timeline_note: "تعديل بيانات الطلب",
+      });
+      const updateResult = updateRes?.data || {};
+      if (!updateResult.success) throw new Error(updateResult.error || "تعذر تعديل الطلب");
       setCredential("");
       onSaved?.();
       onOpenChange(false);
@@ -177,7 +149,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">الفرع</label>
-              <Select value={form.branch} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setCredential(""); setSaveError(""); }}>
+              <Select value={form.branch} disabled={!!editOrder} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setCredential(""); setSaveError(""); }}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
               </Select>
@@ -252,7 +224,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">مُسجِّل الطلب (اسمك الرسمي) <span className="text-red-500">*</span></label>
-            <Select value={form.recorded_by || "none"} onValueChange={(v) => { set("recorded_by", v === "none" ? "" : v); setCredential(""); setSaveError(""); }}>
+            <Select value={form.recorded_by || "none"} disabled={!!editOrder} onValueChange={(v) => { set("recorded_by", v === "none" ? "" : v); setCredential(""); setSaveError(""); }}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none" disabled>— اختر اسمك —</SelectItem>
