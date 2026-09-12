@@ -171,15 +171,16 @@ export default function CustomerOrders() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const order = orders.find((item) => item.id === id);
-      const currentUser = await base44.auth.me();
-      const actor = currentUser?.full_name || currentUser?.email || "مدير النظام";
-      const now = new Date().toISOString();
-      await base44.entities.CustomerOrder.update(id, {
-        status: "تم الإلغاء",
-        cancellation_reason: order?.cancellation_reason || "أخرى",
-        timeline: [...(order?.timeline || []), { status: "تم الإلغاء", by: actor, at: now, note: "إلغاء وأرشفة من قائمة الطلبات" }],
+      const res = await base44.functions.invoke("updateCustomerOrderSafe", {
+        id,
+        updates: {
+          status: "تم الإلغاء",
+          cancellation_reason: order?.cancellation_reason || "أخرى",
+        },
+        timeline_note: "إلغاء وأرشفة من قائمة الطلبات",
       });
-      await syncCustomerOrderToManagement(id);
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر إلغاء الطلب");
       return order;
     },
     onSuccess: (order, id) => {
