@@ -68,19 +68,20 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
 
   const updateOrder = async (updates, newStatus, timelineNote) => {
     setSaving(true);
-    const user = await base44.auth.me();
-    const userName = user?.full_name || user?.email || "مجهول";
-    const timeline = [...(order.timeline || []), {
-      status: newStatus || order.status,
-      by: userName,
-      at: new Date().toISOString(),
-      note: timelineNote || "",
-    }];
-    const updated = { ...updates, timeline };
-    if (newStatus) updated.status = newStatus;
-    await base44.entities.CustomerOrder.update(order.id, updated);
-    setSaving(false);
-    onUpdated?.({ ...order, ...updated });
+    try {
+      const safeUpdates = { ...updates };
+      if (newStatus) safeUpdates.status = newStatus;
+      const res = await base44.functions.invoke("updateCustomerOrderSafe", {
+        id: order.id,
+        updates: safeUpdates,
+        timeline_note: timelineNote || "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر تحديث الطلب");
+      onUpdated?.(result.record || { ...order, ...safeUpdates });
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Actions ──
