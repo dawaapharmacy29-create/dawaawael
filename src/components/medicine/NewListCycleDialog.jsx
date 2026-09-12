@@ -39,7 +39,8 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
     staleTime: 30000,
   });
 
-  const salesRecords = sales.filter((r) => !r.record_type || r.record_type === "sales");
+  const operationalSales = sales.filter((r) => r.is_archived !== true);
+  const salesRecords = operationalSales.filter((r) => !r.record_type || r.record_type === "sales");
   const activeItems  = items.filter((i) => i.is_active !== false);
 
   // ── ملخص التقرير ──
@@ -67,10 +68,15 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
   }, [salesRecords, activeItems]);
 
   // ── Mutations ──
-  const deleteAllMutation = useMutation({
+  const archiveAllMutation = useMutation({
     mutationFn: async () => {
-      for (const s of sales) {
-        await base44.entities.MedicineSale.delete(s.id);
+      const archivedAt = new Date().toISOString();
+      for (const s of operationalSales) {
+        await base44.entities.MedicineSale.update(s.id, {
+          is_archived: true,
+          archived_at: archivedAt,
+          archive_reason: "إغلاق اللستة الحالية وبدء لستة جديدة",
+        });
       }
     },
   });
@@ -87,7 +93,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
   });
 
   const handleStart = async () => {
-    await deleteAllMutation.mutateAsync();
+    await archiveAllMutation.mutateAsync();
     await saveRangeMutation.mutateAsync({ from: newFrom, to: newTo });
     qc.invalidateQueries({ queryKey: ["medicine-sales"] });
     qc.invalidateQueries({ queryKey: ["medicine-all-records"] });
@@ -96,7 +102,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
     setStep("done");
   };
 
-  const isPending = deleteAllMutation.isPending || saveRangeMutation.isPending;
+  const isPending = archiveAllMutation.isPending || saveRangeMutation.isPending;
 
   const handleClose = () => {
     setStep("report");
@@ -217,7 +223,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
             <div className="space-y-5">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
                 <p className="font-semibold mb-1">⚠️ تحذير</p>
-                <p>سيتم حذف جميع سجلات المبيعات الحالية ({report.recordsCount} سجل). هذا الإجراء لا يمكن التراجع عنه.</p>
+                <p>سيتم أرشفة سجلات اللستة الحالية ({operationalSales.length} سجل) وفتح فترة جديدة. لن يتم حذف التاريخ القديم.</p>
               </div>
 
               <div className="space-y-3">
@@ -242,7 +248,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
                 disabled={!newFrom || !newTo || isPending}
                 onClick={handleStart}
               >
-                {isPending ? "جاري التصفير..." : "تأكيد وبدء لستة جديدة"}
+                {isPending ? "جاري إغلاق اللستة الحالية..." : "تأكيد وبدء لستة جديدة"}
               </Button>
               <Button variant="outline" onClick={() => setStep("report")} disabled={isPending}>رجوع</Button>
             </DialogFooter>
@@ -259,7 +265,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700 space-y-1">
-                <p>✅ تم حذف جميع سجلات المبيعات السابقة</p>
+                <p>✅ تم أرشفة سجلات اللستة السابقة بدون حذفها</p>
                 <p>✅ تم ضبط فترة اللستة الجديدة</p>
                 <p className="font-semibold mt-2">
                   الفترة الجديدة: {formatDateAr(newFrom)} — {formatDateAr(newTo)}
