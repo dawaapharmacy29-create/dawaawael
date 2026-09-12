@@ -22,8 +22,15 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
 
   // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
   const moveToPrevDay = useMutation({
-    mutationFn: (it) =>
-      base44.entities.ShiftDelivery.update(it.id, { shift_date: getPreviousDateStr(it.shift_date) }),
+    mutationFn: async (it) => {
+      const res = await base44.functions.invoke("updateShiftDeliveryAdmin", {
+        id: it.id,
+        action: "previous_calculation_day",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر ترحيل تاريخ الاحتساب");
+      return result;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       onClose();
