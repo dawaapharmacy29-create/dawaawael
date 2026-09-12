@@ -368,7 +368,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الفرع *</Label>
-              <Select value={form.branch} onValueChange={(v) => { set("branch", v); setDupError(""); }} required>
+              <Select value={form.branch} onValueChange={(v) => { setForm((prev) => ({ ...prev, branch: v, entered_by: "" })); setDupError(""); }} required>
                 <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
