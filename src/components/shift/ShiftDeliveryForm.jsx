@@ -90,34 +90,23 @@ export default function ShiftDeliveryForm({ onSaved }) {
         return;
       }
 
-      // التحقق من أن الرقم السري يخص الموظف المختار فعليًا في تطبيق الإدارة
-      const verifyRes = await base44.functions.invoke("verifyStaffPin", {
+      // الإنشاء نفسه يتم على السيرفر بعد التحقق؛ لا يوجد مسار إنشاء مباشر من الواجهة.
+      const saveRes = await base44.functions.invoke("createVerifiedShiftDelivery", {
         admin_staff_id: selectedEmployee.admin_staff_id,
         credential: form.pin,
+        delivery: {
+          branch: form.branch,
+          shift_type: form.shift_type,
+          total_sales: parseFloat(form.total_sales) || 0,
+          expenses: validExpenses,
+          notes: form.notes,
+        },
       });
-      const verified = verifyRes?.data || {};
-      if (!verified.valid) {
-        setError(verified.error || "الرقم السري غير صحيح");
+      const saved = saveRes?.data || {};
+      if (!saved.success) {
+        setError(saved.error || "تعذر التحقق من الهوية أو حفظ التسليم");
         return;
       }
-      await base44.entities.ShiftDelivery.create({
-        branch: form.branch,
-        shift_type: form.shift_type,
-        shift_date: recordedAt.slice(0, 10),
-        recorded_at: recordedAt,
-        calculation_date: recordedAt.slice(0, 10),
-        submitted_by: verified.display_name || selectedEmployee.canonical_name,
-        submitted_by_staff_id: verified.staff_id || selectedEmployee.admin_staff_id,
-        submitted_by_admin_staff_id: selectedEmployee.admin_staff_id,
-        identity_verified_at: verified.verified_at || new Date().toISOString(),
-        identity_verification_source: verified.source || "DawaaManagement",
-        total_sales: parseFloat(form.total_sales) || 0,
-        expenses: validExpenses,
-        total_expenses: totalExpenses,
-        net_amount: netAmount,
-        status: "مؤكد",
-        notes: form.notes,
-      });
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       setForm({
         branch: "",
