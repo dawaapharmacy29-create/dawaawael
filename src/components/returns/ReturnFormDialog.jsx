@@ -43,7 +43,7 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
-    queryFn: () => base44.entities.Supplier.list(),
+    queryFn: async () => (await base44.entities.Supplier.list()).filter((s) => s.is_active !== false),
     staleTime: 60000,
   });
 
