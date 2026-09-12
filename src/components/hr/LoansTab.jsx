@@ -61,7 +61,7 @@ export default function LoansTab() {
   });
 
   const operationalLoans = loans.filter((l) => l.is_archived !== true);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const futureLoans = operationalLoans.filter((l) => l.status === "نشطة" && l.date && l.date > todayStr);
   const activeLoans = operationalLoans.filter((l) => l.status === "نشطة" && (!l.date || l.date <= todayStr));
   const totalAmount = activeLoans.reduce((s, l) => s + (l.amount || 0), 0);
@@ -131,11 +131,17 @@ export default function LoansTab() {
                 <TableBody>
                   {filtered.map((l) => {
                     const remaining = (l.amount || 0) - (l.paid_amount || 0);
+                    const isFuture = l.status === "نشطة" && l.date && l.date > todayStr;
                     return (
-                      <TableRow key={l.id} className="hover:bg-gray-50">
+                      <TableRow key={l.id} className={isFuture ? "bg-violet-50/60 hover:bg-violet-50" : "hover:bg-gray-50"}>
                         <TableCell className="font-semibold">{l.employee_name}</TableCell>
                         <TableCell className="font-bold">{(l.amount || 0).toLocaleString("ar-EG")}</TableCell>
-                        <TableCell className="text-gray-600 text-sm">{l.date}</TableCell>
+                        <TableCell className="text-gray-600 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <span>{l.date}</span>
+                            {isFuture && <Badge className="bg-violet-100 text-violet-700 border-0">مستقبلية</Badge>}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-gray-600">{l.installments_count || 1}</TableCell>
                         <TableCell className="text-gray-600">{(l.monthly_deduction || 0).toLocaleString("ar-EG")}</TableCell>
                         <TableCell className="text-green-600">{(l.paid_amount || 0).toLocaleString("ar-EG")}</TableCell>
@@ -157,8 +163,9 @@ export default function LoansTab() {
             <div className="md:hidden divide-y divide-gray-100">
               {filtered.map((l) => {
                 const remaining = (l.amount || 0) - (l.paid_amount || 0);
+                const isFuture = l.status === "نشطة" && l.date && l.date > todayStr;
                 return (
-                  <div key={l.id} className="p-3">
+                  <div key={l.id} className={isFuture ? "p-3 bg-violet-50/60" : "p-3"}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold">{l.employee_name}</span>
                       <Badge className={statusColor[l.status] || "bg-gray-100"}>{l.status}</Badge>
