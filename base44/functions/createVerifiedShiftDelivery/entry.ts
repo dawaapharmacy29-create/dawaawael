@@ -85,6 +85,22 @@ export default async function(req: Request): Promise<Response> {
       : [];
     const totalExpenses = expenses.reduce((sum: number, e: any) => sum + e.amount, 0);
 
+    // منع تكرار نفس تسليم الشيفت. السجل المؤرشف لا يمنع إعادة التسجيل،
+    // أما أي سجل تشغيلي موجود لنفس الفرع + التاريخ + نوع الشيفت فيوقف الإنشاء.
+    const existingShifts = await base44.asServiceRole.entities.ShiftDelivery.filter({
+      branch,
+      shift_type: shiftType,
+      shift_date: shiftDate,
+    });
+    const existingActive = existingShifts.find((item: any) => item?.is_archived !== true);
+    if (existingActive) {
+      return Response.json({
+        error: `تم تسجيل الشيفت ${shiftType} بالفعل لفرع ${branch} بتاريخ ${shiftDate}`,
+        code: 'duplicate_shift_delivery',
+        existing_id: existingActive.id,
+      }, { status: 409 });
+    }
+
     const created = await base44.asServiceRole.entities.ShiftDelivery.create({
       branch,
       shift_type: shiftType,
