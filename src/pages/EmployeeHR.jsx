@@ -1,8 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Clock, CalendarDays, Users } from "lucide-react";
+import { Wallet, Clock, CalendarDays, Users, ArchiveRestore } from "lucide-react";
 import LoansTab from "@/components/hr/LoansTab";
 import PermissionsTab from "@/components/hr/PermissionsTab";
 import LeavesTab from "@/components/hr/LeavesTab";
+import HRArchiveTab from "@/components/hr/HRArchiveTab";
 
 export default function EmployeeHR() {
   return (
@@ -17,7 +18,7 @@ export default function EmployeeHR() {
         </div>
       </div>
       <Tabs defaultValue="loans" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-auto">
+        <TabsList className="w-full grid grid-cols-4 h-auto">
           <TabsTrigger value="loans" className="flex flex-col items-center gap-1 py-2">
             <Wallet className="w-4 h-4" /> <span className="text-xs">السلف</span>
           </TabsTrigger>
@@ -27,10 +28,14 @@ export default function EmployeeHR() {
           <TabsTrigger value="leaves" className="flex flex-col items-center gap-1 py-2">
             <CalendarDays className="w-4 h-4" /> <span className="text-xs">الإجازات السنوية</span>
           </TabsTrigger>
+          <TabsTrigger value="archive" className="flex flex-col items-center gap-1 py-2">
+            <ArchiveRestore className="w-4 h-4" /> <span className="text-xs">الأرشيف</span>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="loans"><LoansTab /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="leaves"><LeavesTab /></TabsContent>
+        <TabsContent value="archive"><HRArchiveTab /></TabsContent>
       </Tabs>
     </div>
   );
