@@ -61,7 +61,7 @@ export default function MedicineBalanceTab() {
     queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
     staleTime: 15000,
   });
-  const allRecords = rawRecords.filter((r) => r.record_type === "balance");
+  const allRecords = rawRecords.filter((r) => r.record_type === "balance" && r.is_archived !== true);
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
@@ -74,8 +74,12 @@ export default function MedicineBalanceTab() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.MedicineSale.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.MedicineSale.update(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: "أرشفة سجل رصيد من الواجهة",
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["medicine-balance-records"] });
       qc.invalidateQueries({ queryKey: ["medicine-sales"] });
@@ -250,10 +254,10 @@ export default function MedicineBalanceTab() {
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
-        title="تأكيد الحذف"
-        description="هل أنت متأكد من حذف هذا السجل؟"
-        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
-        confirmLabel="حذف"
+        title="تأكيد الأرشفة"
+        description="هل تريد أرشفة سجل الرصيد؟ سيختفي من التشغيل الحالي مع الاحتفاظ به في البيانات التاريخية."
+        onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        confirmLabel="أرشفة"
       />
 
       {/* Edit dialog */}
