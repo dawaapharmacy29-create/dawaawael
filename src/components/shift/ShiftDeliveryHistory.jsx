@@ -427,7 +427,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
         }}
       />
 
-      {detailItem && <ShiftDeliveryDetail item={detailItem} onClose={() => setDetailItem(null)} />
+      {detailItem && <ShiftDeliveryDetail item={detailItem} onClose={() => setDetailItem(null)} />}
       {editItem && <ShiftDeliveryEditDialog item={editItem} onClose={() => setEditItem(null)} />}
     </div>
   );
