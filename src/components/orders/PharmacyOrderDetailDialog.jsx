@@ -110,12 +110,30 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
 
   const handleMoveToCustomer = async () => {
     setSaving(true);
-    const { id, created_date, updated_date, created_by_id, ...data } = order;
-    await base44.entities.CustomerOrder.create({ ...data, timeline: [...(order.timeline || []), { status: order.status, by: "النظام", at: new Date().toISOString(), note: "تم النقل من طلبات الصيدليات" }] });
-    await base44.entities.PharmacyOrder.delete(order.id);
-    setSaving(false);
-    onUpdated?.(null);
-    onOpenChange(false);
+    try {
+      const user = await base44.auth.me();
+      const convertedBy = user?.full_name || user?.email || "مستخدم النظام";
+      const now = new Date().toISOString();
+      const { id, created_date, updated_date, created_by_id, ...data } = order;
+      await base44.entities.CustomerOrder.create({
+        ...data,
+        creation_source: "pharmacy_order_transfer",
+        source_pharmacy_order_id: order.id,
+        converted_by: convertedBy,
+        converted_at: now,
+        timeline: [...(order.timeline || []), {
+          status: order.status,
+          by: convertedBy,
+          at: now,
+          note: "تم النقل إداريًا من طلبات الصيدليات",
+        }],
+      });
+      await base44.entities.PharmacyOrder.delete(order.id);
+      onUpdated?.(null);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cfg = STATUS_STYLE[order.status] || "";
