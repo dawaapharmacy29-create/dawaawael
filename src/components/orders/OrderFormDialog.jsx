@@ -144,11 +144,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
         quantity: Math.max(1, Number(form.quantity || 1)),
         ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
       };
-      if (editOrder) {
-        await base44.entities.CustomerOrder.update(editOrder.id, data);
-      } else {
-        await base44.entities.CustomerOrder.create(data);
-      }
+      await base44.entities.CustomerOrder.update(editOrder.id, data);
       setCredential("");
       onSaved?.();
       onOpenChange(false);
