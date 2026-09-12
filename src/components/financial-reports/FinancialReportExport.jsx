@@ -44,7 +44,7 @@ function SummaryPage({ title, subtitle, summary }) {
   );
 }
 
-export default function FinancialReportExport({ handovers, invoices, dateFrom, dateTo, periodLabel }) {
+export default function FinancialReportExport({ handovers, invoices, suppliers = [], dateFrom, dateTo, periodLabel }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("all"); // all | single
   const [selectedBranch, setSelectedBranch] = useState(BRANCHES[0]);
@@ -56,19 +56,19 @@ export default function FinancialReportExport({ handovers, invoices, dateFrom, d
       return [{
         title: `تقرير مالي — ${selectedBranch}`,
         subtitle: periodLabel,
-        summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, selectedBranch),
+        summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, selectedBranch, suppliers),
       }];
     }
     const pages = [{
       title: "تقرير مالي مجمّع — كل الفروع",
       subtitle: periodLabel,
-      summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, "all"),
+      summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, "all", suppliers),
     }];
     BRANCHES.forEach((b) => {
       pages.push({
         title: `تقرير مالي — ${b}`,
         subtitle: periodLabel,
-        summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, b),
+        summary: buildFinancialSummary(handovers, invoices, dateFrom, dateTo, b, suppliers),
       });
     });
     return pages;
