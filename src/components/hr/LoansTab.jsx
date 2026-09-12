@@ -28,7 +28,7 @@ export default function LoansTab() {
   });
   const { data: employees = [] } = useQuery({
     queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list(),
+    queryFn: async () => (await base44.entities.TeamMember.list()).filter((m) => m.is_active !== false),
   });
 
   const createMut = useMutation({
