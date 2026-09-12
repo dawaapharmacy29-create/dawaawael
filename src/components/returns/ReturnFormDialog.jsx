@@ -37,12 +37,12 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
   const cameraInputRef = useRef();
 
   const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members"],
+    queryKey: ["active-team-members"],
     queryFn: async () => (await base44.entities.TeamMember.list()).filter((m) => m.is_active !== false),
     staleTime: 60000,
   });
   const { data: suppliers = [] } = useQuery({
-    queryKey: ["suppliers"],
+    queryKey: ["active-suppliers"],
     queryFn: async () => (await base44.entities.Supplier.list()).filter((s) => s.is_active !== false),
     staleTime: 60000,
   });
