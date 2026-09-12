@@ -112,7 +112,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
   });
   const branchMembers = employeeNameMap.filter((m) => m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
-  const memberOptions = [...new Set((branchMembers.length > 0 ? branchMembers : employeeNameMap).map((m) => m.canonical_name).filter(Boolean))];
+  const memberOptions = [...new Set(branchMembers.map((m) => m.canonical_name).filter(Boolean))];
 
   useEffect(() => {
     if (invoice) {
