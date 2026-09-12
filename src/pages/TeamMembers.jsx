@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ArchiveRestore, RotateCcw } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { logActivity } from "@/lib/activityLogger";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -36,6 +36,7 @@ export default function TeamMembers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members"],
@@ -56,18 +57,37 @@ export default function TeamMembers() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["team-members"] }); setDialogOpen(false); setEditingMember(null); },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.TeamMember.delete(id),
-    onSuccess: (_data, id) => {
-      const member = members.find(m => m.id === id);
+    mutationFn: async (id) => {
+      const member = members.find((m) => m.id === id);
+      const res = await base44.functions.invoke("archiveTeamMemberSafe", {
+        id,
+        action: "archive",
+        archive_reason: "أرشفة عضو فريق العمل",
+        archive_note: member ? `أرشفة ${member.name} مع الاحتفاظ بالسجلات التاريخية` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة عضو الفريق");
+      return result.record;
+    },
+    onSuccess: (member) => {
       logActivity({
-        action_type: "delete",
-        entity_type: "supplier",
-        entity_id: id,
-        entity_label: member ? `عضو فريق: ${member.name}` : id,
-        details: "حذف عضو من فريق العمل",
+        action_type: "update",
+        entity_type: "team_member",
+        entity_id: member?.id,
+        entity_label: member ? `عضو فريق: ${member.name}` : "",
+        details: "أرشفة عضو من فريق العمل بدل الحذف النهائي",
       });
       qc.invalidateQueries({ queryKey: ["team-members"] });
     },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archiveTeamMemberSafe", { id, action: "restore" });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر استعادة عضو الفريق");
+      return result.record;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team-members"] }),
   });
 
   const openAdd = () => { setEditingMember(null); setForm(emptyForm); setDialogOpen(true); };
@@ -90,18 +110,22 @@ export default function TeamMembers() {
     }));
   };
 
+  const activeMembers = members.filter((m) => m.is_active !== false);
+  const archivedMembers = members.filter((m) => m.is_active === false);
+  const visibleMembers = showArchived ? archivedMembers : activeMembers;
+
   // Group by branch (member can appear in multiple) — مع الترتيب الموحد
   const byBranch = useMemo(() => BRANCHES.map((b) => ({
     branch: b,
-    members: sortData(members.filter((m) => (m.branches || []).includes(b))),
-  })), [members, sortData]);
+    members: sortData(visibleMembers.filter((m) => (m.branches || []).includes(b))),
+  })), [visibleMembers, sortData]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">فريق العمل</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{members.length} عضو في جميع الفروع</p>
+          <p className="text-gray-500 text-sm mt-0.5">{activeMembers.length} عضو نشط{archivedMembers.length ? ` — ${archivedMembers.length} مؤرشف` : ""}</p>
         </div>
         <div className="flex items-center gap-2">
           <SortControls
@@ -114,9 +138,16 @@ export default function TeamMembers() {
             cardMode
           />
           {canManageTeam && (
-            <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-              <Plus className="w-4 h-4" /> إضافة عضو
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setShowArchived((v) => !v)} className="gap-2">
+                <ArchiveRestore className="w-4 h-4" /> {showArchived ? "عرض الفريق النشط" : "عرض الأرشيف"}
+              </Button>
+              {!showArchived && (
+                <Button onClick={openAdd} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+                  <Plus className="w-4 h-4" /> إضافة عضو
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -156,12 +187,20 @@ export default function TeamMembers() {
                         </div>
                         {canManageTeam && (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => openEdit(m)}>
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(m.id)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            {showArchived ? (
+                              <Button size="sm" variant="outline" className="h-7 gap-1 text-green-700" onClick={() => restoreMutation.mutate(m.id)} disabled={restoreMutation.isPending}>
+                                <RotateCcw className="w-3.5 h-3.5" /> استعادة
+                              </Button>
+                            ) : (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => openEdit(m)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(m.id)} title="أرشفة العضو">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
