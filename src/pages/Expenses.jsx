@@ -87,10 +87,21 @@ export default function Expenses() {
     },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Expense.delete(id),
-    onSuccess: (_, id) => {
+    mutationFn: async (id) => {
+      const expense = expenses.find((e) => e.id === id);
+      const res = await base44.functions.invoke("deleteExpenseSafe", {
+        id,
+        entity_type: "Expense",
+        reason: "حذف مصروف من شاشة المصروفات",
+        note: expense ? `${expense.description || "مصروف"} — ${expense.amount || 0} ج — ${expense.branch || ""}` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حذف المصروف بأمان");
+      return id;
+    },
+    onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      logActivity({ action_type: "delete", entity_type: "expense", entity_id: id, details: `حذف مصروف` });
+      logActivity({ action_type: "delete", entity_type: "expense", entity_id: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
   });
 
