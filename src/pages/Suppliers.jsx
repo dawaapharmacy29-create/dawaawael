@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban, Search, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Phone, MapPin, Clock, CreditCard, Building2, Ban, Search, X, ArchiveRestore, RotateCcw } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { fuzzyMatch } from "@/lib/fuzzySearch";
@@ -45,6 +45,7 @@ export default function Suppliers() {
   const [filterType, setFilterType] = useState("الكل");
   const [filterSupplierType, setFilterSupplierType] = useState("الكل");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -72,11 +73,31 @@ export default function Suppliers() {
     },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Supplier.delete(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      logActivity({ action_type: "delete", entity_type: "supplier", entity_id: id, details: `حذف مورد` });
+    mutationFn: async (id) => {
+      const supplier = suppliers.find((s) => s.id === id);
+      const res = await base44.functions.invoke("archiveSupplierSafe", {
+        id,
+        action: "archive",
+        archive_reason: "أرشفة مورد",
+        archive_note: supplier ? `أرشفة ${supplier.name} مع الاحتفاظ بتاريخ الفواتير والقواعد` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة المورد");
+      return result.record;
     },
+    onSuccess: (supplier) => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      logActivity({ action_type: "update", entity_type: "supplier", entity_id: supplier?.id, entity_label: supplier?.name || "", details: `أرشفة مورد بدل الحذف النهائي` });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archiveSupplierSafe", { id, action: "restore" });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر استعادة المورد");
+      return result.record;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
   });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
@@ -100,7 +121,11 @@ export default function Suppliers() {
     else createMutation.mutate(form);
   };
 
-  const filtered = suppliers.filter((s) => {
+  const activeSuppliers = suppliers.filter((s) => s.is_active !== false);
+  const archivedSuppliers = suppliers.filter((s) => s.is_active === false);
+  const visibleSuppliers = showArchived ? archivedSuppliers : activeSuppliers;
+
+  const filtered = visibleSuppliers.filter((s) => {
     const payMatch = filterType === "الكل" || s.payment_type === filterType;
     const typeMatch = filterSupplierType === "الكل" || (s.supplier_type || "external_supplier") === filterSupplierType;
     const searchMatch = !searchQuery || fuzzyMatch(searchQuery, s.name);
@@ -118,12 +143,19 @@ export default function Suppliers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">الموردين</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{suppliers.length} مورد مسجل</p>
+          <p className="text-gray-500 text-sm mt-0.5">{activeSuppliers.length} مورد نشط{archivedSuppliers.length ? ` — ${archivedSuppliers.length} مؤرشف` : ""}</p>
         </div>
         {isManager && (
-          <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Plus className="w-4 h-4" /> إضافة مورد
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowArchived((v) => !v)} className="gap-2">
+              <ArchiveRestore className="w-4 h-4" /> {showArchived ? "عرض الموردين النشطين" : "عرض الأرشيف"}
+            </Button>
+            {!showArchived && (
+              <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+                <Plus className="w-4 h-4" /> إضافة مورد
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -206,8 +238,16 @@ export default function Suppliers() {
                 </div>
                 {isManager && (
                        <div className="flex gap-1">
-                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                         <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                         {showArchived ? (
+                           <Button size="sm" variant="outline" className="h-7 gap-1 text-green-700" onClick={() => restoreMutation.mutate(s.id)} disabled={restoreMutation.isPending}>
+                             <RotateCcw className="w-3.5 h-3.5" /> استعادة
+                           </Button>
+                         ) : (
+                           <>
+                             <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => deleteMutation.mutate(s.id)} title="أرشفة المورد"><Trash2 className="w-3.5 h-3.5" /></Button>
+                           </>
+                         )}
                        </div>
                      )}
                    </div>
