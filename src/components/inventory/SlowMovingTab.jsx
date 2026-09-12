@@ -59,6 +59,7 @@ export default function SlowMovingTab() {
   });
 
   const filteredItems = useMemo(() => [...items]
+    .filter(i => i.is_archived !== true)
     .filter(i => i.status === "راكد" || i.status === "منتظر التحويل")
     .filter(i => !search || i.item_name.includes(search))
     .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
@@ -83,8 +84,12 @@ export default function SlowMovingTab() {
     onSuccess: () => { queryClient.invalidateQueries(["slow-moving-items"]); setActionItem(null); setTransferBranch(""); }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.SlowMovingItem.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.SlowMovingItem.update(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: "أرشفة سجل راكد من الواجهة",
+    }),
     onSuccess: () => queryClient.invalidateQueries(["slow-moving-items"])
   });
 
@@ -138,8 +143,13 @@ export default function SlowMovingTab() {
 
   // Bulk actions
   const handleBulkDelete = async () => {
+    const archivedAt = new Date().toISOString();
     for (const id of selectedIds) {
-      await base44.entities.SlowMovingItem.delete(id);
+      await base44.entities.SlowMovingItem.update(id, {
+        is_archived: true,
+        archived_at: archivedAt,
+        archive_reason: "أرشفة جماعية لسجلات الرواكد",
+      });
     }
     queryClient.invalidateQueries(["slow-moving-items"]);
     setSelectedIds([]);
@@ -366,7 +376,7 @@ export default function SlowMovingTab() {
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
         title="تأكيد الحذف"
         description="هل أنت متأكد من حذف هذا الصنف؟ لا يمكن التراجع عن هذا الإجراء."
-        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
         confirmLabel="حذف"
       />
 
