@@ -139,6 +139,7 @@ export default async function(req: Request): Promise<Response> {
       status: 'طلب جديد',
       order_number: orderNumber,
       recorded_by: recordedBy,
+      registered_by_user_id: clean(user.id),
       recorded_by_staff_id: clean(staff.staff_id) || adminStaffId,
       recorded_by_admin_staff_id: adminStaffId,
       identity_verified_at: clean(verification.result?.verified_at) || now,
