@@ -152,6 +152,31 @@ export default function SmartCommerceAnalytics() {
   const yesterdayKey = useMemo(() => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }, [today]);
   const yesterdaySummary = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, from: yesterdayKey, to: yesterdayKey, branch }), [handovers, invoices, suppliers, yesterdayKey, branch]);
 
+  const dataQuality = useMemo(() => {
+    const periodInvoices = invoices.filter((i) => i.invoice_date >= currentRange.from && i.invoice_date <= currentRange.to && (branch === "all" || i.branch === branch));
+    const uncategorized = periodInvoices.filter((i) => !i.purchase_category || i.purchase_category === "unclassified");
+    const uncategorizedValue = uncategorized.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
+    const missingTargets = (branch === "all" ? ANALYTICS_BRANCHES : [branch]).filter((b) => targetForRange(targets, b, fullRange) <= 0);
+    return {
+      uncategorizedCount: uncategorized.length,
+      uncategorizedValue,
+      missingTargets,
+      historyPeriodCount,
+      reviewRecords: current.reviewRecords,
+      scoreIssues: (current.reviewRecords > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0) + (missingTargets.length > 0 ? 1 : 0) + (historyPeriodCount < 3 ? 1 : 0),
+    };
+  }, [invoices, suppliers, targets, currentRange, branch, fullRange, historyPeriodCount, current.reviewRecords]);
+
+  const rankedDays = useMemo(() => {
+    const withSales = dailyComparison.filter((d) => d.sales > 0);
+    const withPurchases = dailyComparison.filter((d) => d.purchases > 0);
+    return {
+      bestSales: [...withSales].sort((a,b) => b.sales-a.sales)[0] || null,
+      worstSales: [...withSales].sort((a,b) => a.sales-b.sales)[0] || null,
+      highestPurchase: [...withPurchases].sort((a,b) => b.purchases-a.purchases)[0] || null,
+    };
+  }, [dailyComparison]);
+
   const topSuppliers = useMemo(() => {
     const map = {};
     invoices.filter((i) => i.invoice_date >= currentRange.from && i.invoice_date <= currentRange.to && (branch === "all" || i.branch === branch)).forEach((i) => {
@@ -241,7 +266,27 @@ export default function SmartCommerceAnalytics() {
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card className="p-4"><h2 className="font-black text-gray-800 mb-3 flex items-center gap-2"><WalletCards className="w-5 h-5 text-purple-600"/> أعلى الموردين في الفترة</h2>{topSuppliers.length===0?<p className="text-sm text-gray-400">لا توجد مشتريات في الفترة</p>:<div className="space-y-2">{topSuppliers.map((s,i)=><div key={s.name} className="flex items-center gap-3 rounded-lg bg-gray-50 p-2"><div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">{i+1}</div><span className="flex-1 text-sm font-semibold truncate">{s.name}</span><span className="font-bold text-purple-700">{money(s.total)}</span></div>)}</div>}</Card>
-      <Card className="p-4"><h2 className="font-black text-gray-800 mb-3 flex items-center gap-2"><Activity className="w-5 h-5 text-teal-600"/> قراءة إدارية سريعة</h2><div className="space-y-2 text-sm text-gray-700"><p>• متوسط المبيعات اليومي الحالي: <b>{money(current.avgSales)}</b> مقابل <b>{money(previous.avgSales)}</b> في الفترة السابقة.</p><p>• متوسط المشتريات في أيام الشراء: <b>{money(current.avgPurchases)}</b>.</p><p>• التوقع الحالي لنهاية الفترة: مبيعات <b>{money(projectedSales)}</b> ومشتريات <b>{money(projectedPurchases)}</b>.</p><p>• الفرق عن متوسط مبيعات آخر 3 دورات لنفس المدة: <b className={growth(current.sales,avg3Sales)>=0?"text-emerald-600":"text-red-600"}>{fmtPct(growth(current.sales,avg3Sales))}</b>.</p><p>• حالة الشراء الحالية: <b>{ratioStatus.label}</b>.</p></div></Card>
+      <Card className="p-4"><h2 className="font-black text-gray-800 mb-3 flex items-center gap-2"><Activity className="w-5 h-5 text-teal-600"/> قراءة إدارية سريعة</h2><div className="space-y-2 text-sm text-gray-700"><p>• متوسط المبيعات اليومي الحالي: <b>{money(current.avgSales)}</b> مقابل <b>{money(previous.avgSales)}</b> في الفترة السابقة.</p><p>• متوسط المشتريات في أيام الشراء: <b>{money(current.avgPurchases)}</b>.</p><p>• التوقع الحالي لنهاية الفترة: مبيعات <b>{money(projectedSales)}</b> ومشتريات <b>{money(projectedPurchases)}</b>.</p><p>• الفرق عن متوسط الفترات السابقة المتاحة: <b className={growth(current.sales,avg3Sales)>=0?"text-emerald-600":"text-red-600"}>{avg3Sales > 0 ? fmtPct(growth(current.sales,avg3Sales)) : "لا يوجد تاريخ كافٍ"}</b>.</p><p>• حالة الشراء الحالية: <b>{ratioStatus.label}</b>.</p></div></Card>
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card className={`p-4 ${dataQuality.scoreIssues === 0 ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"}`}>
+        <h2 className="font-black text-gray-800 mb-3 flex items-center gap-2"><AlertTriangle className={`w-5 h-5 ${dataQuality.scoreIssues === 0 ? "text-emerald-600" : "text-amber-600"}`}/> جودة بيانات التحليل</h2>
+        <div className="space-y-2 text-sm text-gray-700">
+          <p>• تسليمات تحت المراجعة: <b>{dataQuality.reviewRecords.toLocaleString("ar-EG")}</b>.</p>
+          <p>• فواتير مشتريات غير مصنفة: <b>{dataQuality.uncategorizedCount.toLocaleString("ar-EG")}</b> بقيمة <b>{money(dataQuality.uncategorizedValue)}</b>.</p>
+          <p>• فترات تاريخية متاحة للمقارنة: <b>{dataQuality.historyPeriodCount.toLocaleString("ar-EG")} من 3</b>.</p>
+          <p>• التارجت: <b>{dataQuality.missingTargets.length === 0 ? "محدد لكل الفروع المختارة" : `ناقص لـ ${dataQuality.missingTargets.join("، ")}`}</b>.</p>
+        </div>
+      </Card>
+      <Card className="p-4">
+        <h2 className="font-black text-gray-800 mb-3 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-600"/> أهم أيام الفترة</h2>
+        <div className="space-y-2 text-sm text-gray-700">
+          <p>• أعلى يوم مبيعات: <b>{rankedDays.bestSales ? `${rankedDays.bestSales.curDate} — ${money(rankedDays.bestSales.sales)}` : "لا توجد بيانات"}</b>.</p>
+          <p>• أقل يوم مبيعات مسجل: <b>{rankedDays.worstSales ? `${rankedDays.worstSales.curDate} — ${money(rankedDays.worstSales.sales)}` : "لا توجد بيانات"}</b>.</p>
+          <p>• أعلى يوم مشتريات: <b>{rankedDays.highestPurchase ? `${rankedDays.highestPurchase.curDate} — ${money(rankedDays.highestPurchase.purchases)}` : "لا توجد بيانات"}</b>.</p>
+        </div>
+      </Card>
     </div>
   </div>;
 }
