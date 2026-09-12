@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const TOP_SORT_COLUMNS = [
   { field: "name", label: "المورد", type: "text" },
@@ -10,14 +11,14 @@ const TOP_SORT_COLUMNS = [
   { field: "total", label: "إجمالي المشتريات", type: "number" },
 ];
 
-export default function TopSuppliers({ invoices, dateFrom, dateTo }) {
+export default function TopSuppliers({ invoices, suppliers = [], dateFrom, dateTo }) {
   const data = useMemo(() => {
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo) : null;
     const map = {};
     invoices
       .filter((i) => {
-        const d = new Date(i.created_date);
+        const d = new Date(i.invoice_date || i.created_date);
         if (from && d < from) return false;
         if (to && d > to) return false;
         return true;
@@ -25,11 +26,11 @@ export default function TopSuppliers({ invoices, dateFrom, dateTo }) {
       .forEach((inv) => {
         const name = inv.supplier_name || "غير محدد";
         if (!map[name]) map[name] = { name, total: 0, count: 0 };
-        map[name].total += inv.total_value || 0;
+        map[name].total += getInvoiceNetAmount(inv, suppliers);
         map[name].count++;
       });
     return Object.values(map);
-  }, [invoices, dateFrom, dateTo]);
+  }, [invoices, suppliers, dateFrom, dateTo]);
 
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: TOP_SORT_COLUMNS,
