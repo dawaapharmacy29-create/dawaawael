@@ -48,8 +48,9 @@ export default function ShiftDeliveryReport({ deliveries }) {
     }
   };
 
-  const filtered = useMemo(() => {
-    return deliveries
+  const matching = useMemo(() => {
+    return (deliveries || [])
+      .filter((d) => d.is_archived !== true)
       .filter((d) => filterBranch === "الكل" || d.branch === filterBranch)
       .filter((d) => filterShift === "الكل" || d.shift_type === filterShift)
       .filter((d) => {
@@ -57,9 +58,13 @@ export default function ShiftDeliveryReport({ deliveries }) {
         if (fromDate && d.shift_date < fromDate) return false;
         if (toDate && d.shift_date > toDate) return false;
         return true;
-      })
-      .sort((a, b) => (a.shift_date < b.shift_date ? 1 : -1));
+      });
   }, [deliveries, filterBranch, filterShift, fromDate, toDate]);
+
+  const reviewRecords = useMemo(() => matching.filter((d) => d.status === "مراجعة"), [matching]);
+  const filtered = useMemo(() => matching
+    .filter((d) => d.status !== "مراجعة")
+    .sort((a, b) => (a.shift_date < b.shift_date ? 1 : -1)), [matching]);
 
   const totals = useMemo(() => {
     return {
@@ -135,6 +140,12 @@ export default function ShiftDeliveryReport({ deliveries }) {
           </Button>
         </div>
       </div>
+
+      {reviewRecords.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          يوجد {reviewRecords.length.toLocaleString("ar-EG")} تسليم تحت المراجعة في الفترة المحددة، وتم استبعاده من الإجماليات والمتوسطات لحين اعتماد البيانات.
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
