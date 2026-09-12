@@ -204,7 +204,7 @@ export default function ExpiredItemsTab() {
           <span className="text-sm font-medium text-red-700">تم تحديد {selectedIds.length} صنف</span>
           <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-red-600 border-red-300"
             onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="w-3 h-3" /> حذف المحدد
+            <Trash2 className="w-3 h-3" /> أرشفة المحدد
           </Button>
           <Button size="sm" variant="ghost" className="text-xs h-7 text-gray-500 mr-auto"
             onClick={() => setSelectedIds([])}>
@@ -297,20 +297,20 @@ export default function ExpiredItemsTab() {
       <ConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={(o) => { if (!o) setBulkDeleteOpen(false); }}
-        title="تأكيد الحذف الجماعي"
-        description={`هل أنت متأكد من حذف ${selectedIds.length} صنف؟ لا يمكن التراجع.`}
+        title="تأكيد الأرشفة الجماعية"
+        description={`هل تريد أرشفة ${selectedIds.length} صنف؟ ستختفي من التشغيل الحالي مع الاحتفاظ بتاريخها.`}
         onConfirm={handleBulkDelete}
-        confirmLabel="حذف الكل"
+        confirmLabel="أرشفة المحدد"
       />
 
       {/* Single Delete Confirm */}
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
-        title="تأكيد الحذف"
-        description="هل أنت متأكد من حذف هذا الصنف المنتهي؟ لا يمكن التراجع عن هذا الإجراء."
+        title="تأكيد الأرشفة"
+        description="هل تريد أرشفة هذا الصنف المنتهي؟ سيختفي من التشغيل الحالي مع الاحتفاظ بسجله التاريخي."
         onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
-        confirmLabel="حذف"
+        confirmLabel="أرشفة"
       />
 
       {/* Add Dialog */}
