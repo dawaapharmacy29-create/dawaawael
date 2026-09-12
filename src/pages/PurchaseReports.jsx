@@ -90,6 +90,27 @@ export default function PurchaseReports() {
 
   const totalPurchases = filtered.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalInvoices = filtered.length;
+  const purchaseFinance = useMemo(() => {
+    let grossIncluded = 0;
+    let returnedIncluded = 0;
+    const byPayment = { "كاش": 0, "آجل": 0, "انستا": 0, "فودافون": 0, "مختلط": 0 };
+    filtered.forEach((i) => {
+      const net = getInvoiceNetAmount(i, suppliers);
+      if (net <= 0) return;
+      const returned = Math.max(Number(i.returned_value) || 0, 0);
+      grossIncluded += net + returned;
+      returnedIncluded += returned;
+      const method = byPayment[i.payment_type] !== undefined ? i.payment_type : "مختلط";
+      byPayment[method] += net;
+    });
+    return {
+      grossIncluded,
+      returnedIncluded,
+      byPayment,
+      avgInvoice: totalInvoices > 0 ? totalPurchases / totalInvoices : 0,
+      returnRate: grossIncluded > 0 ? (returnedIncluded / grossIncluded) * 100 : 0,
+    };
+  }, [filtered, suppliers, totalInvoices, totalPurchases]);
 
   const branchTotals = useMemo(() => BRANCHES.map((branch) => {
     const list = filtered.filter((i) => i.branch === branch);
@@ -105,9 +126,11 @@ export default function PurchaseReports() {
     const map = {};
     filtered.forEach((i) => {
       const name = i.supplier_name || "غير محدد";
-      if (!map[name]) map[name] = { name, total: 0, count: 0 };
-      map[name].total += getInvoiceNetAmount(i, suppliers);
+      if (!map[name]) map[name] = { name, total: 0, count: 0, returned: 0 };
+      const net = getInvoiceNetAmount(i, suppliers);
+      map[name].total += net;
       map[name].count += 1;
+      if (net > 0) map[name].returned += Math.max(Number(i.returned_value) || 0, 0);
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [filtered, suppliers]);
