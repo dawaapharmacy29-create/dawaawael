@@ -5,7 +5,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, FlaskConical, Download } from "lucide-react";
+import { Plus, Search, FlaskConical, Download, ArchiveRestore } from "lucide-react";
 import * as XLSX from "xlsx";
 import OrderStatCards from "@/components/orders/OrderStatCards";
 import OrderTable from "@/components/orders/OrderTable";
@@ -64,6 +64,7 @@ export default function PharmacyOrders() {
   const [showForm, setShowForm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [activeTab, setActiveTab] = useState("orders");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["pharmacy-orders"],
@@ -75,23 +76,44 @@ export default function PharmacyOrders() {
     queryFn: () => base44.entities.TeamMember.list(),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PharmacyOrder.delete(id),
-    onSuccess: (_data, id) => {
-      const order = orders.find(o => o.id === id);
-      logActivity({
-        action_type: "delete",
-        entity_type: "invoice",
-        entity_id: id,
-        entity_label: order ? `طلب صيدلية: ${order.customer_name} - ${order.product_name}` : id,
-        details: "حذف طلب صيدلية",
+  const archiveMutation = useMutation({
+    mutationFn: async ({ id, reason, note }) => {
+      const res = await base44.functions.invoke("archivePharmacyOrderSafe", {
+        id,
+        action: "archive",
+        archive_reason: reason || "أرشفة طلب صيدلية",
+        archive_note: note || "",
       });
-      qc.invalidateQueries(["pharmacy-orders"]);
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة الطلب");
+      return result.record;
+    },
+    onSuccess: (order) => {
+      logActivity({
+        action_type: "update",
+        entity_type: "pharmacy_order",
+        entity_id: order?.id,
+        entity_label: order ? `طلب صيدلية: ${order.customer_name} - ${order.product_name}` : "",
+        details: `أرشفة طلب صيدلية — ${order?.archive_reason || "أرشفة إدارية"}`,
+      });
+      qc.invalidateQueries({ queryKey: ["pharmacy-orders"] });
     },
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archivePharmacyOrderSafe", { id, action: "restore_archive" });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر استعادة الطلب");
+      return result.record;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-orders"] }),
+  });
+
   const userBranch = user?.branch;
-  const filteredOrders = orders.filter((o) => {
+  const operationalOrders = orders.filter((o) => o.is_archived !== true);
+  const visibleOrders = showArchived ? orders.filter((o) => o.is_archived === true) : operationalOrders;
+  const filteredOrders = visibleOrders.filter((o) => {
     if (!isManager && userBranch && o.branch !== userBranch) return false;
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
@@ -126,13 +148,13 @@ export default function PharmacyOrders() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800">طلبات الصيدليات</h1>
-            <p className="text-xs text-gray-500">{orders.length} طلب إجمالي</p>
-            {orders.length > 0 && (
+            <p className="text-xs text-gray-500">{operationalOrders.length} طلب نشط{orders.length !== operationalOrders.length ? ` — ${orders.length - operationalOrders.length} مؤرشف` : ""}</p>
+            {operationalOrders.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1">
                 {STATUS_LIST_PHARMACY.map((status) => {
-                  const count = orders.filter((o) => o.status === status).length;
+                  const count = operationalOrders.filter((o) => o.status === status).length;
                   if (count === 0) return null;
-                  const pct = ((count / orders.length) * 100).toFixed(1);
+                  const pct = ((count / operationalOrders.length) * 100).toFixed(1);
                   return (
                     <span key={status} className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
                       {status}: <b className="text-gray-700">{pct}%</b>
@@ -144,7 +166,12 @@ export default function PharmacyOrders() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <OrderAlerts orders={orders} />
+          <OrderAlerts orders={operationalOrders} />
+          {isManager && (
+            <Button variant="outline" onClick={() => setShowArchived((v) => !v)} className={showArchived ? "gap-2 border-amber-300 bg-amber-50 text-amber-700" : "gap-2"}>
+              <ArchiveRestore className="w-4 h-4" /> {showArchived ? "عرض الطلبات الحالية" : "عرض الأرشيف"}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => exportPharmacyOrdersToExcel(filteredOrders)} className="gap-2 border-violet-300 text-violet-700 hover:bg-violet-50">
             <Download className="w-4 h-4" /> تصدير Excel
           </Button>
@@ -155,7 +182,7 @@ export default function PharmacyOrders() {
       </div>
 
       {/* Stat Cards */}
-      <OrderStatCards orders={orders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} />
+      <OrderStatCards orders={operationalOrders} onFilterStatus={setFilterStatus} activeStatus={filterStatus} />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -173,7 +200,7 @@ export default function PharmacyOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <OrderAnalytics orders={orders} />
+        <OrderAnalytics orders={operationalOrders} />
       ) : (
         <>
           {/* Branch Filter */}
@@ -238,7 +265,7 @@ export default function PharmacyOrders() {
             orders={filteredOrders}
             isLoading={isLoading}
             onSelect={setSelectedOrder}
-            onDelete={(id) => deleteMutation.mutate(id)}
+            onDelete={showArchived ? undefined : (id, archive) => archiveMutation.mutateAsync({ id, reason: archive?.reason, note: archive?.note })}
             isManager={isManager}
           />
         </>
@@ -262,8 +289,12 @@ export default function PharmacyOrders() {
           isManager={isManager}
           onUpdated={(updated) => {
             setSelectedOrder(updated);
-            qc.invalidateQueries(["pharmacy-orders"]);
+            qc.invalidateQueries({ queryKey: ["pharmacy-orders"] });
           }}
+          onRestoreArchive={showArchived ? async () => {
+            const restored = await restoreMutation.mutateAsync(selectedOrder.id);
+            setSelectedOrder(restored);
+          } : undefined}
         />
       )}
     </div>
