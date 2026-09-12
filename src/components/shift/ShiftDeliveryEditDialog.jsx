@@ -14,11 +14,6 @@ const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 export default function ShiftDeliveryEditDialog({ item, onClose }) {
   const qc = useQueryClient();
 
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list(),
-    staleTime: 60000,
-  });
   const { data: expenseItems = [] } = useQuery({
     queryKey: ["expense-items"],
     queryFn: () => base44.entities.ExpenseItem.list(),
@@ -27,10 +22,8 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
   const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false);
 
   const [form, setForm] = useState({
-    branch: item.branch || "",
     shift_type: item.shift_type || "",
     shift_date: item.shift_date || "",
-    submitted_by: item.submitted_by || "",
     total_sales: item.total_sales || "",
     notes: item.notes || "",
     calculation_date: item.calculation_date || item.shift_date || "",
@@ -68,9 +61,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
 
   const handleSave = async () => {
     setError("");
-    if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
-    if (!form.submitted_by) return setError("الرجاء اختيار الموظف المسؤول");
     if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
 
     const validExpenses = expenses
@@ -84,11 +75,9 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
     setSaving(true);
     try {
       await base44.entities.ShiftDelivery.update(item.id, {
-        branch: form.branch,
         shift_type: form.shift_type,
         shift_date: item.shift_date,
         calculation_date: form.calculation_date || item.shift_date,
-        submitted_by: form.submitted_by,
         total_sales: parseFloat(form.total_sales) || 0,
         expenses: validExpenses,
         total_expenses: totalExpenses,
@@ -119,13 +108,8 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
             <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b">بيانات الشفت</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-                <Select value={form.branch} onValueChange={(v) => setForm({ ...form, branch: v })}>
-                  <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
-                  <SelectContent>
-                    {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm text-gray-600">الفرع (مثبت عند التحقق)</Label>
+                <Input value={item.branch || ""} disabled className="bg-gray-50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">نوع الشيفت <span className="text-red-500">*</span></Label>
@@ -153,13 +137,9 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
                 </Button>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm text-gray-600">الموظف المسؤول <span className="text-red-500">*</span></Label>
-                <Select value={form.submitted_by} onValueChange={(v) => setForm({ ...form, submitted_by: v })}>
-                  <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm text-gray-600">الموظف المسؤول (هوية متحقق منها)</Label>
+                <Input value={item.submitted_by || ""} disabled className="bg-gray-50" />
+                <p className="text-[11px] text-gray-400">لا يمكن تغيير هوية صاحب التسليم بعد التحقق والحفظ.</p>
               </div>
             </div>
             <div className="mt-4 space-y-1.5">
