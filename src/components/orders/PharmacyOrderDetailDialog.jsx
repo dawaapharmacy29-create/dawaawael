@@ -111,24 +111,12 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
   const handleMoveToCustomer = async () => {
     setSaving(true);
     try {
-      const user = await base44.auth.me();
-      const convertedBy = user?.full_name || user?.email || "مستخدم النظام";
-      const now = new Date().toISOString();
-      const { id, created_date, updated_date, created_by_id, ...data } = order;
-      await base44.entities.CustomerOrder.create({
-        ...data,
-        creation_source: "pharmacy_order_transfer",
-        source_pharmacy_order_id: order.id,
-        converted_by: convertedBy,
-        converted_at: now,
-        timeline: [...(order.timeline || []), {
-          status: order.status,
-          by: convertedBy,
-          at: now,
-          note: "تم النقل إداريًا من طلبات الصيدليات",
-        }],
+      const transferRes = await base44.functions.invoke("createVerifiedCustomerOrder", {
+        mode: "pharmacy_order_transfer",
+        source_order_id: order.id,
       });
-      await base44.entities.PharmacyOrder.delete(order.id);
+      const result = transferRes?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر نقل الطلب إلى طلبات العملاء");
       onUpdated?.(null);
       onOpenChange(false);
     } finally {
