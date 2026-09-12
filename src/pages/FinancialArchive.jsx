@@ -10,6 +10,8 @@ import { ArchiveRestore, Lock, Search, RotateCcw, FileText } from "lucide-react"
 const TYPE_LABEL = {
   PurchaseInvoice: "فاتورة شراء",
   Return: "مرتجع",
+  Expense: "مصروف",
+  AdminOneTimeExpense: "مصروف إداري",
 };
 
 export default function FinancialArchive() {
@@ -40,6 +42,8 @@ export default function FinancialArchive() {
       qc.invalidateQueries({ queryKey: ["financial-archive"] });
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
       qc.invalidateQueries({ queryKey: ["returns"] });
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["admin-one-time-expenses"] });
     },
     onError: (error) => setMessage({ ok: false, text: error?.message || "تعذرت الاستعادة" }),
   });
@@ -60,6 +64,9 @@ export default function FinancialArchive() {
         snapshot.return_number,
         snapshot.invoice_number,
         snapshot.supplier_name,
+        snapshot.description,
+        snapshot.name,
+        snapshot.month,
       ].some((value) => String(value || "").toLowerCase().includes(q));
     });
   }, [logs, search, typeFilter]);
@@ -82,7 +89,7 @@ export default function FinancialArchive() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800">الأرشيف المالي الآمن</h1>
-            <p className="text-xs text-gray-500">نسخ كاملة محفوظة قبل حذف فواتير المشتريات أو المرتجعات من التشغيل</p>
+            <p className="text-xs text-gray-500">نسخ كاملة محفوظة قبل حذف السجلات المالية الحساسة من التشغيل</p>
           </div>
         </div>
         <div className="text-xs text-gray-500 bg-gray-100 rounded-full px-3 py-1.5">
@@ -95,7 +102,7 @@ export default function FinancialArchive() {
           <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث برقم الفاتورة، المورد، الفرع أو منفذ الحذف..." className="pr-9 h-9" />
         </div>
-        {[['all','الكل'], ['PurchaseInvoice','فواتير الشراء'], ['Return','المرتجعات']].map(([value, label]) => (
+        {[['all','الكل'], ['PurchaseInvoice','فواتير الشراء'], ['Return','المرتجعات'], ['Expense','المصروفات'], ['AdminOneTimeExpense','المصروفات الإدارية']].map(([value, label]) => (
           <button key={value} onClick={() => setTypeFilter(value)} className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${typeFilter === value ? "bg-slate-800 border-slate-800 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
             {label}
           </button>
@@ -119,8 +126,10 @@ export default function FinancialArchive() {
             const restored = !!log.restored_entity_id;
             const title = log.entity_type === "PurchaseInvoice"
               ? snapshot.system_invoice_number || log.entity_label
-              : snapshot.return_number || snapshot.invoice_number || log.entity_label;
-            const supplier = snapshot.supplier_name || "—";
+              : log.entity_type === "Return"
+                ? snapshot.return_number || snapshot.invoice_number || log.entity_label
+                : snapshot.description || snapshot.name || log.entity_label;
+            const supplier = snapshot.supplier_name || (log.entity_type === "Expense" || log.entity_type === "AdminOneTimeExpense" ? `${Number(snapshot.amount || 0).toLocaleString("ar-EG")} ج` : "—");
             return (
               <Card key={log.id} className="p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
