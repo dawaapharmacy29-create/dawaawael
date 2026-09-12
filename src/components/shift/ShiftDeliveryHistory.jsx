@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock } from "lucide-react";
+import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock, RotateCcw } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
@@ -65,7 +65,7 @@ function dateVariant(dateStr) {
  * كارت يوم واحد (شكل ومنطق مطابق لصفحة تسليم الشيفت في DawaaBills):
  * هيدر ملخّص باللون المناسب لليوم + بطاقة منفصلة لكل فرع بداخلها التسليمات.
  */
-function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete }) {
+function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestore }) {
   const accent = ACCENTS[dateVariant(dateStr)];
   const totalSales = records.reduce((s, r) => s + (r.total_sales || 0), 0);
   const totalExpenses = records.reduce((s, r) => s + (r.total_expenses || 0), 0);
@@ -143,15 +143,20 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete }) {
                         <button onClick={() => onView(r)} className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100">
                           <Eye className="w-3 h-3" />
                         </button>
-                        {isAdmin && (
+                        {isAdmin && r.is_archived !== true && (
                           <>
                             <button onClick={() => onEdit(r)} className="w-6 h-6 flex items-center justify-center rounded text-indigo-600 hover:bg-indigo-50">
                               <Pencil className="w-3 h-3" />
                             </button>
-                            <button onClick={() => onDelete(r)} className="w-6 h-6 flex items-center justify-center rounded text-red-500 hover:bg-red-50">
+                            <button onClick={() => onDelete(r)} className="w-6 h-6 flex items-center justify-center rounded text-red-500 hover:bg-red-50" title="أرشفة">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </>
+                        )}
+                        {isAdmin && r.is_archived === true && (
+                          <button onClick={() => onRestore(r)} className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50" title="استعادة من الأرشيف">
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -207,6 +212,16 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
     paramPrefix: "shift",
   });
   const dateFiltered = useMemo(() => sortData(dateFilteredRaw), [dateFilteredRaw, sortData]);
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("updateShiftDeliveryAdmin", { id, action: "restore_archive" });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر استعادة التسليم");
+      return result.record;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reason, note }) => {
@@ -394,6 +409,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift }) {
             onView={setDetailItem}
             onEdit={setEditItem}
             onDelete={setArchiveItem}
+            onRestore={(item) => restoreMutation.mutate(item.id)}
           />
         ))
       )}
