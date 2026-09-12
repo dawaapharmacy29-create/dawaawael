@@ -41,17 +41,26 @@ export default function ReturnDetailDialog({ open, onOpenChange, returnData, onU
 
   const handleDelete = async () => {
     setDeleting(true);
-    await base44.entities.Return.delete(returnData.id);
-    await logActivity({
-      action_type: "delete",
-      entity_type: "invoice",
-      entity_id: returnData.id,
-      entity_label: `مرتجع: ${returnData.return_number || returnData.invoice_number}`,
-      details: `حذف مرتجع رقم ${returnData.return_number || returnData.invoice_number}`,
-    });
-    setDeleting(false);
-    onOpenChange(false);
-    onDeleted?.();
+    try {
+      const res = await base44.functions.invoke("deleteReturnSafe", {
+        id: returnData.id,
+        reason: "حذف مرتجع من شاشة المرتجعات",
+        note: `مرتجع ${returnData.return_number || returnData.invoice_number || returnData.id} — ${returnData.supplier_name || ""}`,
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حذف المرتجع بأمان");
+      await logActivity({
+        action_type: "delete",
+        entity_type: "return",
+        entity_id: returnData.id,
+        entity_label: `مرتجع: ${returnData.return_number || returnData.invoice_number}`,
+        details: `حذف آمن بعد حفظ Snapshot كامل — ${returnData.return_number || returnData.invoice_number}`,
+      });
+      onOpenChange(false);
+      onDeleted?.();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const saveEdit = async () => {
