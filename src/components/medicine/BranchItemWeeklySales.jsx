@@ -24,7 +24,7 @@ export default function BranchItemWeeklySales() {
 
   const { weeks, matrix } = useMemo(() => {
     const branchRecords = sales
-      .filter((s) => s.branch === selectedBranch && s.week_label && (!s.record_type || s.record_type === "sales"))
+      .filter((s) => s.is_archived !== true && s.branch === selectedBranch && s.week_label && (!s.record_type || s.record_type === "sales"))
       .sort((a, b) => new Date(a.week_start || a.created_date) - new Date(b.week_start || b.created_date));
 
     const weekLabels = [...new Set(branchRecords.map((s) => s.week_label))];
