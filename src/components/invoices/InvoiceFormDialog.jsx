@@ -310,8 +310,14 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       finalNetMode = "inherit"; // يبقى inherit لكن isInvoiceExcluded سيعالجه عبر transaction_type
     }
 
+    const enteredByMap = employeeNameMap.find(
+      (m) => m.canonical_name === form.entered_by &&
+        (m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim())
+    );
+
     onSubmit({
       ...form,
+      entered_by_staff_id: enteredByMap?.admin_staff_id || invoice?.entered_by_staff_id || "",
       total_value: totalVal,
       returned_value: returnedVal,
       cash_amount: isMixed ? cashAmt : 0,
