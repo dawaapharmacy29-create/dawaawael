@@ -131,7 +131,7 @@ export default function ProductUploader({ onClose }) {
         onClick={() => fileRef.current?.click()}
       >
         <FileSpreadsheet className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف Excel"}</p>
+        <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف إكسل"}</p>
         <p className="text-xs text-gray-400 mt-1">صيغة ملف إكسل (.xlsx) — الأعمدة المطلوبة: اسم الصنف، الرصيد، الكود</p>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
       </div>
