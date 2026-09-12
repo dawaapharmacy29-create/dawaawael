@@ -60,6 +60,7 @@ export default function ExpiredItemsTab() {
   });
 
   const filteredItems = useMemo(() => [...items]
+    .filter(i => i.is_archived !== true)
     .filter(i => !search || i.item_name.includes(search))
     .filter(i => filterBranch === "الكل" || i.branch === filterBranch)
     .filter(i => filterStatus === "الكل" || i.status === filterStatus)
@@ -84,8 +85,12 @@ export default function ExpiredItemsTab() {
     onSuccess: () => { queryClient.invalidateQueries(["expired-items"]); setActionItem(null); }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ExpiredItem.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.ExpiredItem.update(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: "أرشفة سجل منتهي من الواجهة",
+    }),
     onSuccess: () => queryClient.invalidateQueries(["expired-items"])
   });
 
@@ -104,8 +109,13 @@ export default function ExpiredItemsTab() {
 
   // Bulk delete
   const handleBulkDelete = async () => {
+    const archivedAt = new Date().toISOString();
     for (const id of selectedIds) {
-      await base44.entities.ExpiredItem.delete(id);
+      await base44.entities.ExpiredItem.update(id, {
+        is_archived: true,
+        archived_at: archivedAt,
+        archive_reason: "أرشفة جماعية لسجلات المنتهيات",
+      });
     }
     queryClient.invalidateQueries(["expired-items"]);
     setSelectedIds([]);
@@ -299,7 +309,7 @@ export default function ExpiredItemsTab() {
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
         title="تأكيد الحذف"
         description="هل أنت متأكد من حذف هذا الصنف المنتهي؟ لا يمكن التراجع عن هذا الإجراء."
-        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
         confirmLabel="حذف"
       />
 
