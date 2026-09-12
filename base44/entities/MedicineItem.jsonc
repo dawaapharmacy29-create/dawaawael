@@ -51,7 +51,7 @@
     },
     "delete": {
       "user_condition": {
-        "role": "admin"
+        "role": "__archive_only_no_hard_delete__"
       }
     }
   }
