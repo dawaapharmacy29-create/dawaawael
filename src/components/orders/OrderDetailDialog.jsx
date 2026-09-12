@@ -184,6 +184,24 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
 
           <div className="space-y-4">
 
+            {isArchived && (
+              <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <p className="text-sm font-bold text-amber-800">هذا الطلب مؤرشف</p>
+                    <p className="text-xs text-amber-700 mt-0.5">السبب: {order.archive_reason || "أرشفة إدارية"}</p>
+                    {order.archive_note && <p className="text-xs text-amber-700 mt-1">الملاحظة: {order.archive_note}</p>}
+                    {order.archived_by && <p className="text-[11px] text-amber-600 mt-1">بواسطة: {order.archived_by}{order.archived_at ? ` — ${new Date(order.archived_at).toLocaleString("ar-EG")}` : ""}</p>}
+                  </div>
+                  {isManager && (
+                    <Button size="sm" variant="outline" disabled={saving} onClick={handleRestoreArchive} className="border-amber-300 text-amber-800 bg-white hover:bg-amber-100">
+                      <RotateCcw className="w-3.5 h-3.5" /> استعادة من الأرشيف
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* ── Progress Bar ── */}
             {!isCancelled && (
               <div className="bg-gray-50 rounded-xl p-3 border">
