@@ -58,6 +58,17 @@ function RatioStatus({ ratio, baseline }) {
   return { label: "معدل الشراء متوازن", tone: "blue", delta };
 }
 
+async function loadAllEntityRows(entity, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let page = 0; rows.length < maxRows; page += 1) {
+    const batch = await entity.list(sort, PAGE, page * PAGE);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function SmartCommerceAnalytics() {
   const today = cairoTodayKey();
   const [mode, setMode] = useState("cycle");
@@ -67,12 +78,12 @@ export default function SmartCommerceAnalytics() {
 
   const { data: handovers = [], isLoading: salesLoading } = useQuery({
     queryKey: ["smart-analytics-handovers"],
-    queryFn: () => base44.entities.ShiftDelivery.list("-shift_date", 3000),
+    queryFn: () => loadAllEntityRows(base44.entities.ShiftDelivery, "-shift_date"),
     staleTime: 30000,
   });
   const { data: invoices = [], isLoading: purchaseLoading } = useQuery({
     queryKey: ["smart-analytics-purchases"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-invoice_date", 5000),
+    queryFn: () => loadAllEntityRows(base44.entities.PurchaseInvoice, "-invoice_date"),
     staleTime: 30000,
   });
   const { data: suppliers = [] } = useQuery({
