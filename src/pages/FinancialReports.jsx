@@ -5,6 +5,7 @@ import {
   BRANCHES, computeDateRange, inDateRange, buildChartData, buildBranchComparison,
   buildSupplierAnalysis, computeTotalRemaining,
 } from "@/lib/financial-report-utils";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 import FinancialKpiCards from "@/components/financial-reports/FinancialKpiCards";
 import FinancialAverageCards from "@/components/financial-reports/FinancialAverageCards";
 import FinancialTargetCard from "@/components/financial-reports/FinancialTargetCard";
@@ -66,11 +67,11 @@ export default function FinancialReports() {
   const kpiData = useMemo(() => ({
     totalSales: fHandovers.reduce((s,h) => s + (h.total_sales || 0), 0),
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
-    totalPurchases: fInvoices.reduce((s,i) => s + (i.total_value || 0), 0),
+    totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
     currentDebts: computeTotalRemaining(invoices, payments, debts, supplier),
     supplierPayments: fPayments.reduce((s,p) => s + (p.amount || 0), 0),
-  }), [fHandovers, fInvoices, fPayments, invoices, payments, debts, supplier]);
+  }), [fHandovers, fInvoices, fPayments, invoices, payments, debts, supplier, suppliers]);
 
   const distinctDayCount = (arr, field) => {
     const days = new Set(arr.map(r => (r[field] || "").slice(0, 10)).filter(Boolean));
@@ -107,9 +108,9 @@ export default function FinancialReports() {
     if (!dateFrom || !dateTo) return false;
     return (new Date(dateTo) - new Date(dateFrom)) / (1000*60*60*24) <= 45;
   }, [dateFrom, dateTo]);
-  const chartData = useMemo(() => buildChartData(fHandovers, fInvoices, dateFrom, dateTo), [fHandovers, fInvoices, dateFrom, dateTo]);
+  const chartData = useMemo(() => buildChartData(fHandovers, fInvoices, dateFrom, dateTo, suppliers), [fHandovers, fInvoices, dateFrom, dateTo, suppliers]);
 
-  const branchComparison = useMemo(() => buildBranchComparison(fHandovers, fInvoices), [fHandovers, fInvoices]);
+  const branchComparison = useMemo(() => buildBranchComparison(fHandovers, fInvoices, suppliers), [fHandovers, fInvoices, suppliers]);
   const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts), [fInvoices, fPayments, fDebts]);
 
   return (
