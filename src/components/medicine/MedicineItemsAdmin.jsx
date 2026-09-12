@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, FlaskConical, Pencil, Check, X } from "lucide-react";
+import { Plus, Archive, RotateCcw, FlaskConical, Pencil, Check, X } from "lucide-react";
 
 export default function MedicineItemsAdmin() {
   const qc = useQueryClient();
@@ -29,8 +29,8 @@ export default function MedicineItemsAdmin() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["medicine-items"] }); setEditingId(null); },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.MedicineItem.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: ({ id, is_active }) => base44.entities.MedicineItem.update(id, { is_active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["medicine-items"] }),
   });
 
@@ -68,7 +68,7 @@ export default function MedicineItemsAdmin() {
       </Card>
 
       <Card className="p-4">
-        <h3 className="font-semibold text-gray-700 mb-3">الأصناف الحالية ({items.length})</h3>
+        <h3 className="font-semibold text-gray-700 mb-3">الأصناف الحالية ({items.filter((i) => i.is_active !== false).length} نشط — {items.filter((i) => i.is_active === false).length} مؤرشف)</h3>
         {isLoading ? (
           <p className="text-center text-gray-400 py-4">جاري التحميل...</p>
         ) : items.length === 0 ? (
@@ -76,7 +76,7 @@ export default function MedicineItemsAdmin() {
         ) : (
           <div className="space-y-2">
             {items.map((item) => (
-              <div key={item.id} className="p-2.5 bg-gray-50 rounded-lg border">
+              <div key={item.id} className={`p-2.5 rounded-lg border ${item.is_active === false ? "bg-amber-50/60 border-amber-200" : "bg-gray-50"}`}> 
                 {editingId === item.id ? (
                   <div className="space-y-2">
                     <Input
@@ -112,9 +112,15 @@ export default function MedicineItemsAdmin() {
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:bg-blue-50" onClick={() => startEdit(item)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(item.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {item.is_active === false ? (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" title="استعادة الصنف" aria-label="استعادة الصنف" onClick={() => archiveMutation.mutate({ id: item.id, is_active: true })}>
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </Button>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:bg-amber-50" title="أرشفة الصنف" aria-label="أرشفة الصنف" onClick={() => archiveMutation.mutate({ id: item.id, is_active: false })}>
+                          <Archive className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
