@@ -12,7 +12,12 @@ export function cairoTodayKey() {
 }
 function parseKey(key) { const [y,m,d] = key.split("-").map(Number); return new Date(y, m - 1, d); }
 function addDays(key, days) { const d = parseKey(key); d.setDate(d.getDate() + days); return formatDateKey(d); }
-function addMonths(key, months) { const d = parseKey(key); d.setMonth(d.getMonth() + months); return formatDateKey(d); }
+function addMonths(key, months) {
+  const d = parseKey(key);
+  const targetFirst = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const lastDay = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
+  return formatDateKey(new Date(targetFirst.getFullYear(), targetFirst.getMonth(), Math.min(d.getDate(), lastDay)));
+}
 export function daysInclusive(from, to) { return Math.max(Math.round((parseKey(to) - parseKey(from)) / DAY_MS) + 1, 1); }
 
 export function cycleRangeFor(dateKey = cairoTodayKey()) {
