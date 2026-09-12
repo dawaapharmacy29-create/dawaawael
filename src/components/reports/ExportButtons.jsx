@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -52,86 +53,44 @@ export default function ExportButtons({ invoices, expenses, year, branchData, mo
     downloadFile(combined, `تقرير_مالي_${year}.csv`, "text/csv;charset=utf-8;");
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const exportPDF = async () => {
+    const holder = document.createElement("div");
+    holder.dir = "rtl";
+    holder.style.cssText = "position:fixed;top:-10000px;left:-10000px;width:1050px;background:#fff;padding:32px;font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937";
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(`التقرير المالي - ${year}`, 148, 15, { align: "center" });
+    const branchRows = branchData.map((row) => {
+      const total = (row["مشتريات"] || 0) + (row["مصروفات"] || 0);
+      return `<tr><td>${row.branch || "—"}</td><td>${(row["مشتريات"] || 0).toLocaleString("ar-EG")}</td><td>${(row["مصروفات"] || 0).toLocaleString("ar-EG")}</td><td>${total.toLocaleString("ar-EG")}</td></tr>`;
+    }).join("");
+    const monthRows = monthlyData.map((row) => `<tr><td>${row.month || "—"}</td><td>${(row.invoices || 0).toLocaleString("ar-EG")}</td><td>${(row.expenses || 0).toLocaleString("ar-EG")}</td></tr>`).join("");
 
-    // Branch summary table
-    doc.setFontSize(12);
-    doc.text("ملخص الفروع", 14, 28);
-
-    const branchHeaders = ["الفرع", "المشتريات (جنيه)", "المصروفات (جنيه)", "الإجمالي (جنيه)"];
-    let y = 35;
-    const colW = [50, 50, 50, 50];
-    const startX = 14;
-
-    // Header row
-    doc.setFillColor(59, 130, 246);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    branchHeaders.forEach((h, i) => {
-      const x = startX + colW.slice(0, i).reduce((a, b) => a + b, 0);
-      doc.rect(x, y - 5, colW[i], 8, "F");
-      doc.text(h, x + 2, y);
-    });
-    doc.setTextColor(0, 0, 0);
-    y += 8;
-
-    branchData.forEach((row, idx) => {
-      if (idx % 2 === 0) {
-        doc.setFillColor(240, 247, 255);
-        doc.rect(startX, y - 5, colW.reduce((a, b) => a + b, 0), 8, "F");
+    holder.innerHTML = `
+      <div style="text-align:center;margin-bottom:24px"><h1 style="margin:0;font-size:28px">التقرير المالي - ${year}</h1><div style="color:#6b7280;margin-top:6px">صيدليات دواء</div></div>
+      <h2 style="font-size:20px;margin:18px 0 10px">ملخص الفروع</h2>
+      <table style="width:100%;border-collapse:collapse;text-align:right"><thead><tr><th>الفرع</th><th>المشتريات (جنيه)</th><th>المصروفات (جنيه)</th><th>الإجمالي (جنيه)</th></tr></thead><tbody>${branchRows}</tbody></table>
+      <h2 style="font-size:20px;margin:28px 0 10px">الملخص الشهري</h2>
+      <table style="width:100%;border-collapse:collapse;text-align:right"><thead><tr><th>الشهر</th><th>المشتريات</th><th>المصروفات</th></tr></thead><tbody>${monthRows}</tbody></table>
+      <style>th{background:#0d9488;color:white;padding:10px;border:1px solid #d1d5db}td{padding:9px;border:1px solid #d1d5db}tbody tr:nth-child(even){background:#f8fafc}</style>
+    `;
+    document.body.appendChild(holder);
+    try {
+      const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 16;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const image = canvas.toDataURL("image/png");
+      if (imgHeight <= pageHeight - 16) {
+        doc.addImage(image, "PNG", 8, 8, imgWidth, imgHeight);
+      } else {
+        const ratio = (pageHeight - 16) / imgHeight;
+        doc.addImage(image, "PNG", 8, 8, imgWidth * ratio, pageHeight - 16);
       }
-      doc.setFontSize(9);
-      const total = row["مشتريات"] + row["مصروفات"];
-      [row.branch, row["مشتريات"].toLocaleString(), row["مصروفات"].toLocaleString(), total.toLocaleString()].forEach((v, i) => {
-        const x = startX + colW.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.text(String(v), x + 2, y);
-      });
-      y += 8;
-    });
-
-    y += 10;
-
-    // Monthly summary
-    doc.setFontSize(12);
-    doc.text("الملخص الشهري", 14, y);
-    y += 8;
-
-    const mHeaders = ["الشهر", "المشتريات", "المصروفات"];
-    const mColW = [40, 40, 40];
-    doc.setFillColor(59, 130, 246);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    mHeaders.forEach((h, i) => {
-      const x = startX + mColW.slice(0, i).reduce((a, b) => a + b, 0);
-      doc.rect(x, y - 5, mColW[i], 8, "F");
-      doc.text(h, x + 2, y);
-    });
-    doc.setTextColor(0, 0, 0);
-    y += 8;
-
-    monthlyData.forEach((row, idx) => {
-      if (y > 185) {
-        doc.addPage();
-        y = 15;
-      }
-      if (idx % 2 === 0) {
-        doc.setFillColor(240, 247, 255);
-        doc.rect(startX, y - 5, mColW.reduce((a, b) => a + b, 0), 8, "F");
-      }
-      doc.setFontSize(9);
-      [row.month, row.invoices.toLocaleString(), row.expenses.toLocaleString()].forEach((v, i) => {
-        const x = startX + mColW.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.text(String(v), x + 2, y);
-      });
-      y += 8;
-    });
-
-    doc.save(`تقرير_مالي_${year}.pdf`);
+      doc.save(`تقرير_مالي_${year}.pdf`);
+    } finally {
+      document.body.removeChild(holder);
+    }
   };
 
   return (
