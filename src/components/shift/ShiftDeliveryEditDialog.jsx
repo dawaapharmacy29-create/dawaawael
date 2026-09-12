@@ -74,16 +74,19 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
 
     setSaving(true);
     try {
-      await base44.entities.ShiftDelivery.update(item.id, {
-        shift_type: form.shift_type,
-        shift_date: item.shift_date,
-        calculation_date: form.calculation_date || item.shift_date,
-        total_sales: parseFloat(form.total_sales) || 0,
-        expenses: validExpenses,
-        total_expenses: totalExpenses,
-        net_amount: netAmount,
-        notes: form.notes,
+      const updateRes = await base44.functions.invoke("updateShiftDeliveryAdmin", {
+        id: item.id,
+        action: "update",
+        updates: {
+          shift_type: form.shift_type,
+          calculation_date: form.calculation_date || item.shift_date,
+          total_sales: parseFloat(form.total_sales) || 0,
+          expenses: validExpenses,
+          notes: form.notes,
+        },
       });
+      const result = updateRes?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر تعديل تسليم الشيفت");
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       onClose();
     } catch (e) {
