@@ -35,6 +35,65 @@ const ACTION_LABELS = {
   role_change: { label: "تغيير دور", color: "bg-rose-100 text-rose-700" },
 };
 
+const ENTITY_LABELS = {
+  invoice: "فاتورة",
+  expense: "مصروف",
+  supplier: "مورد",
+  payment: "سداد",
+  return: "مرتجع",
+  order: "طلب",
+  customer_order: "طلب عميل",
+  pharmacy_order: "طلب صيدلية",
+  team_member: "موظف",
+  inventory: "مخزون",
+  shift: "تسليم شيفت",
+  user: "مستخدم",
+  system: "النظام",
+};
+
+const ROLE_LABELS = { admin: "مدير عام", manager: "مدير", viewer: "مشاهد" };
+
+const FIELD_LABELS = {
+  branch_access: "صلاحيات الفروع",
+  purchase_category: "تصنيف المشتريات",
+  net_purchase_mode: "حالة صافي المشتريات",
+  exclusion_reason: "سبب الاستثناء",
+  payment_type: "طريقة الدفع",
+  supplier_name: "اسم المورد",
+  branch: "الفرع",
+  total_value: "القيمة الإجمالية",
+  paid_value: "القيمة المدفوعة",
+  returned_value: "قيمة المرتجع",
+  status: "الحالة",
+  role: "الدور",
+};
+
+const VALUE_LABELS = {
+  admin: "مدير عام",
+  manager: "مدير",
+  viewer: "مشاهد",
+  medicines: "أدوية",
+  supplies_accessories: "مستلزمات وإكسسوارات",
+  unclassified: "غير مصنف",
+  internal_transfer: "تحويل داخلي",
+  external_purchase: "شراء خارجي",
+  inherit: "حسب إعداد المورد",
+  include: "محتسبة في الصافي",
+  exclude: "مستثناة من الصافي",
+  success: "ناجح",
+  failed: "فاشل",
+};
+
+function localizeAuditText(value) {
+  if (!value) return "";
+  let text = String(value);
+  Object.entries(FIELD_LABELS).forEach(([key, label]) => { text = text.replaceAll(key, label); });
+  Object.entries(VALUE_LABELS).forEach(([key, label]) => {
+    text = text.replace(new RegExp(`\\b${key}\\b`, "g"), label);
+  });
+  return text;
+}
+
 export default function SecurityAuditPage() {
   const { isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
@@ -82,17 +141,17 @@ export default function SecurityAuditPage() {
       "التاريخ": l.created_date ? new Date(l.created_date).toLocaleString("ar-EG") : "",
       "المستخدم": l.user_name || "",
       "البريد": l.user_email || "",
-      "الدور": l.user_role || "",
+      "الدور": ROLE_LABELS[l.user_role] || l.user_role || "",
       "الفرع": l.user_branch || "",
       "العملية": ACTION_LABELS[l.action_type]?.label || l.action_type,
-      "النوع": l.entity_type,
+      "النوع": ENTITY_LABELS[l.entity_type] || l.entity_type || "",
       "الوصف": l.entity_label || "",
-      "القيمة القديمة": l.old_value || "",
-      "القيمة الجديدة": l.new_value || "",
+      "القيمة القديمة": localizeAuditText(l.old_value),
+      "القيمة الجديدة": localizeAuditText(l.new_value),
       "الحالة": l.status === "success" ? "ناجح" : "فاشل",
       "معرف الدفعة": l.batch_id || "",
-      "السبب": l.reason || "",
-      "التفاصيل": l.details || "",
+      "السبب": localizeAuditText(l.reason),
+      "التفاصيل": localizeAuditText(l.details),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!dir"] = "rtl";
@@ -208,7 +267,7 @@ export default function SecurityAuditPage() {
                     <td className="p-3">
                       <div className="font-medium text-gray-800 text-xs">{log.user_name || "—"}</div>
                       <div className="text-xs text-gray-400">{log.user_email}</div>
-                      {log.user_role && <Badge className="text-[10px] mt-0.5 bg-gray-100 text-gray-600 border-0">{log.user_role}</Badge>}
+                      {log.user_role && <Badge className="text-[10px] mt-0.5 bg-gray-100 text-gray-600 border-0">{ROLE_LABELS[log.user_role] || log.user_role}</Badge>}
                     </td>
                     <td className="p-3">
                       <Badge className={`${ACTION_LABELS[log.action_type]?.color || "bg-gray-100 text-gray-600"} border-0 text-xs`}>
@@ -218,14 +277,14 @@ export default function SecurityAuditPage() {
                     </td>
                     <td className="p-3 text-xs text-gray-700 max-w-[200px]">
                       <div className="font-medium">{log.entity_label || "—"}</div>
-                      {log.details && <div className="text-gray-500 truncate">{log.details}</div>}
-                      {log.reason && <div className="text-gray-400 text-[10px]">السبب: {log.reason}</div>}
+                      {log.details && <div className="text-gray-500 truncate">{localizeAuditText(log.details)}</div>}
+                      {log.reason && <div className="text-gray-400 text-[10px]">السبب: {localizeAuditText(log.reason)}</div>}
                     </td>
                     <td className="p-3 text-xs text-red-600 max-w-[150px]">
-                      {log.old_value ? <div className="truncate" title={log.old_value}>{log.old_value}</div> : "—"}
+                      {log.old_value ? <div className="truncate" title={localizeAuditText(log.old_value)}>{localizeAuditText(log.old_value)}</div> : "—"}
                     </td>
                     <td className="p-3 text-xs text-green-600 max-w-[150px]">
-                      {log.new_value ? <div className="truncate" title={log.new_value}>{log.new_value}</div> : "—"}
+                      {log.new_value ? <div className="truncate" title={localizeAuditText(log.new_value)}>{localizeAuditText(log.new_value)}</div> : "—"}
                     </td>
                     <td className="p-3">
                       {log.status === "failed" ? (
