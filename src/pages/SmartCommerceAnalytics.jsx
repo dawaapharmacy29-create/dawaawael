@@ -108,6 +108,17 @@ export default function SmartCommerceAnalytics() {
   const totalPeriodDays = daysInclusive(fullRange.from, fullRange.to);
   const projectedSales = elapsedDays > 0 ? (current.sales / elapsedDays) * totalPeriodDays : 0;
   const projectedPurchases = elapsedDays > 0 ? (current.purchases / elapsedDays) * totalPeriodDays : 0;
+  const remainingDays = Math.max(totalPeriodDays - elapsedDays, 0);
+  const selectedTarget = branch === "all"
+    ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + targetForRange(targets, b, fullRange), 0)
+    : targetForRange(targets, branch, fullRange);
+  const requiredSalesPerDay = selectedTarget > 0 && remainingDays > 0 ? Math.max(selectedTarget - current.sales, 0) / remainingDays : 0;
+  const targetProjectedPct = selectedTarget > 0 ? (projectedSales / selectedTarget) * 100 : null;
+  const referenceRatio = avg3Ratio > 0 ? avg3Ratio : (current.ratio || 0);
+  const purchaseBaseSales = selectedTarget > 0 ? selectedTarget : projectedSales;
+  const referencePurchaseCeiling = purchaseBaseSales * (referenceRatio / 100);
+  const suggestedPurchasePerDay = remainingDays > 0 ? Math.max(referencePurchaseCeiling - current.purchases, 0) / remainingDays : 0;
+  const purchaseSurplusVsReference = current.purchases - (current.sales * referenceRatio / 100);
   const dailyComparison = useMemo(() => buildDailyComparison({ handovers, invoices, suppliers, currentRange, previousRange: prevRange, branch }), [handovers, invoices, suppliers, currentRange, prevRange, branch]);
 
   const branchRows = useMemo(() => ANALYTICS_BRANCHES.map((b) => {
@@ -169,6 +180,26 @@ export default function SmartCommerceAnalytics() {
         <div className="text-left"><p className="text-xl font-black">{current.ratio === null ? "—" : `${current.ratio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%`}</p>{ratioStatus.delta !== null && <p className="text-xs text-gray-500">فرق عن المعتاد: {fmtPct(ratioStatus.delta)}</p>}</div>
       </div>
     </Card>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <Card className="p-4 border-violet-200 bg-violet-50">
+        <p className="text-xs text-gray-500">المبيعات المطلوبة يوميًا لباقي الفترة</p>
+        <p className="text-2xl font-black text-violet-700 mt-1">{selectedTarget > 0 ? money(requiredSalesPerDay) : "لا يوجد تارجت"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{selectedTarget > 0 ? `متبقي ${remainingDays.toLocaleString("ar-EG")} يوم · التارجت ${money(selectedTarget)}` : "حدد تارجت الفروع ليظهر معدل التنفيذ المطلوب"}</p>
+      </Card>
+      <Card className="p-4 border-emerald-200 bg-emerald-50">
+        <p className="text-xs text-gray-500">معدل شراء يومي مقترح لباقي الفترة</p>
+        <p className="text-2xl font-black text-emerald-700 mt-1">{referenceRatio > 0 ? money(suggestedPurchasePerDay) : "—"}</p>
+        <p className="text-[11px] text-gray-500 mt-1">مبني على نسبة شراء/بيع تاريخية {referenceRatio > 0 ? `${referenceRatio.toLocaleString("ar-EG", {maximumFractionDigits:1})}%` : "غير متاحة"}</p>
+      </Card>
+      <Card className={`p-4 ${purchaseSurplusVsReference > 0 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}`}>
+        <p className="text-xs text-gray-500">فرق الشراء عن المسار التاريخي حتى الآن</p>
+        <p className={`text-2xl font-black mt-1 ${purchaseSurplusVsReference > 0 ? "text-amber-700" : "text-blue-700"}`}>{purchaseSurplusVsReference >= 0 ? "+" : "−"}{money(Math.abs(purchaseSurplusVsReference))}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{purchaseSurplusVsReference > 0 ? "أعلى من المتوقع وفق حركة البيع الحالية" : "أقل من المتوقع وفق حركة البيع الحالية"}</p>
+      </Card>
+    </div>
+
+    {selectedTarget > 0 && <Card className={`p-4 border ${targetProjectedPct !== null && targetProjectedPct < 90 ? "border-red-300 bg-red-50" : targetProjectedPct !== null && targetProjectedPct >= 105 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black text-gray-800 flex items-center gap-2"><Target className="w-5 h-5"/> توقع التارجت بنهاية الفترة</p><p className="text-xs text-gray-500 mt-1">بناءً على متوسط المبيعات الفعلي المسجل حتى الآن</p></div><div className="text-left"><p className="text-2xl font-black">{targetProjectedPct?.toLocaleString("ar-EG", {maximumFractionDigits:1})}%</p><p className="text-xs text-gray-500">متوقع {money(projectedSales)} من {money(selectedTarget)}</p></div></div></Card>}
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <Card className="p-4"><p className="text-xs text-gray-500">مبيعات اليوم</p><p className="text-2xl font-black text-teal-700 mt-1">{money(todaySummary.sales)}</p><Trend value={growth(todaySummary.sales, yesterdaySummary.sales)} label="مقارنة بأمس"/></Card>
