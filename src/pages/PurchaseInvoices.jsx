@@ -176,8 +176,14 @@ export default function PurchaseInvoices() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const inv = invoices.find((i) => i.id === id);
-      await logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: inv?.system_invoice_number || id, details: `حذف فاتورة ${inv?.system_invoice_number || ""}` });
-      await base44.entities.PurchaseInvoice.delete(id);
+      const res = await base44.functions.invoke("deletePurchaseInvoiceSafe", {
+        id,
+        reason: "حذف فاتورة من شاشة المشتريات",
+        note: inv ? `فاتورة ${inv.system_invoice_number || id} — ${inv.supplier_name || ""}` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حذف الفاتورة بأمان");
+      await logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: inv?.system_invoice_number || id, details: `حذف آمن بعد حفظ Snapshot كامل — ${inv?.system_invoice_number || ""}` });
       return id;
     },
     onSuccess: (id) => {
