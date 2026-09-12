@@ -14,9 +14,12 @@ export default function SupplierBreakdown({ invoices, suppliers = [], dateFrom, 
     invoices.forEach((i) => {
       const name = i.supplier_name || "غير محدد";
       const dateKey = i.invoice_date || i.created_date?.split("T")[0];
-      if (!map[name]) map[name] = { name, total: 0, count: 0, dailyMap: {} };
-      map[name].total += getInvoiceNetAmount(i, suppliers);
+      if (!map[name]) map[name] = { name, total: 0, count: 0, dailyMap: {}, invoices: [], returned: 0 };
+      const net = getInvoiceNetAmount(i, suppliers);
+      map[name].total += net;
       map[name].count += 1;
+      if (net > 0) map[name].returned += Math.max(Number(i.returned_value) || 0, 0);
+      map[name].invoices.push({ ...i, net });
       if (dateKey) {
         if (!map[name].dailyMap[dateKey]) map[name].dailyMap[dateKey] = 0;
         map[name].dailyMap[dateKey] += getInvoiceNetAmount(i, suppliers);
@@ -27,6 +30,7 @@ export default function SupplierBreakdown({ invoices, suppliers = [], dateFrom, 
         ...s,
         daily: Object.entries(s.dailyMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value })),
         avgPerInvoice: s.count > 0 ? s.total / s.count : 0,
+        invoices: [...s.invoices].sort((a, b) => (b.invoice_date || b.created_date || "").localeCompare(a.invoice_date || a.created_date || "")),
       }))
       .sort((a, b) => b.total - a.total);
   }, [invoices, suppliers]);
@@ -122,14 +126,22 @@ export default function SupplierBreakdown({ invoices, suppliers = [], dateFrom, 
               )}
 
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-2">تفاصيل الفواتير اليومية</p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {selectedData.daily.map((d) => (
-                    <div key={d.date} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border">
-                      <span className="text-xs text-gray-600 flex items-center gap-1">
-                        <CalendarDays className="w-3 h-3 text-gray-400" /> {d.date}
-                      </span>
-                      <span className="text-sm font-bold text-gray-800">{fmt(d.value)} ج.م</span>
+                <p className="text-xs font-bold text-gray-700 mb-2">كل فواتير المورد في الفترة</p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {selectedData.invoices.map((inv) => (
+                    <div key={inv.id} className="bg-gray-50 rounded-lg px-3 py-2 border">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-gray-700">فاتورة {inv.system_invoice_number || inv.supplier_invoice_number || "بدون رقم"}</p>
+                          <p className="text-[10px] text-gray-500">{inv.invoice_date || inv.created_date?.split("T")[0] || "—"} · {inv.branch || "—"} · {inv.payment_type || "—"}</p>
+                        </div>
+                        <span className="text-sm font-bold text-teal-700">{fmt(inv.net)} ج.م صافي</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mt-2 text-[10px] text-gray-500">
+                        <span>الإجمالي: <b className="text-gray-700">{fmt(inv.total_value)} ج.م</b></span>
+                        <span>المرتجع: <b className="text-rose-600">{fmt(inv.returned_value)} ج.م</b></span>
+                        <span>التصنيف: <b className="text-gray-700">{inv.purchase_category === "medicines" ? "أدوية" : inv.purchase_category === "supplies_accessories" ? "مستلزمات وإكسسوار" : "غير مصنف"}</b></span>
+                      </div>
                     </div>
                   ))}
                 </div>
