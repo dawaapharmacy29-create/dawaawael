@@ -80,8 +80,12 @@ export default function MedicineSalesTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["medicine-sales"] }); setDialogOpen(false); },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.MedicineSale.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.MedicineSale.update(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: "أرشفة سجل مبيعات من الواجهة",
+    }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["medicine-sales"] }),
   });
 
@@ -168,15 +172,17 @@ export default function MedicineSalesTab() {
     updateMutation.mutate({ id: balanceRecord.id, data: { ...balanceRecord, sales: cleaned } });
   };
 
+  const operationalSales = useMemo(() => sales.filter((s) => s.is_archived !== true), [sales]);
+
   const filtered = useMemo(() => {
-    return sales.filter((s) => {
+    return operationalSales.filter((s) => {
       const inBranch = filterBranch === "الكل" || s.branch === filterBranch;
       const inRange  = displayFrom && displayTo
         ? s.week_start >= displayFrom && s.week_start <= displayTo
         : true;
       return inBranch && inRange;
     });
-  }, [sales, filterBranch, displayFrom, displayTo]);
+  }, [operationalSales, filterBranch, displayFrom, displayTo]);
 
   return (
     <div className="space-y-4">
@@ -280,10 +286,10 @@ export default function MedicineSalesTab() {
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
-        title="تأكيد الحذف"
-        description="هل أنت متأكد من حذف هذا السجل؟"
-        onConfirm={() => { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
-        confirmLabel="حذف"
+        title="تأكيد الأرشفة"
+        description="هل تريد أرشفة هذا السجل؟ سيختفي من التشغيل الحالي مع الاحتفاظ به في البيانات التاريخية."
+        onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
+        confirmLabel="أرشفة"
       />
 
       {/* ── Balance dialog ── */}
