@@ -1,6 +1,6 @@
 import { Loader2, Trash2, MessageSquare, ChevronLeft, ChevronRight, Phone, Clock3, Star, Search, PackageCheck, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ConfirmDialog from "@/components/invoices/ConfirmDialog";
+import ArchiveDialog from "@/components/common/ArchiveDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
@@ -236,13 +236,16 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
         </div>
       )}
 
-      <ConfirmDialog
+      <ArchiveDialog
         open={!!confirmId}
         onOpenChange={(v) => !v && setConfirmId(null)}
-        title="إلغاء وأرشفة الطلب"
-        description="سيتم إلغاء الطلب وحفظه في السجل ومزامنة الإلغاء مع تطبيق الإدارة، بدون حذف البيانات نهائيًا."
-        onConfirm={() => { onDelete(confirmId); setConfirmId(null); }}
-        confirmLabel="إلغاء وأرشفة"
+        title="أرشفة طلب العميل"
+        description="سيبقى الطلب محفوظًا بالكامل ويمكن الرجوع له لاحقًا، ولن يتم حذفه نهائيًا."
+        defaultReason="أرشفة طلب عميل"
+        onConfirm={async ({ reason, note }) => {
+          await onDelete?.(confirmId, { reason, note });
+          setConfirmId(null);
+        }}
       />
     </>
   );
