@@ -162,10 +162,10 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
                 </td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-1">
-                    {(() => { const action = getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={() => onQuickStatus?.(o, action.status)} className={`h-7 px-2 rounded-md flex items-center gap-1 text-[10px] font-bold whitespace-nowrap ${action.tone}`} title={action.label}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
+                    {(() => { const action = o.is_archived ? null : getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={() => onQuickStatus?.(o, action.status)} className={`h-7 px-2 rounded-md flex items-center gap-1 text-[10px] font-bold whitespace-nowrap ${action.tone}`} title={action.label}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
                     {o.phone && <a href={whatsappLink(o.phone)} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-md flex items-center justify-center text-green-600 hover:bg-green-50" title="فتح واتساب">●</a>}
                     {o.phone && <a href={`tel:${o.phone}`} className="h-7 w-7 rounded-md flex items-center justify-center text-sky-600 hover:bg-sky-50" title="اتصال"><Phone className="w-3.5 h-3.5" /></a>}
-                  {isManager && (
+                  {isManager && !o.is_archived && (
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setConfirmId(o.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -213,8 +213,8 @@ export default function OrderTable({ orders, isLoading, onSelect, onDelete, isMa
             </div>
             <div className="mt-3 pt-2.5 border-t space-y-2 text-[11px] text-gray-400">
               <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5">{o.assigned_employee || "غير مسند"} · {o.request_date || (o.created_date ? new Date(o.created_date).toLocaleDateString("ar-EG") : "—")} · <span className={isOrderOverdue(o) ? "text-red-600 font-bold" : ""}>{getOrderAge(o)}</span></span>
-              {isManager && <button className="p-1.5 rounded-md text-red-400 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-50 transition" onClick={(e) => { e.stopPropagation(); setConfirmId(o.id); }} aria-label="إلغاء وأرشفة الطلب"><Trash2 className="w-3.5 h-3.5" /></button>}</div>
-              {(() => { const action = getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={(e) => { e.stopPropagation(); onQuickStatus?.(o, action.status); }} className={`w-full h-8 rounded-lg flex items-center justify-center gap-1.5 font-bold ${action.tone}`}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
+              {isManager && !o.is_archived && <button className="p-1.5 rounded-md text-red-400 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-red-50 transition" onClick={(e) => { e.stopPropagation(); setConfirmId(o.id); }} aria-label="أرشفة الطلب"><Trash2 className="w-3.5 h-3.5" /></button>}</div>
+              {(() => { const action = o.is_archived ? null : getQuickAction(o.status); if (!action) return null; const ActionIcon = action.icon; return <button disabled={quickActionPending} onClick={(e) => { e.stopPropagation(); onQuickStatus?.(o, action.status); }} className={`w-full h-8 rounded-lg flex items-center justify-center gap-1.5 font-bold ${action.tone}`}><ActionIcon className="w-3.5 h-3.5" />{action.label}</button>; })()}
             </div>
           </div>
         ))}
