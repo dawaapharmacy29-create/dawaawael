@@ -117,7 +117,7 @@ export default function ProductUploader({ onClose }) {
   return (
     <div dir="rtl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-gray-800 text-base">استيراد الأصناف من ملف Excel</h3>
+        <h3 className="font-bold text-gray-800 text-base">استيراد الأصناف من ملف إكسل</h3>
         <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
       </div>
 
@@ -132,7 +132,7 @@ export default function ProductUploader({ onClose }) {
       >
         <FileSpreadsheet className="w-10 h-10 text-gray-400 mx-auto mb-2" />
         <p className="text-sm text-gray-600">{fileName || "اضغط لرفع ملف Excel"}</p>
-        <p className="text-xs text-gray-400 mt-1">صيغة xlsx — أعمدة مطلوبة: اسم الصنف، الرصيد، الكود</p>
+        <p className="text-xs text-gray-400 mt-1">صيغة ملف إكسل (.xlsx) — الأعمدة المطلوبة: اسم الصنف، الرصيد، الكود</p>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
       </div>
 
