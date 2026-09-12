@@ -51,7 +51,7 @@ export default function Expenses() {
   const { isManager } = useUserRole();
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list("name"),
+    queryFn: async () => (await base44.entities.TeamMember.list("name")).filter((m) => m.is_active !== false),
     staleTime: 60000,
   });
 
