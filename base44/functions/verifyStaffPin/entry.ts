@@ -1,9 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
-import bcrypt from 'npm:bcryptjs@2.4.3';
+import { secrets } from 'base44:runtime';
 
-const PROJECT_NAME = 'dawaapharmacy-bills';
+const VERIFY_ENDPOINT = 'https://jkjqeqkshllustwlzzbf.supabase.co/functions/v1/dawaawael-verify-staff';
 
-export default async function(req) {
+function clean(value: unknown) {
+  return String(value ?? '').trim();
+}
+
+export default async function(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -11,59 +15,66 @@ export default async function(req) {
       return Response.json({ valid: false, error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
     }
 
-    const { pin } = await req.json();
-    if (!pin || String(pin).trim().length < 3) {
-      return Response.json({ valid: false, error: 'الرقم السري غير صحيح' });
+    const body = await req.json();
+    const adminStaffId = clean(body?.admin_staff_id || body?.staff_id);
+    const credential = String(body?.credential ?? body?.pin ?? '');
+
+    if (!adminStaffId || !credential) {
+      return Response.json({ valid: false, error: 'يجب اختيار الموظف وإدخال الرقم السري' }, { status: 400 });
+    }
+    if (credential.length > 256) {
+      return Response.json({ valid: false, error: 'بيانات التحقق غير صالحة' }, { status: 400 });
     }
 
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('supabase');
-
-    // تحديد مشروع تطبيق الإدارة تلقائيًا
-    const projectsRes = await fetch('https://api.supabase.com/v1/projects', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const projects = await projectsRes.json();
-    const projectList = Array.isArray(projects) ? projects : [];
-    const project = projectList.find((p) => p.name === PROJECT_NAME) || projectList[0];
-    if (!project) {
-      return Response.json({ valid: false, error: 'تعذر الوصول إلى مشروع تطبيق الإدارة' });
+    // نفس سر المزامنة المستخدم بالفعل بين DawaaWael وتطبيق الإدارة.
+    // لا يتم إرساله للواجهة ولا حفظ الرقم السري داخل Base44.
+    const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || '';
+    if (!secret) {
+      return Response.json({ valid: false, error: 'إعداد التحقق مع تطبيق الإدارة غير مكتمل' }, { status: 503 });
     }
 
-    // سحب حسابات الموظفين المفعّل فيها الرقم السري
-    const sqlRes = await fetch(`https://api.supabase.com/v1/projects/${project.ref}/database/query/read-only`, {
+    const response = await fetch(VERIFY_ENDPOINT, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dawaa-Sync-Secret': secret,
+      },
       body: JSON.stringify({
-        query: 'SELECT id, username, display_name, role, status, pin_enabled, pin_hash, locked_until FROM staff_accounts WHERE pin_enabled = true',
+        admin_staff_id: adminStaffId,
+        credential,
       }),
     });
-    if (!sqlRes.ok) {
-      return Response.json({ valid: false, error: 'تعذر الوصول إلى حسابات الموظفين في تطبيق الإدارة' });
-    }
-    const accounts = await sqlRes.json();
-    const now = new Date();
 
-    for (const acc of (Array.isArray(accounts) ? accounts : [])) {
-      if (acc.status !== 'active') continue;
-      if (acc.locked_until && new Date(acc.locked_until) > now) continue;
-      let matched = false;
-      try {
-        matched = bcrypt.compareSync(String(pin).trim(), acc.pin_hash || '');
-      } catch (e) {
-        matched = false;
-      }
-      if (matched) {
-        return Response.json({
-          valid: true,
-          display_name: acc.display_name,
-          username: acc.username,
-          role: acc.role,
-        });
-      }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.verified !== true) {
+      const messages: Record<string, string> = {
+        staff_not_linked: 'الموظف غير مربوط بحساب في تطبيق الإدارة',
+        account_inactive: 'حساب الموظف غير نشط في تطبيق الإدارة',
+        account_locked: 'حساب الموظف مقفول مؤقتًا',
+        invalid_credential: 'الرقم السري غير صحيح',
+        verification_disabled: 'خدمة التحقق متوقفة مؤقتًا',
+        unauthorized: 'تعذر المصادقة مع تطبيق الإدارة',
+      };
+      const code = clean(result?.error);
+      return Response.json({
+        valid: false,
+        error: messages[code] || 'تعذر التحقق من هوية الموظف',
+        code: code || `http_${response.status}`,
+      }, { status: response.status >= 500 ? 503 : 200 });
     }
 
-    return Response.json({ valid: false, error: 'الرقم السري غير صحيح' });
+    const staff = result?.staff || {};
+    return Response.json({
+      valid: true,
+      staff_id: clean(staff.staff_id) || adminStaffId,
+      admin_staff_id: adminStaffId,
+      display_name: clean(staff.name),
+      branch: clean(staff.branch),
+      job_title: clean(staff.job_title),
+      verified_at: clean(result?.verified_at) || new Date().toISOString(),
+      source: clean(result?.source) || 'DawaaManagement',
+    });
   } catch (error) {
-    return Response.json({ valid: false, error: error.message || 'حدث خطأ أثناء التحقق' }, { status: 500 });
+    return Response.json({ valid: false, error: error instanceof Error ? error.message : 'حدث خطأ أثناء التحقق' }, { status: 500 });
   }
 }
