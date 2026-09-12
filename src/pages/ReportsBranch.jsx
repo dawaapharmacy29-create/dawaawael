@@ -230,13 +230,13 @@ export default function ReportsBranch() {
       )}
 
       {/* Monthly Branch Report — filtered to this branch */}
-      <MonthlyBranchReport invoices={invoices} expenses={expenses} singleBranch={branch} />
+      <MonthlyBranchReport invoices={invoices} expenses={expenses} suppliers={suppliers} singleBranch={branch} />
 
       {/* Aging Report — filtered to this branch */}
       <AgingReport invoices={invoices} />
 
       {/* Top Suppliers — filtered to this branch */}
-      <TopSuppliers invoices={invoices} dateFrom={activeFrom} dateTo={activeTo} />
+      <TopSuppliers invoices={invoices} suppliers={suppliers} dateFrom={activeFrom} dateTo={activeTo} />
     </div>
   );
 }
