@@ -40,6 +40,8 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [credential, setCredential] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -49,8 +51,13 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
     staleTime: 60000,
   });
-  const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
-  const nameOptions = [...new Set((branchNames.length > 0 ? branchNames : nameMap).map((m) => m.canonical_name).filter(Boolean))];
+  const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()));
+  const nameOptions = [...new Set(branchNames.map((m) => m.canonical_name).filter(Boolean))];
+  const selectedRecorder = nameMap.find((m) =>
+    m.canonical_name === form.recorded_by &&
+    (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
+  );
+  const recorderNeedsVerification = !editOrder || !editOrder.identity_verified_at || editOrder.recorded_by !== form.recorded_by;
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -62,27 +69,76 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   };
 
   const handleSave = async () => {
-    if (!form.customer_name || !form.phone || !form.product_name || !form.recorded_by) return;
-    setSaving(true);
-    const now = new Date().toISOString();
-    const data = {
-      ...form,
-      status: editOrder ? form.status : "طلب جديد",
-      order_number: editOrder ? form.order_number : genOrderNumber(),
-      timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: form.recorded_by, at: now, note: "تم إنشاء الطلب" }],
-      recorded_by: form.recorded_by,
-      requested_at: editOrder ? (form.requested_at || now) : now,
-      quantity: Math.max(1, Number(form.quantity || 1)),
-      ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
-    };
-    if (editOrder) {
-      await base44.entities.CustomerOrder.update(editOrder.id, data);
-    } else {
-      await base44.entities.CustomerOrder.create(data);
+    setSaveError("");
+    if (!form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by) {
+      setSaveError("يجب استكمال اسم العميل والهاتف والفرع والصنف واسم مُسجِّل الطلب");
+      return;
     }
-    setSaving(false);
-    onSaved?.();
-    onOpenChange(false);
+    if (!selectedRecorder?.admin_staff_id) {
+      setSaveError("اسم مُسجِّل الطلب غير مربوط بحساب الإدارة");
+      return;
+    }
+    if (recorderNeedsVerification && !credential) {
+      setSaveError("يجب إدخال الرقم السري الخاص بمُسجِّل الطلب");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let identity = {
+        staff_id: editOrder?.recorded_by_staff_id || selectedRecorder.admin_staff_id,
+        admin_staff_id: editOrder?.recorded_by_admin_staff_id || selectedRecorder.admin_staff_id,
+        verified_at: editOrder?.identity_verified_at || "",
+        source: editOrder?.identity_verification_source || "",
+      };
+
+      if (recorderNeedsVerification) {
+        const verifyRes = await base44.functions.invoke("verifyStaffPin", {
+          admin_staff_id: selectedRecorder.admin_staff_id,
+          credential,
+        });
+        const verified = verifyRes?.data || {};
+        if (!verified.valid) {
+          setSaveError(verified.error || "تعذر التحقق من هوية مُسجِّل الطلب");
+          return;
+        }
+        identity = {
+          staff_id: verified.staff_id || selectedRecorder.admin_staff_id,
+          admin_staff_id: selectedRecorder.admin_staff_id,
+          verified_at: verified.verified_at || new Date().toISOString(),
+          source: verified.source || "DawaaManagement",
+        };
+      }
+
+      const now = new Date().toISOString();
+      const data = {
+        ...form,
+        status: editOrder ? form.status : "طلب جديد",
+        order_number: editOrder ? form.order_number : genOrderNumber(),
+        timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: form.recorded_by, at: now, note: "تم إنشاء الطلب" }],
+        recorded_by: form.recorded_by,
+        recorded_by_staff_id: identity.staff_id,
+        recorded_by_admin_staff_id: identity.admin_staff_id,
+        identity_verified_at: identity.verified_at,
+        identity_verification_source: identity.source,
+        creation_source: editOrder?.creation_source || "direct_customer_order",
+        requested_at: editOrder ? (form.requested_at || now) : now,
+        quantity: Math.max(1, Number(form.quantity || 1)),
+        ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
+      };
+      if (editOrder) {
+        await base44.entities.CustomerOrder.update(editOrder.id, data);
+      } else {
+        await base44.entities.CustomerOrder.create(data);
+      }
+      setCredential("");
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e) {
+      setSaveError(e?.message || "حدث خطأ أثناء حفظ الطلب");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -182,7 +238,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">مُسجِّل الطلب (اسمك الرسمي) <span className="text-red-500">*</span></label>
-            <Select value={form.recorded_by || "none"} onValueChange={(v) => set("recorded_by", v === "none" ? "" : v)}>
+            <Select value={form.recorded_by || "none"} onValueChange={(v) => { set("recorded_by", v === "none" ? "" : v); setCredential(""); setSaveError(""); }}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none" disabled>— اختر اسمك —</SelectItem>
@@ -190,6 +246,21 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
               </SelectContent>
             </Select>
           </div>
+
+          {recorderNeedsVerification && form.recorded_by && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">الرقم السري لمُسجِّل الطلب <span className="text-red-500">*</span></label>
+              <Input
+                type="password"
+                value={credential}
+                onChange={(e) => setCredential(e.target.value)}
+                placeholder="أدخل الرقم السري من تطبيق الإدارة"
+                autoComplete="current-password"
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-gray-400">لا يتم حفظ الرقم السري؛ يُستخدم فقط للتحقق من أن الاسم المختار هو الموظف الحقيقي.</p>
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">موعد الرد أو التوفير المتوقع</label>
@@ -207,8 +278,10 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             />
           </div>
 
+          {saveError && <p className="text-xs text-red-600 bg-red-50 rounded-md p-2">{saveError}</p>}
+
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.recorded_by} className="flex-1 bg-teal-600 hover:bg-teal-700">
+            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by || (recorderNeedsVerification && !credential)} className="flex-1 bg-teal-600 hover:bg-teal-700">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editOrder ? "حفظ التعديلات" : "حفظ الطلب")}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
