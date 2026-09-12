@@ -59,6 +59,7 @@ export default function Suppliers() {
     mutationFn: (data) => base44.entities.Supplier.create(data),
     onSuccess: (_, data) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["active-suppliers"] });
       setDialogOpen(false);
       logActivity({ action_type: "create", entity_type: "supplier", entity_label: data.name, details: `إضافة مورد: ${data.name}` });
     },
@@ -67,6 +68,7 @@ export default function Suppliers() {
     mutationFn: ({ id, data }) => base44.entities.Supplier.update(id, data),
     onSuccess: (_, { data }) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["active-suppliers"] });
       setDialogOpen(false);
       setEditing(null);
       logActivity({ action_type: "update", entity_type: "supplier", entity_label: data.name, details: `تعديل مورد: ${data.name}` });
@@ -87,6 +89,7 @@ export default function Suppliers() {
     },
     onSuccess: (supplier) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["active-suppliers"] });
       logActivity({ action_type: "update", entity_type: "supplier", entity_id: supplier?.id, entity_label: supplier?.name || "", details: `أرشفة مورد بدل الحذف النهائي` });
     },
   });
