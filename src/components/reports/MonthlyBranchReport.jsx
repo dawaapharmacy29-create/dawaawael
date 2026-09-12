@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileDown } from "lucide-react";
 import jsPDF from "jspdf";
+import { getInvoiceNetAmount, getInvoiceCashAmount, getInvoiceCreditAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
@@ -14,7 +15,7 @@ function getMonthKey(dateStr) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function MonthlyBranchReport({ invoices, expenses, singleBranch }) {
+export default function MonthlyBranchReport({ invoices, expenses, suppliers = [], singleBranch }) {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -35,10 +36,13 @@ export default function MonthlyBranchReport({ invoices, expenses, singleBranch }
     const name = inv.supplier_name || "غير محدد";
     if (!supplierMap[name]) supplierMap[name] = { name, count: 0, total: 0, cash: 0, credit: 0, other: 0 };
     supplierMap[name].count += 1;
-    supplierMap[name].total += inv.total_value || 0;
-    if (inv.payment_type === "كاش") supplierMap[name].cash += inv.total_value || 0;
-    else if (inv.payment_type === "آجل") supplierMap[name].credit += inv.total_value || 0;
-    else supplierMap[name].other += inv.total_value || 0;
+    const net = getInvoiceNetAmount(inv, suppliers);
+    const cash = Math.min(getInvoiceCashAmount(inv), net);
+    const credit = Math.min(getInvoiceCreditAmount(inv), net);
+    supplierMap[name].total += net;
+    supplierMap[name].cash += cash;
+    supplierMap[name].credit += credit;
+    supplierMap[name].other += Math.max(net - cash - credit, 0);
   });
   const supplierStats = Object.values(supplierMap).sort((a, b) => b.total - a.total);
 
