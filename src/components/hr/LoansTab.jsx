@@ -32,7 +32,12 @@ export default function LoansTab() {
   });
 
   const createMut = useMutation({
-    mutationFn: (data) => base44.entities.EmployeeLoan.create(data),
+    mutationFn: async (data) => {
+      const res = await base44.functions.invoke("createEmployeeLoanSafe", { loan: data });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حفظ السلفة");
+      return result.record;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-loans"] }),
   });
   const updateMut = useMutation({
