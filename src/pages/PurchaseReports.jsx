@@ -10,6 +10,7 @@ import BranchBreakdown from "@/components/purchase-reports/BranchBreakdown";
 import SupplierBreakdown from "@/components/purchase-reports/SupplierBreakdown";
 import AdminSummary from "@/components/purchase-reports/AdminSummary";
 import MonthlySalesPurchasesChart from "@/components/purchase-reports/MonthlySalesPurchasesChart";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -65,6 +66,11 @@ export default function PurchaseReports() {
     queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 5000),
     staleTime: 60000,
   });
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => base44.entities.Supplier.list(),
+    staleTime: 60000,
+  });
 
   const uniqueSuppliers = useMemo(
     () => [...new Set(invoices.map((i) => i.supplier_name).filter(Boolean))].sort(),
@@ -82,29 +88,29 @@ export default function PurchaseReports() {
     });
   }, [invoices, dateFrom, dateTo, filterBranch, filterSupplier]);
 
-  const totalPurchases = filtered.reduce((s, i) => s + (i.total_value || 0), 0);
+  const totalPurchases = filtered.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalInvoices = filtered.length;
 
   const branchTotals = useMemo(() => BRANCHES.map((branch) => {
     const list = filtered.filter((i) => i.branch === branch);
     return {
       branch,
-      total: list.reduce((s, i) => s + (i.total_value || 0), 0),
+      total: list.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0),
       count: list.length,
       color: BRANCH_COLORS[branch],
     };
-  }), [filtered]);
+  }), [filtered, suppliers]);
 
   const supplierTotals = useMemo(() => {
     const map = {};
     filtered.forEach((i) => {
       const name = i.supplier_name || "غير محدد";
       if (!map[name]) map[name] = { name, total: 0, count: 0 };
-      map[name].total += i.total_value || 0;
+      map[name].total += getInvoiceNetAmount(i, suppliers);
       map[name].count += 1;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [filtered]);
+  }, [filtered, suppliers]);
 
   const topSupplier = supplierTotals[0] || null;
   const topBranch = [...branchTotals].sort((a, b) => b.total - a.total)[0] || null;
@@ -114,11 +120,12 @@ export default function PurchaseReports() {
     const cats = { medicines: 0, supplies_accessories: 0 };
     let uncategorized = 0;
     filtered.forEach((i) => {
-      if (cats[i.purchase_category] !== undefined) cats[i.purchase_category] += i.total_value || 0;
-      else uncategorized += i.total_value || 0;
+      const net = getInvoiceNetAmount(i, suppliers);
+      if (cats[i.purchase_category] !== undefined) cats[i.purchase_category] += net;
+      else uncategorized += net;
     });
     return { cats, uncategorized };
-  }, [filtered]);
+  }, [filtered, suppliers]);
 
   // فواتير الشهر الحالي اللي محتاجة تصنيف (لأداة المراجعة الجماعية)
   const thisMonthInvoices = useMemo(() => {
