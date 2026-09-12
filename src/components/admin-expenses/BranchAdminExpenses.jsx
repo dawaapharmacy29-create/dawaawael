@@ -107,8 +107,22 @@ export default function BranchAdminExpenses({ branch, accentColor = "text-teal-6
   });
 
   const deleteOneTimeMutation = useMutation({
-    mutationFn: (id) => base44.entities.AdminOneTimeExpense.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-one-time-expenses"] }),
+    mutationFn: async (id) => {
+      const expense = allOneTime.find((e) => e.id === id);
+      const res = await base44.functions.invoke("deleteExpenseSafe", {
+        id,
+        entity_type: "AdminOneTimeExpense",
+        reason: "حذف مصروف إداري لمرة واحدة",
+        note: expense ? `${expense.name || "مصروف إداري"} — ${expense.amount || 0} ج — ${expense.month || ""} — ${expense.branch || ""}` : "",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حذف المصروف الإداري بأمان");
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-one-time-expenses"] });
+      qc.invalidateQueries({ queryKey: ["financial-archive"] });
+    },
   });
 
   const last6Months = useMemo(() => Array.from({ length: 6 }, (_, i) => monthsAgo(5 - i)), []);
