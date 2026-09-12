@@ -87,6 +87,42 @@ export default async function(req: Request): Promise<Response> {
         }
       }
       restored = await base44.asServiceRole.entities.Return.create(snapshot);
+    } else if (entityType === 'Expense') {
+      const description = clean(snapshot.description);
+      const branch = clean(snapshot.branch);
+      const date = clean(snapshot.date);
+      const amount = Number(snapshot.amount || 0);
+      if (!description || !branch || !date) {
+        return Response.json({ error: 'Snapshot المصروف ناقص الوصف أو الفرع أو التاريخ' }, { status: 400 });
+      }
+      const candidates = await base44.asServiceRole.entities.Expense.filter({ description, branch, date });
+      const same = candidates.find((e: any) =>
+        Number(e.amount || 0) === amount &&
+        clean(e.category) === clean(snapshot.category) &&
+        clean(e.team_member_name) === clean(snapshot.team_member_name)
+      );
+      if (same) {
+        return Response.json({
+          error: 'يوجد بالفعل مصروف مطابق بنفس الوصف والفرع والتاريخ والقيمة. تم منع الاستعادة لتجنب التكرار.',
+          duplicate_id: same.id,
+        }, { status: 409 });
+      }
+      restored = await base44.asServiceRole.entities.Expense.create(snapshot);
+    } else if (entityType === 'AdminOneTimeExpense') {
+      const name = clean(snapshot.name);
+      const branch = clean(snapshot.branch);
+      const month = clean(snapshot.month);
+      if (!name || !branch || !month) {
+        return Response.json({ error: 'Snapshot المصروف الإداري ناقص الاسم أو الفرع أو الشهر' }, { status: 400 });
+      }
+      const candidates = await base44.asServiceRole.entities.AdminOneTimeExpense.filter({ name, branch, month });
+      if (candidates?.[0]) {
+        return Response.json({
+          error: 'يوجد بالفعل مصروف إداري مطابق لنفس الاسم والفرع والشهر. تم منع الاستعادة لتجنب التكرار.',
+          duplicate_id: candidates[0].id,
+        }, { status: 409 });
+      }
+      restored = await base44.asServiceRole.entities.AdminOneTimeExpense.create(snapshot);
     } else {
       return Response.json({ error: 'نوع السجل المؤرشف غير مدعوم للاستعادة' }, { status: 400 });
     }
