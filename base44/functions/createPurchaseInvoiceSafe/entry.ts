@@ -57,6 +57,19 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين لهذا الفرع' }, { status: 400 });
     }
 
+    const supplierId = clean(invoice.supplier_id);
+    const supplierName = clean(invoice.supplier_name);
+    let supplier: any = null;
+    if (supplierId) {
+      supplier = await base44.asServiceRole.entities.Supplier.get(supplierId).catch(() => null);
+    } else if (supplierName) {
+      const matches = await base44.asServiceRole.entities.Supplier.filter({ name: supplierName });
+      supplier = matches.find((s: any) => s.is_active !== false) || matches[0] || null;
+    }
+    if (supplier?.is_active === false) {
+      return Response.json({ error: 'هذا المورد مؤرشف ولا يمكن استخدامه في فاتورة جديدة. استعد المورد أولًا من صفحة الموردين.' }, { status: 400 });
+    }
+
     const duplicates: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({
       branch,
       system_invoice_number: systemInvoiceNumber,
@@ -102,8 +115,8 @@ export default async function(req: Request): Promise<Response> {
       system_invoice_number: systemInvoiceNumber,
       supplier_invoice_number: clean(invoice.supplier_invoice_number),
       transfer_authorization_number: clean(invoice.transfer_authorization_number),
-      supplier_name: clean(invoice.supplier_name),
-      supplier_id: clean(invoice.supplier_id),
+      supplier_name: supplierName,
+      supplier_id: supplierId,
       branch,
       entered_by: clean(employee.canonical_name),
       entered_by_staff_id: clean(employee.admin_staff_id),
