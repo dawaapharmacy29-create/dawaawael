@@ -61,10 +61,10 @@ export default function MonthlyBranchReport({ invoices, expenses, suppliers = []
     supplierStats.forEach((stat) => {
       const rows = [
         ["عدد الفواتير", String(stat.count)],
-        ["إجمالي المشتريات", stat.total.toLocaleString("en-EG") + " EGP"],
-        ["كاش", stat.cash.toLocaleString("en-EG") + " EGP"],
-        ["آجل", stat.credit.toLocaleString("en-EG") + " EGP"],
-        ["أخرى", stat.other.toLocaleString("en-EG") + " EGP"],
+        ["إجمالي المشتريات", stat.total.toLocaleString("ar-EG") + " ج"],
+        ["كاش", stat.cash.toLocaleString("ar-EG") + " ج"],
+        ["آجل", stat.credit.toLocaleString("ar-EG") + " ج"],
+        ["أخرى", stat.other.toLocaleString("ar-EG") + " ج"],
       ];
 
       doc.setFillColor(59, 130, 246);
@@ -86,7 +86,7 @@ export default function MonthlyBranchReport({ invoices, expenses, suppliers = []
       if (y > 260) { doc.addPage(); y = 20; }
     });
 
-    doc.save(`suppliers_report_${selectedMonth}.pdf`);
+    doc.save(`تقرير_الموردين_${selectedMonth}.pdf`);
   };
 
   const fmt = (n) => n.toLocaleString("ar-EG");
