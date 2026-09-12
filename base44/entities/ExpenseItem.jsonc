@@ -64,18 +64,9 @@
       ]
     },
     "delete": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "manager"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "__archive_only_no_hard_delete__"
+      }
     }
   }
 }
