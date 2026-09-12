@@ -23,6 +23,14 @@ const ACTION_LABELS = {
   update: { label: "تعديل", color: "bg-blue-100 text-blue-700" },
   delete: { label: "حذف", color: "bg-red-100 text-red-700" },
   payment: { label: "دفعة", color: "bg-purple-100 text-purple-700" },
+  bulk_update: { label: "تعديل جماعي", color: "bg-orange-100 text-orange-700" },
+  import: { label: "استيراد", color: "bg-cyan-100 text-cyan-700" },
+  export: { label: "تصدير", color: "bg-teal-100 text-teal-700" },
+  permission_change: { label: "تغيير صلاحية", color: "bg-pink-100 text-pink-700" },
+  status_change: { label: "تغيير حالة", color: "bg-indigo-100 text-indigo-700" },
+  exclusion_change: { label: "تغيير الاستثناء", color: "bg-amber-100 text-amber-700" },
+  category_change: { label: "تغيير التصنيف", color: "bg-violet-100 text-violet-700" },
+  role_change: { label: "تغيير الدور", color: "bg-rose-100 text-rose-700" },
   cancelled: { label: "ملغى", color: "bg-gray-100 text-gray-500" },
 };
 
@@ -31,7 +39,50 @@ const ENTITY_LABELS = {
   expense: "مصروف",
   supplier: "مورد",
   payment: "سداد",
+  return: "مرتجع",
+  order: "طلب",
+  customer_order: "طلب عميل",
+  pharmacy_order: "طلب صيدلية",
+  team_member: "موظف",
+  inventory: "مخزون",
+  shift: "تسليم شيفت",
+  user: "مستخدم",
+  system: "النظام",
 };
+
+const DETAIL_KEY_LABELS = {
+  branch_access: "صلاحيات الفروع",
+  purchase_category: "تصنيف المشتريات",
+  net_purchase_mode: "حالة صافي المشتريات",
+  exclusion_reason: "سبب الاستثناء",
+  payment_type: "طريقة الدفع",
+  supplier_name: "اسم المورد",
+  branch: "الفرع",
+  total_value: "القيمة الإجمالية",
+  paid_value: "القيمة المدفوعة",
+  returned_value: "قيمة المرتجع",
+  status: "الحالة",
+  role: "الدور",
+};
+
+const DETAIL_VALUE_LABELS = {
+  admin: "مدير عام",
+  manager: "مدير",
+  viewer: "مشاهد",
+  medicines: "أدوية",
+  supplies_accessories: "مستلزمات وإكسسوارات",
+  unclassified: "غير مصنف",
+  internal_transfer: "تحويل داخلي",
+  external_purchase: "شراء خارجي",
+  inherit: "حسب إعداد المورد",
+  include: "محتسبة في الصافي",
+  exclude: "مستثناة من الصافي",
+  success: "ناجح",
+  failed: "فاشل",
+};
+
+const translateDetailKey = (key) => DETAIL_KEY_LABELS[key] || key;
+const translateDetailValue = (value) => DETAIL_VALUE_LABELS[value] || value;
 
 export default function ActivityLog() {
   const queryClient = useQueryClient();
@@ -81,13 +132,17 @@ export default function ActivityLog() {
     // Try JSON
     try {
       const obj = JSON.parse(details);
-      return Object.entries(obj).map(([k, v]) => ({ key: k, value: String(v) }));
+      return Object.entries(obj).map(([k, v]) => ({ key: translateDetailKey(k), value: translateDetailValue(String(v)) }));
     } catch {}
     // Try "key: value" lines
     const lines = details.split(/[,\n|]+/).map(l => l.trim()).filter(Boolean);
     if (lines.length > 1) return lines.map(l => {
       const idx = l.indexOf(":");
-      if (idx > 0) return { key: l.slice(0, idx).trim(), value: l.slice(idx + 1).trim() };
+      if (idx > 0) {
+        const rawKey = l.slice(0, idx).trim();
+        const rawValue = l.slice(idx + 1).trim();
+        return { key: translateDetailKey(rawKey), value: translateDetailValue(rawValue) };
+      }
       return { key: null, value: l };
     });
     return [{ key: null, value: details }];
