@@ -52,7 +52,7 @@ function exportPharmacyOrdersToExcel(orders) {
 }
 
 export default function PharmacyOrders() {
-  const { isAdmin, isManager, user } = useUserRole();
+  const { isAdmin, isManager, canAccessBranch } = useUserRole();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -110,11 +110,10 @@ export default function PharmacyOrders() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-orders"] }),
   });
 
-  const userBranch = user?.branch;
-  const operationalOrders = orders.filter((o) => o.is_archived !== true);
-  const visibleOrders = showArchived ? orders.filter((o) => o.is_archived === true) : operationalOrders;
+  const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
+  const operationalOrders = accessibleOrders.filter((o) => o.is_archived !== true);
+  const visibleOrders = showArchived ? accessibleOrders.filter((o) => o.is_archived === true) : operationalOrders;
   const filteredOrders = visibleOrders.filter((o) => {
-    if (!isManager && userBranch && o.branch !== userBranch) return false;
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (filterEmployee && o.assigned_employee !== filterEmployee) return false;
