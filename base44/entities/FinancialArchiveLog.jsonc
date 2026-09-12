@@ -1,0 +1,66 @@
+{
+  "name": "FinancialArchiveLog",
+  "type": "object",
+  "properties": {
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "PurchaseInvoice",
+        "Return"
+      ]
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "entity_label": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "archived_by": {
+      "type": "string"
+    },
+    "archived_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "archive_reason": {
+      "type": "string"
+    },
+    "archive_note": {
+      "type": "string"
+    },
+    "snapshot": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "entity_type",
+    "entity_id",
+    "archived_by",
+    "archived_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "__server_only__"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "__server_only__"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "__no_delete__"
+      }
+    }
+  }
+}
