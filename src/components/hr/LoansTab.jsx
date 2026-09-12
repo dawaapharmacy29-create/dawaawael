@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle, CalendarClock } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LoanFormDialog from "./LoanFormDialog";
 import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
@@ -61,7 +61,9 @@ export default function LoansTab() {
   });
 
   const operationalLoans = loans.filter((l) => l.is_archived !== true);
-  const activeLoans = operationalLoans.filter((l) => l.status === "نشطة");
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const futureLoans = operationalLoans.filter((l) => l.status === "نشطة" && l.date && l.date > todayStr);
+  const activeLoans = operationalLoans.filter((l) => l.status === "نشطة" && (!l.date || l.date <= todayStr));
   const totalAmount = activeLoans.reduce((s, l) => s + (l.amount || 0), 0);
   const totalRemaining = activeLoans.reduce((s, l) => s + ((l.amount || 0) - (l.paid_amount || 0)), 0);
 
@@ -75,7 +77,7 @@ export default function LoansTab() {
   return (
     <div className="space-y-3">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Card className="p-3 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-teal-100"><Wallet className="w-5 h-5 text-teal-600" /></div>
           <div><p className="text-xs text-gray-500">سلف نشطة</p><p className="text-lg font-bold">{activeLoans.length}</p></div>
@@ -84,9 +86,13 @@ export default function LoansTab() {
           <div className="p-2 rounded-lg bg-blue-100"><TrendingUp className="w-5 h-5 text-blue-600" /></div>
           <div><p className="text-xs text-gray-500">إجمالي السلف</p><p className="text-lg font-bold">{totalAmount.toLocaleString("ar-EG")}</p></div>
         </Card>
-        <Card className="p-3 flex items-center gap-3 col-span-2 md:col-span-1">
+        <Card className="p-3 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-orange-100"><AlertCircle className="w-5 h-5 text-orange-600" /></div>
           <div><p className="text-xs text-gray-500">متبقي للسداد</p><p className="text-lg font-bold text-orange-600">{totalRemaining.toLocaleString("ar-EG")}</p></div>
+        </Card>
+        <Card className="p-3 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-violet-100"><CalendarClock className="w-5 h-5 text-violet-600" /></div>
+          <div><p className="text-xs text-gray-500">سلف بتاريخ مستقبلي</p><p className="text-lg font-bold text-violet-700">{futureLoans.length}</p></div>
         </Card>
       </div>
 
