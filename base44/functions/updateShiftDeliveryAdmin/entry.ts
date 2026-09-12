@@ -29,8 +29,29 @@ export default async function(req: Request): Promise<Response> {
     const item = await base44.asServiceRole.entities.ShiftDelivery.get(id);
     if (!item) return Response.json({ error: 'سجل التسليم غير موجود' }, { status: 404 });
 
+    const actor = clean(user.full_name) || clean(user.email) || 'مستخدم النظام';
     let updates: Record<string, unknown> = {};
-    if (action === 'previous_calculation_day') {
+
+    if (action === 'archive') {
+      const reason = clean(body?.archive_reason) || 'أرشفة إدارية';
+      const note = clean(body?.archive_note);
+      updates = {
+        is_archived: true,
+        archived_at: new Date().toISOString(),
+        archived_by: actor,
+        archive_reason: reason,
+        archive_note: note,
+      };
+    } else if (action === 'restore_archive') {
+      updates = {
+        is_archived: false,
+        archived_at: '',
+        archived_by: '',
+        archive_reason: '',
+        archive_note: '',
+      };
+    } else if (action === 'previous_calculation_day') {
+      if (item.is_archived === true) return Response.json({ error: 'لا يمكن تعديل تسليم مؤرشف قبل استعادته' }, { status: 409 });
       if (String(user.role || '') !== 'admin') {
         return Response.json({ error: 'ترحيل تاريخ الاحتساب متاح للمدير العام فقط' }, { status: 403 });
       }
@@ -39,6 +60,7 @@ export default async function(req: Request): Promise<Response> {
       if (!prev) return Response.json({ error: 'تاريخ التسليم غير صالح' }, { status: 400 });
       updates = { calculation_date: prev };
     } else if (action === 'update') {
+      if (item.is_archived === true) return Response.json({ error: 'لا يمكن تعديل تسليم مؤرشف قبل استعادته' }, { status: 409 });
       const patch = body?.updates || {};
       const shiftType = clean(patch.shift_type || item.shift_type);
       if (!['صباحي', 'مسائي', 'ليلي'].includes(shiftType)) {
