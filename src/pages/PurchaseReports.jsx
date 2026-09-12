@@ -220,7 +220,7 @@ export default function PurchaseReports() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-800">تقارير المشتريات اليومي</h1>
-          <p className="text-gray-500 text-xs mt-0.5">{totalInvoices} فاتورة في الفترة المحددة</p>
+          <p className="text-gray-500 text-xs mt-0.5">{totalInvoices} فاتورة في الفترة المحددة · صافي شراء {fmt(totalPurchases)} ج.م</p>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ export default function PurchaseReports() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="w-4 h-4 text-teal-600" />
@@ -282,6 +282,21 @@ export default function PurchaseReports() {
           </div>
           <p className="text-lg font-bold text-teal-700">{fmt(totalPurchases)} ج.م</p>
           <p className="text-[10px] text-gray-400 mt-0.5">{totalInvoices} فاتورة</p>
+        </div>
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <p className="text-xs text-gray-600">إجمالي قبل المرتجعات</p>
+          <p className="text-lg font-bold text-indigo-700">{fmt(purchaseFinance.grossIncluded)} ج.م</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">للفواتير المحتسبة في صافي الشراء</p>
+        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <p className="text-xs text-gray-600">إجمالي المرتجعات</p>
+          <p className="text-lg font-bold text-rose-700">{fmt(purchaseFinance.returnedIncluded)} ج.م</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">{purchaseFinance.returnRate.toLocaleString("ar-EG", { maximumFractionDigits: 1 })}% من الإجمالي</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs text-gray-600">متوسط صافي الفاتورة</p>
+          <p className="text-lg font-bold text-amber-700">{fmt(purchaseFinance.avgInvoice)} ج.م</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">على {totalInvoices} فاتورة</p>
         </div>
         {branchTotals.map((b) => (
           <div key={b.branch} className="rounded-xl border p-4" style={{ borderColor: b.color + "40", backgroundColor: b.color + "0d" }}>
@@ -293,6 +308,19 @@ export default function PurchaseReports() {
             <p className="text-[10px] text-gray-400 mt-0.5">{b.count} فاتورة</p>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-xl border bg-white p-3">
+        <p className="text-sm font-bold text-gray-700 mb-3">توزيع صافي المشتريات حسب طريقة الدفع</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {Object.entries(purchaseFinance.byPayment).map(([method, value]) => (
+            <div key={method} className="rounded-lg bg-gray-50 border p-3 text-center">
+              <p className="text-[10px] text-gray-500">{method}</p>
+              <p className="text-sm font-bold text-gray-800">{fmt(value)} ج.م</p>
+              <p className="text-[10px] text-gray-400">{totalPurchases > 0 ? ((value / totalPurchases) * 100).toLocaleString("ar-EG", { maximumFractionDigits: 1 }) : 0}%</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Top Suppliers row */}
@@ -310,7 +338,8 @@ export default function PurchaseReports() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800 truncate">{s.name}</p>
-                  <p className="text-xs text-gray-500">{fmt(s.total)} ج.م · {s.count} فاتورة</p>
+                  <p className="text-xs text-gray-500">{fmt(s.total)} ج.م · {s.count} فاتورة · {totalPurchases > 0 ? ((s.total / totalPurchases) * 100).toLocaleString("ar-EG", { maximumFractionDigits: 1 }) : 0}% من الشراء</p>
+                  {s.returned > 0 && <p className="text-[10px] text-rose-500">مرتجعات: {fmt(s.returned)} ج.م</p>}
                 </div>
                 {idx === 0 && <Crown className="w-4 h-4 text-amber-500 shrink-0" />}
               </div>
