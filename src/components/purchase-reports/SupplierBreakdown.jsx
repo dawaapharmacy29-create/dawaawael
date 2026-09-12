@@ -2,10 +2,11 @@ import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Users, Receipt, TrendingUp, CalendarDays, ChevronLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
-export default function SupplierBreakdown({ invoices, dateFrom, dateTo }) {
+export default function SupplierBreakdown({ invoices, suppliers = [], dateFrom, dateTo }) {
   const [selected, setSelected] = useState(null);
 
   const suppliersData = useMemo(() => {
@@ -14,11 +15,11 @@ export default function SupplierBreakdown({ invoices, dateFrom, dateTo }) {
       const name = i.supplier_name || "غير محدد";
       const dateKey = i.invoice_date || i.created_date?.split("T")[0];
       if (!map[name]) map[name] = { name, total: 0, count: 0, dailyMap: {} };
-      map[name].total += i.total_value || 0;
+      map[name].total += getInvoiceNetAmount(i, suppliers);
       map[name].count += 1;
       if (dateKey) {
         if (!map[name].dailyMap[dateKey]) map[name].dailyMap[dateKey] = 0;
-        map[name].dailyMap[dateKey] += i.total_value || 0;
+        map[name].dailyMap[dateKey] += getInvoiceNetAmount(i, suppliers);
       }
     });
     return Object.values(map)
@@ -28,7 +29,7 @@ export default function SupplierBreakdown({ invoices, dateFrom, dateTo }) {
         avgPerInvoice: s.count > 0 ? s.total / s.count : 0,
       }))
       .sort((a, b) => b.total - a.total);
-  }, [invoices]);
+  }, [invoices, suppliers]);
 
   const selectedData = suppliersData.find((s) => s.name === selected);
 
