@@ -258,7 +258,7 @@ export default function SlowMovingTab() {
           <span className="text-sm font-medium text-blue-700">تم تحديد {selectedIds.length} صنف</span>
           <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-red-600 border-red-300"
             onClick={() => setBulkAction("delete")}>
-            <Trash2 className="w-3 h-3" /> حذف المحدد
+            <Trash2 className="w-3 h-3" /> أرشفة المحدد
           </Button>
           <Button size="sm" variant="outline" className="text-xs h-7 gap-1 text-orange-600 border-orange-300"
             onClick={() => setBulkAction("expire")}>
@@ -354,10 +354,10 @@ export default function SlowMovingTab() {
       <ConfirmDialog
         open={bulkAction === "delete"}
         onOpenChange={(o) => { if (!o) setBulkAction(null); }}
-        title="تأكيد الحذف الجماعي"
-        description={`هل أنت متأكد من حذف ${selectedIds.length} صنف؟ لا يمكن التراجع.`}
+        title="تأكيد الأرشفة الجماعية"
+        description={`هل تريد أرشفة ${selectedIds.length} صنف؟ ستختفي من التشغيل الحالي مع الاحتفاظ بتاريخها.`}
         onConfirm={handleBulkDelete}
-        confirmLabel="حذف الكل"
+        confirmLabel="أرشفة المحدد"
       />
 
       {/* Bulk Expire Confirm */}
@@ -374,10 +374,10 @@ export default function SlowMovingTab() {
       <ConfirmDialog
         open={!!confirmDeleteId}
         onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
-        title="تأكيد الحذف"
-        description="هل أنت متأكد من حذف هذا الصنف؟ لا يمكن التراجع عن هذا الإجراء."
+        title="تأكيد الأرشفة"
+        description="هل تريد أرشفة هذا الصنف؟ سيختفي من التشغيل الحالي مع الاحتفاظ بسجله التاريخي."
         onConfirm={() => { archiveMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); }}
-        confirmLabel="حذف"
+        confirmLabel="أرشفة"
       />
 
       {/* Add Dialog */}
