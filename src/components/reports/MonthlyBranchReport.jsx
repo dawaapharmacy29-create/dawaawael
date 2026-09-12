@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileDown } from "lucide-react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { getInvoiceNetAmount, getInvoiceCashAmount, getInvoiceCreditAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -48,45 +49,50 @@ export default function MonthlyBranchReport({ invoices, expenses, suppliers = []
 
   const monthLabel = availableMonths.find((m) => m.key === selectedMonth)?.label || selectedMonth;
 
-  const exportPDF = () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    doc.setFontSize(14);
-    doc.text(`تقرير الموردين - ${monthLabel}`, 105, 15, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(`تاريخ الإنشاء: ${new Date().toLocaleDateString("ar-EG")}`, 105, 22, { align: "center" });
+  const exportPDF = async () => {
+    const holder = document.createElement("div");
+    holder.dir = "rtl";
+    holder.style.cssText = "position:fixed;top:-10000px;left:-10000px;width:760px;background:#fff;padding:28px;font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937";
 
-    let y = 32;
-    const startX = 14;
+    const cards = supplierStats.map((stat) => {
+      const name = String(stat.name || "غير محدد").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      return `<div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:14px"><div style="background:#0d9488;color:#fff;padding:10px 14px;font-weight:700">${name}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0"><div class="cell">عدد الفواتير: <b>${stat.count}</b></div><div class="cell">إجمالي المشتريات: <b>${stat.total.toLocaleString("ar-EG")} ج</b></div><div class="cell">كاش: <b>${stat.cash.toLocaleString("ar-EG")} ج</b></div><div class="cell">آجل: <b>${stat.credit.toLocaleString("ar-EG")} ج</b></div><div class="cell">أخرى: <b>${stat.other.toLocaleString("ar-EG")} ج</b></div></div></div>`;
+    }).join("");
 
-    supplierStats.forEach((stat) => {
-      const rows = [
-        ["عدد الفواتير", String(stat.count)],
-        ["إجمالي المشتريات", stat.total.toLocaleString("ar-EG") + " ج"],
-        ["كاش", stat.cash.toLocaleString("ar-EG") + " ج"],
-        ["آجل", stat.credit.toLocaleString("ar-EG") + " ج"],
-        ["أخرى", stat.other.toLocaleString("ar-EG") + " ج"],
-      ];
-
-      doc.setFillColor(59, 130, 246);
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
-      doc.rect(startX, y, 182, 8, "F");
-      doc.text(stat.name, startX + 3, y + 5.5);
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      doc.setFontSize(9);
-      rows.forEach(([label, value], idx) => {
-        if (idx % 2 === 0) { doc.setFillColor(245, 247, 250); doc.rect(startX, y, 182, 7, "F"); }
-        doc.text(label, startX + 3, y + 4.5);
-        doc.text(value, startX + 179, y + 4.5, { align: "right" });
-        y += 7;
-      });
-      y += 4;
-      if (y > 260) { doc.addPage(); y = 20; }
-    });
-
-    doc.save(`تقرير_الموردين_${selectedMonth}.pdf`);
+    holder.innerHTML = `<div style="text-align:center;margin-bottom:22px"><h1 style="margin:0;font-size:24px">تقرير الموردين - ${monthLabel}</h1><div style="color:#6b7280;margin-top:6px">تاريخ الإنشاء: ${new Date().toLocaleDateString("ar-EG")}</div></div>${cards || '<div style="text-align:center;color:#9ca3af">لا توجد بيانات</div>'}<style>.cell{padding:9px 12px;border-bottom:1px solid #f1f5f9}</style>`;
+    document.body.appendChild(holder);
+    try {
+      const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 16;
+      const fullImgHeight = (canvas.height * imgWidth) / canvas.width;
+      if (fullImgHeight <= pageHeight - 16) {
+        doc.addImage(canvas.toDataURL("image/png"), "PNG", 8, 8, imgWidth, fullImgHeight);
+      } else {
+        const pageCanvas = document.createElement("canvas");
+        const ctx = pageCanvas.getContext("2d");
+        const sourcePageHeight = Math.floor(canvas.width * (pageHeight - 16) / imgWidth);
+        pageCanvas.width = canvas.width;
+        let sourceY = 0;
+        let pageIndex = 0;
+        while (sourceY < canvas.height) {
+          const sliceHeight = Math.min(sourcePageHeight, canvas.height - sourceY);
+          pageCanvas.height = sliceHeight;
+          ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+          if (pageIndex > 0) doc.addPage();
+          const sliceImgHeight = sliceHeight * imgWidth / canvas.width;
+          doc.addImage(pageCanvas.toDataURL("image/png"), "PNG", 8, 8, imgWidth, sliceImgHeight);
+          sourceY += sliceHeight;
+          pageIndex += 1;
+        }
+      }
+      doc.save(`تقرير_الموردين_${selectedMonth}.pdf`);
+    } finally {
+      document.body.removeChild(holder);
+    }
   };
 
   const fmt = (n) => n.toLocaleString("ar-EG");
