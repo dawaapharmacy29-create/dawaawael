@@ -74,7 +74,18 @@ export default async function(req: Request): Promise<Response> {
 
       const existing = await base44.asServiceRole.entities.CustomerOrder.filter({ source_pharmacy_order_id: sourceId });
       if (existing?.[0]) {
-        try { await base44.asServiceRole.entities.PharmacyOrder.delete(sourceId); } catch { /* already removed or not accessible */ }
+        const existingSource = await base44.asServiceRole.entities.PharmacyOrder.get(sourceId).catch(() => null);
+        if (existingSource && existingSource.is_archived !== true) {
+          const actor = clean(user.full_name) || clean(user.email) || 'مستخدم النظام';
+          await base44.asServiceRole.entities.PharmacyOrder.update(sourceId, {
+            is_archived: true,
+            archived_at: new Date().toISOString(),
+            archived_by: actor,
+            archive_reason: 'تم التحويل إلى طلب عميل',
+            archive_note: 'أرشفة تلقائية بعد اكتشاف تحويل سابق مطابق',
+            converted_customer_order_id: existing[0].id,
+          });
+        }
         return Response.json({ success: true, record: existing[0], idempotent: true });
       }
 
@@ -105,8 +116,21 @@ export default async function(req: Request): Promise<Response> {
         }],
       });
 
-      await base44.asServiceRole.entities.PharmacyOrder.delete(sourceId);
-      return Response.json({ success: true, record: created });
+      await base44.asServiceRole.entities.PharmacyOrder.update(sourceId, {
+        is_archived: true,
+        archived_at: now,
+        archived_by: convertedBy,
+        archive_reason: 'تم التحويل إلى طلب عميل',
+        archive_note: 'تم الاحتفاظ بطلب الصيدلية الأصلي للرجوع إليه لاحقًا',
+        converted_customer_order_id: created.id,
+        timeline: [...(source.timeline || []), {
+          status: source.status || 'طلب جديد',
+          by: convertedBy,
+          at: now,
+          note: `تم التحويل إلى طلب عميل رقم ${created.order_number || created.id} وتمت أرشفة الطلب الأصلي بدون حذف`,
+        }],
+      });
+      return Response.json({ success: true, record: created, archived_source: true });
     }
 
     if (mode !== 'direct_verified') return Response.json({ error: 'نوع العملية غير مدعوم' }, { status: 400 });
