@@ -38,7 +38,7 @@ export default function ReturnFormDialog({ open, onOpenChange, onSuccess }) {
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members"],
-    queryFn: () => base44.entities.TeamMember.list(),
+    queryFn: async () => (await base44.entities.TeamMember.list()).filter((m) => m.is_active !== false),
     staleTime: 60000,
   });
   const { data: suppliers = [] } = useQuery({
