@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Plus, Archive, Pencil, Check, X, Loader2 } from "lucide-react";
 
 export default function ExpenseItemsTab() {
   const qc = useQueryClient();
@@ -31,8 +31,8 @@ export default function ExpenseItemsTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["expense-items"] }); setEditingId(null); },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ExpenseItem.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.ExpenseItem.update(id, { is_active: false }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-items"] }),
   });
 
@@ -135,12 +135,16 @@ export default function ExpenseItemsTab() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => deleteMutation.mutate(item.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {item.is_active !== false && (
+                            <button
+                              onClick={() => archiveMutation.mutate(item.id)}
+                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                              title="إيقاف البند مع الاحتفاظ بسجله"
+                              aria-label="إيقاف البند"
+                            >
+                              <Archive className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
