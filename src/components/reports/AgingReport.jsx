@@ -46,7 +46,7 @@ export default function AgingReport({ invoices }) {
 
   return (
     <Card className="p-4">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">تقرير عمر الديون (Aging Report) — الفواتير الآجلة فقط</h2>
+      <h2 className="text-sm font-semibold text-gray-700 mb-4">تقرير عمر الديون — الفواتير الآجلة فقط</h2>
 
       {/* Summary buckets */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
