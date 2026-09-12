@@ -177,7 +177,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">الفرع</label>
-              <Select value={form.branch} onValueChange={(v) => set("branch", v)}>
+              <Select value={form.branch} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setCredential(""); setSaveError(""); }}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
               </Select>
