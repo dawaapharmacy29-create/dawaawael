@@ -22,7 +22,7 @@ function BranchBalanceTable() {
   });
 
   const activeItems = items.filter((i) => i.is_active !== false);
-  const balanceRecords = allRecords.filter((r) => r.record_type === "balance");
+  const balanceRecords = allRecords.filter((r) => r.record_type === "balance" && r.is_archived !== true);
   const sorted = [...balanceRecords].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
 
   if (activeItems.length === 0 || balanceRecords.length === 0) return null;
