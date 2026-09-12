@@ -120,9 +120,10 @@ export default function PurchaseInvoices() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const inv = await base44.entities.PurchaseInvoice.create(data);
-      await logActivity({ action_type: "create", entity_type: "invoice", entity_id: inv?.id, entity_label: data.system_invoice_number, details: `إنشاء فاتورة ${data.system_invoice_number}` });
-      return inv;
+      const res = await base44.functions.invoke("createPurchaseInvoiceSafe", { invoice: data });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر إنشاء الفاتورة");
+      return result.record;
     },
     onSuccess: (inv) => {
       // تحديث ذكي: أضف الفاتورة الجديدة للكاش مباشرة بدلاً من إعادة تحميل الكل
