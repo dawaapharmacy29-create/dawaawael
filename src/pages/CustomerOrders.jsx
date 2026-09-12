@@ -17,7 +17,7 @@ import OrderAlerts from "@/components/orders/OrderAlerts";
 import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
 import OrderBranchOverview from "@/components/orders/OrderBranchOverview";
 import { logActivity } from "@/lib/activityLogger";
-import { syncCustomerOrderToManagement, syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
+import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
