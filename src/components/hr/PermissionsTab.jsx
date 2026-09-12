@@ -35,12 +35,25 @@ export default function PermissionsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-permissions"] }),
   });
   const deleteMut = useMutation({
-    mutationFn: (id) => base44.entities.EmployeePermission.delete(id),
+    mutationFn: async (id) => {
+      const res = await base44.functions.invoke("archiveHRRecordSafe", {
+        id,
+        entity_type: "EmployeePermission",
+        action: "archive",
+        archive_reason: "أرشفة إذن موظف",
+        archive_note: "تمت الأرشفة من سجل الإذونات بدل الحذف النهائي",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر أرشفة الإذن");
+      return result.record;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-permissions"] }),
   });
 
+  const activePermissions = permissions.filter((p) => p.is_archived !== true);
+
   const balances = useMemo(() => {
-    const yearPerms = permissions.filter((p) => {
+    const yearPerms = activePermissions.filter((p) => {
       if (p.status !== "موافق") return false;
       const d = p.date ? new Date(p.date) : null;
       return d && d.getFullYear() === currentYear;
@@ -52,14 +65,14 @@ export default function PermissionsTab() {
       const entitlement = emp.permission_hours_entitlement ?? 24;
       return { name: emp.name, entitlement, used, remaining: Math.max(entitlement - used, 0) };
     });
-  }, [permissions, employees]);
+  }, [activePermissions, employees]);
 
-  const yearCount = permissions.filter((p) => {
+  const yearCount = activePermissions.filter((p) => {
     const d = p.date ? new Date(p.date) : null;
     return d && d.getFullYear() === currentYear;
   }).length;
 
-  const filtered = permissions.filter((p) => !search || p.employee_name?.includes(search));
+  const filtered = activePermissions.filter((p) => !search || p.employee_name?.includes(search));
 
   const handleSubmit = (data) => createMut.mutate(data);
 
