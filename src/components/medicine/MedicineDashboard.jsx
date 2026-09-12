@@ -77,8 +77,9 @@ export default function MedicineDashboard() {
     staleTime: 15000,
   });
 
-  const salesRecords = allRecords.filter((r) => !r.record_type || r.record_type === "sales");
-  const balanceRecords = allRecords.filter((r) => r.record_type === "balance");
+  const operationalRecords = allRecords.filter((r) => r.is_archived !== true);
+  const salesRecords = operationalRecords.filter((r) => !r.record_type || r.record_type === "sales");
+  const balanceRecords = operationalRecords.filter((r) => r.record_type === "balance");
 
   const activeItems = items.filter((i) => i.is_active !== false);
 
