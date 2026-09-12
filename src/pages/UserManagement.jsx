@@ -29,6 +29,8 @@ const ROLE_CONFIG = {
   viewer: { label: "مشاهد", color: "bg-gray-100 text-gray-700", desc: "عرض فقط (يمكن تخصيص صلاحيات إضافية)" },
 };
 
+const BRANCH_OPTIONS = ["دواء شكري", "دواء الشامي"];
+
 const PERMISSIONS = [
   { key: "can_save_invoice", label: "إضافة وتعديل الفواتير" },
   { key: "can_delete_invoice", label: "حذف الفواتير" },
@@ -88,6 +90,27 @@ export default function UserManagement() {
       });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+
+  const updateBranchAccess = useMutation({
+    mutationFn: async ({ id, branches, oldBranches, userEmail }) => {
+      await base44.entities.User.update(id, { branch_access: branches });
+      await logActivity({
+        action_type: "permission_change",
+        entity_type: "user",
+        entity_id: id,
+        record_id: id,
+        entity_label: userEmail,
+        old_value: `branch_access: ${(oldBranches || []).join(", ") || "غير محدد"}`,
+        new_value: `branch_access: ${(branches || []).join(", ") || "غير محدد"}`,
+        reason: "تغيير نطاق الفروع",
+        details: `تغيير نطاق فروع ${userEmail}: ${(branches || []).join("، ") || "بدون تقييد"}`,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["current-user"] });
+    },
   });
 
   if (!isAdmin) {
@@ -188,23 +211,54 @@ export default function UserManagement() {
                 </div>
                 {/* Permissions row - only show for non-admin */}
                 {role !== "admin" && (
-                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
-                    {PERMISSIONS.map((p) => {
-                      const val = !!user[p.key];
-                      return (
-                        <button
-                          key={p.key}
-                          disabled={user.id === currentUser?.id}
-                          onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val, oldValue: val, userEmail: user.email })}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            val ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-teal-200"
-                          }`}
-                        >
-                          {val ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                          {p.label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-3 pt-3 border-t space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {PERMISSIONS.map((p) => {
+                        const val = !!user[p.key];
+                        return (
+                          <button
+                            key={p.key}
+                            disabled={user.id === currentUser?.id}
+                            onClick={() => updatePerm.mutate({ id: user.id, perm: p.key, value: !val, oldValue: val, userEmail: user.email })}
+                            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              val ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-teal-200"
+                            }`}
+                          >
+                            {val ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 mb-1.5">نطاق الفروع</p>
+                      <div className="flex flex-wrap gap-2">
+                        {BRANCH_OPTIONS.map((branch) => {
+                          const current = Array.isArray(user.branch_access) ? user.branch_access : [];
+                          const enabled = current.includes(branch);
+                          const next = enabled ? current.filter((b) => b !== branch) : [...current, branch];
+                          return (
+                            <button
+                              key={branch}
+                              disabled={user.id === currentUser?.id || updateBranchAccess.isPending}
+                              onClick={() => updateBranchAccess.mutate({ id: user.id, branches: next, oldBranches: current, userEmail: user.email })}
+                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                enabled ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-200"
+                              }`}
+                              title={!current.length ? "الحساب غير مقيد حاليًا بفرع — لن يتغير نطاقه إلا عند اختيار فرع" : "تعديل نطاق الفرع"}
+                            >
+                              {enabled ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                              {branch}
+                            </button>
+                          );
+                        })}
+                        {(!Array.isArray(user.branch_access) || user.branch_access.length === 0) && (
+                          <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-1">
+                            غير محدد — السلوك القديم محفوظ بدون تقييد
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </Card>
