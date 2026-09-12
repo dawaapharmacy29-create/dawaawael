@@ -96,6 +96,11 @@ export default function SmartCommerceAnalytics() {
     queryFn: () => base44.entities.TargetGoal.list(),
     staleTime: 60000,
   });
+  const { data: purchaseBudgets = [] } = useQuery({
+    queryKey: ["smart-analytics-purchase-budgets"],
+    queryFn: () => base44.entities.BranchBudget.list(),
+    staleTime: 60000,
+  });
 
   const fullRange = useMemo(() => {
     if (mode === "month") return calendarMonthRange(today);
@@ -117,34 +122,43 @@ export default function SmartCommerceAnalytics() {
   const historicalRatios = historicalPeriods.map((x) => x.ratio).filter((x) => x !== null && Number.isFinite(x));
   const avg3Ratio = average(historicalRatios);
   const historyPeriodCount = historicalPeriods.length;
-  const ratioStatus = RatioStatus({ ratio: current.ratio, baseline: avg3Ratio });
   const elapsedDays = daysInclusive(currentRange.from, currentRange.to);
   const totalPeriodDays = daysInclusive(fullRange.from, fullRange.to);
   const projectedSales = elapsedDays > 0 ? (current.sales / elapsedDays) * totalPeriodDays : 0;
   const projectedPurchases = elapsedDays > 0 ? (current.purchases / elapsedDays) * totalPeriodDays : 0;
   const remainingDays = Math.max(totalPeriodDays - elapsedDays, 0);
-  const selectedTarget = branch === "all"
+  const selectedSalesTarget = branch === "all"
     ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + targetForRange(targets, b, fullRange), 0)
     : targetForRange(targets, branch, fullRange);
-  const requiredSalesPerDay = selectedTarget > 0 && remainingDays > 0 ? Math.max(selectedTarget - current.sales, 0) / remainingDays : 0;
-  const targetProjectedPct = selectedTarget > 0 ? (projectedSales / selectedTarget) * 100 : null;
-  const referenceRatio = avg3Ratio > 0 ? avg3Ratio : (current.ratio || 0);
-  const referenceRatioSource = avg3Ratio > 0 ? `متوسط ${historyPeriodCount.toLocaleString("ar-EG")} فترة سابقة متاحة` : "النسبة الحالية مؤقتًا لعدم اكتمال التاريخ السابق";
-  const purchaseBaseSales = selectedTarget > 0 ? selectedTarget : projectedSales;
-  const referencePurchaseCeiling = purchaseBaseSales * (referenceRatio / 100);
-  const suggestedPurchasePerDay = remainingDays > 0 ? Math.max(referencePurchaseCeiling - current.purchases, 0) / remainingDays : 0;
-  const purchaseSurplusVsReference = current.purchases - (current.sales * referenceRatio / 100);
+  const purchaseBudgetFor = (b) => purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0;
+  const selectedPurchaseTarget = branch === "all"
+    ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + purchaseBudgetFor(b), 0)
+    : purchaseBudgetFor(branch);
+  const targetPurchaseRatio = selectedSalesTarget > 0 && selectedPurchaseTarget > 0 ? (selectedPurchaseTarget / selectedSalesTarget) * 100 : null;
+  const ratioStatus = RatioStatus({ ratio: current.ratio, baseline: targetPurchaseRatio || avg3Ratio });
+  const requiredSalesPerDay = selectedSalesTarget > 0 && remainingDays > 0 ? Math.max(selectedSalesTarget - current.sales, 0) / remainingDays : 0;
+  const targetProjectedPct = selectedSalesTarget > 0 ? (projectedSales / selectedSalesTarget) * 100 : null;
+  const purchaseTargetProjectedPct = selectedPurchaseTarget > 0 ? (projectedPurchases / selectedPurchaseTarget) * 100 : null;
+  const suggestedPurchasePerDay = selectedPurchaseTarget > 0 && remainingDays > 0 ? Math.max(selectedPurchaseTarget - current.purchases, 0) / remainingDays : 0;
+  const expectedPurchaseToDate = selectedPurchaseTarget > 0 ? selectedPurchaseTarget * (elapsedDays / totalPeriodDays) : 0;
+  const purchaseSurplusVsReference = selectedPurchaseTarget > 0 ? current.purchases - expectedPurchaseToDate : 0;
   const dailyComparison = useMemo(() => buildDailyComparison({ handovers, invoices, suppliers, currentRange, previousRange: prevRange, branch }), [handovers, invoices, suppliers, currentRange, prevRange, branch]);
 
   const branchRows = useMemo(() => ANALYTICS_BRANCHES.map((b) => {
     const now = summarizePeriod({ handovers, invoices, suppliers, ...currentRange, branch: b });
     const prev = summarizePeriod({ handovers, invoices, suppliers, ...prevRange, branch: b });
-    const target = targetForRange(targets, b, fullRange);
+    const salesTarget = targetForRange(targets, b, fullRange);
+    const purchaseTarget = purchaseBudgets.find((x) => x.branch === b)?.budget_limit || 0;
     const projected = elapsedDays > 0 ? (now.sales / elapsedDays) * totalPeriodDays : 0;
+    const projectedPurchasesBranch = elapsedDays > 0 ? (now.purchases / elapsedDays) * totalPeriodDays : 0;
     return {
       branch: b, ...now, salesGrowth: growth(now.sales, prev.sales), purchaseGrowth: growth(now.purchases, prev.purchases),
-      target, achievedPct: target > 0 ? (now.sales / target) * 100 : null,
-      projected, projectedPct: target > 0 ? (projected / target) * 100 : null,
+      salesTarget, purchaseTarget,
+      targetRatio: salesTarget > 0 && purchaseTarget > 0 ? (purchaseTarget / salesTarget) * 100 : null,
+      achievedPct: salesTarget > 0 ? (now.sales / salesTarget) * 100 : null,
+      purchaseAchievedPct: purchaseTarget > 0 ? (now.purchases / purchaseTarget) * 100 : null,
+      projected, projectedPct: salesTarget > 0 ? (projected / salesTarget) * 100 : null,
+      projectedPurchasesBranch, projectedPurchasePct: purchaseTarget > 0 ? (projectedPurchasesBranch / purchaseTarget) * 100 : null,
     };
   }), [handovers, invoices, suppliers, targets, currentRange, prevRange, fullRange, elapsedDays, totalPeriodDays]);
 
