@@ -19,6 +19,17 @@ const SNAPSHOT_ENTITIES = [
   "Return",
 ];
 
+const ENTITY_LABELS_AR = {
+  Supplier: "الموردون",
+  ShiftDelivery: "تسليمات الشيفت",
+  PharmacyOrder: "طلبات الصيدليات",
+  CustomerOrder: "طلبات العملاء",
+  SupplierPayment: "دفعات الموردين",
+  PurchaseInvoice: "فواتير الشراء",
+  Expense: "المصروفات",
+  Return: "المرتجعات",
+};
+
 export default function SupabaseSyncCenter() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
@@ -95,7 +106,7 @@ export default function SupabaseSyncCenter() {
           const data = response?.data || response;
 
           if (!data?.success) {
-            throw new Error(data?.error || `فشل تصدير ${entityName}`);
+            throw new Error(data?.error || `فشل تصدير ${ENTITY_LABELS_AR[entityName] || entityName}`);
           }
 
           batches += 1;
@@ -132,8 +143,8 @@ export default function SupabaseSyncCenter() {
             <Database className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">مركز مزامنة Supabase</h1>
-            <p className="text-xs text-gray-500">ربط أحادي الاتجاه من Base44 إلى Supabase</p>
+            <h1 className="text-xl font-bold text-gray-800">مركز مزامنة قاعدة البيانات</h1>
+            <p className="text-xs text-gray-500">مزامنة أحادية الاتجاه من التطبيق إلى قاعدة البيانات المركزية</p>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -176,12 +187,12 @@ export default function SupabaseSyncCenter() {
             ) : snapshotProgress.completed ? (
               <div className="space-y-1 text-green-800">
                 <div className="font-semibold">✅ تم إرسال البيانات التاريخية كاملة إلى منطقة المراجعة</div>
-                <div>Snapshot: {snapshotProgress.snapshotId}</div>
+                <div>معرّف النسخة: {snapshotProgress.snapshotId}</div>
                 <div>إجمالي السجلات: {snapshotProgress.summary.reduce((sum, item) => sum + item.recordsSent, 0)}</div>
               </div>
             ) : (
               <div className="text-indigo-800">
-                <div className="font-semibold">جاري نقل {snapshotProgress.entityName}</div>
+                <div className="font-semibold">جاري نقل {ENTITY_LABELS_AR[snapshotProgress.entityName] || snapshotProgress.entityName}</div>
                 <div>الكيان {snapshotProgress.entityIndex} من {snapshotProgress.entitiesTotal} — تم إرسال {snapshotProgress.recordsSent} سجل</div>
               </div>
             )}
@@ -194,7 +205,7 @@ export default function SupabaseSyncCenter() {
           <CardContent className="p-3 text-sm">
             <span className="font-medium">{testResult.success ? "✅ الاتصال ناجح" : "❌ فشل الاتصال"}</span>
             {testResult.error && <span className="text-red-600 mr-2">— {testResult.error}</span>}
-            {testResult.status && <span className="text-gray-500 mr-2">(HTTP {testResult.status})</span>}
+            {testResult.status && <span className="text-gray-500 mr-2">(رمز الاستجابة {testResult.status})</span>}
           </CardContent>
         </Card>
       )}
