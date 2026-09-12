@@ -241,13 +241,13 @@ export default function Reports() {
       )}
 
       {/* Monthly Branch Report */}
-      <MonthlyBranchReport invoices={invoices} expenses={expenses} />
+      <MonthlyBranchReport invoices={invoices} expenses={expenses} suppliers={suppliers} />
 
       {/* Aging Report */}
       <AgingReport invoices={invoices} />
 
       {/* All Suppliers Table */}
-      <TopSuppliers invoices={invoices} dateFrom={activeFrom} dateTo={activeTo} />
+      <TopSuppliers invoices={invoices} suppliers={suppliers} dateFrom={activeFrom} dateTo={activeTo} />
 
       {/* Monthly per Branch */}
       {branchMonthlyData.length > 0 && (
