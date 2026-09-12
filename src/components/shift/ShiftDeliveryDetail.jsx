@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
-import { getPreviousDateStr } from "@/lib/shiftUtils";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
