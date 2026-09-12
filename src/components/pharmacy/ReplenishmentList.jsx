@@ -96,11 +96,15 @@ export default function ReplenishmentList() {
 
   const getStatus = (item) => item.order_status || "pending";
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ReplenishmentOrder.delete(id),
+  const archiveMutation = useMutation({
+    mutationFn: (id) => base44.entities.ReplenishmentOrder.update(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: "أرشفة طلب استكمال من الواجهة",
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["replenishment-orders"] });
-      toast({ description: "تم حذف الصنف" });
+      toast({ description: "تمت أرشفة الصنف مع الاحتفاظ بسجله" });
     },
   });
 
@@ -114,11 +118,13 @@ export default function ReplenishmentList() {
     });
   };
 
-  const filteredRaw = useMemo(() => items.filter((item) => {
+  const operationalItems = useMemo(() => items.filter((item) => item.is_archived !== true), [items]);
+
+  const filteredRaw = useMemo(() => operationalItems.filter((item) => {
     if (filterBranch !== "all" && item.branch !== filterBranch) return false;
     if (filterOrdered !== "all" && getStatus(item) !== filterOrdered) return false;
     return true;
-  }), [items, filterBranch, filterOrdered]);
+  }), [operationalItems, filterBranch, filterOrdered]);
 
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: REPL_SORT_COLUMNS,
@@ -127,9 +133,9 @@ export default function ReplenishmentList() {
   });
   const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
-  const orderedCount = items.filter((i) => getStatus(i) === "ordered").length;
-  const shortageCount = items.filter((i) => getStatus(i) === "shortage").length;
-  const pendingCount = items.filter((i) => getStatus(i) === "pending").length;
+  const orderedCount = operationalItems.filter((i) => getStatus(i) === "ordered").length;
+  const shortageCount = operationalItems.filter((i) => getStatus(i) === "shortage").length;
+  const pendingCount = operationalItems.filter((i) => getStatus(i) === "pending").length;
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -150,7 +156,7 @@ export default function ReplenishmentList() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => exportReplenishmentToExcel(filtered)} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50" size="sm">
-            <Download className="w-4 h-4" /> تصدير Excel
+            <Download className="w-4 h-4" /> تصدير إكسل
           </Button>
           <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 gap-2" size="sm">
             <Plus className="w-4 h-4" /> إضافة صنف
@@ -218,7 +224,7 @@ export default function ReplenishmentList() {
                 <SortableHeader field="order_status" label="تم الطلب؟" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
                 <th className="px-4 py-3 text-center font-medium">ملاحظات</th>
                 <SortableHeader field="created_date" label="وقت الإضافة" sortField={sortField} sortDirection={sortDirection} onToggle={toggleSort} className="px-4 py-3 text-center" />
-                <th className="px-4 py-3 text-center font-medium">حذف</th>
+                <th className="px-4 py-3 text-center font-medium">أرشفة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -257,7 +263,7 @@ export default function ReplenishmentList() {
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <button
-                      onClick={() => deleteMutation.mutate(item.id)}
+                      onClick={() => archiveMutation.mutate(item.id)}
                       className="text-red-400 hover:text-red-600 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
