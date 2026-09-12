@@ -67,7 +67,7 @@ async function loadAllCustomerOrders() {
 }
 
 export default function CustomerOrders() {
-  const { isAdmin, isManager, user } = useUserRole();
+  const { isAdmin, isManager, canAccessBranch } = useUserRole();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -193,9 +193,9 @@ export default function CustomerOrders() {
     },
   });
 
-  // Role-based filtering: non-admin sees only their branch
-  const userBranch = user?.branch;
-  const accessibleOrders = orders.filter((o) => !(!isManager && userBranch && o.branch !== userBranch));
+  // Branch access is backward-compatible: users without an explicit branch_access
+  // keep their current visibility; once configured, only allowed branches are shown.
+  const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
   const operationalAccessibleOrders = accessibleOrders.filter((o) => o.is_archived !== true);
   const branchOrders = filterBranch === "all" ? accessibleOrders : accessibleOrders.filter((o) => o.branch === filterBranch);
   const operationalBranchOrders = filterBranch === "all" ? operationalAccessibleOrders : operationalAccessibleOrders.filter((o) => o.branch === filterBranch);
