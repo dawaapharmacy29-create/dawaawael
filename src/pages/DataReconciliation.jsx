@@ -139,7 +139,9 @@ export default function DataReconciliation() {
     const missingOfficialDate = scopedInvoices.filter((i) => !getInvoiceOfficialDate(i));
     const pendingInvoices = scopedInvoices.filter((i) => i.status === "انتظار المراجعة");
     const rejectedInvoices = scopedInvoices.filter((i) => i.status === "مرفوضة");
-    const pendingPurchaseValue = pendingInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
+    const pendingExternal = pendingInvoices.filter((i) => (i.transaction_type || "external_purchase") !== "internal_transfer");
+    const pendingInternal = pendingInvoices.filter((i) => i.transaction_type === "internal_transfer");
+    const pendingPurchaseValue = pendingExternal.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
     const approvedInvoices = scopedInvoices.filter(isInvoiceFinanciallyApproved);
 
     const dates = [];
@@ -168,10 +170,13 @@ export default function DataReconciliation() {
     const sales = activeShifts.reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
     const purchases = approvedInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
     const selectedBranches = branch === "all" ? BRANCHES : [branch];
-    const salesTarget = selectedBranches.reduce((sum, b) => sum + Number(targets.find((t) => t.branch === b)?.target_amount || 0), 0);
-    const purchaseTarget = selectedBranches.reduce((sum, b) => sum + Number(purchaseTargets.find((t) => t.branch === b)?.target_amount || 0), 0);
+    const expectedCycle = cycleRangeFor(to);
+    const isManagementCycle = expectedCycle.from === from && expectedCycle.to === to;
+    const salesTarget = isManagementCycle ? selectedBranches.reduce((sum, b) => sum + Number(targets.find((t) => t.branch === b)?.target_amount || 0), 0) : 0;
+    const purchaseTarget = isManagementCycle ? selectedBranches.reduce((sum, b) => sum + Number(purchaseTargets.find((t) => t.branch === b)?.target_amount || 0), 0) : 0;
+    const pendingByBranch = selectedBranches.map((b) => ({ branch: b, total: pendingInvoices.filter((i) => i.branch === b).length, external: pendingExternal.filter((i) => i.branch === b).length, internal: pendingInternal.filter((i) => i.branch === b).length }));
 
-    return { scopedShifts, scopedInvoices, activeShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies, duplicateInvoiceGroups, missingOfficialDate, pendingInvoices, rejectedInvoices, pendingPurchaseValue, dailyRows, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, salesTarget, purchaseTarget };
+    return { scopedShifts, scopedInvoices, activeShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies, duplicateInvoiceGroups, missingOfficialDate, pendingInvoices, rejectedInvoices, pendingExternal, pendingInternal, pendingByBranch, pendingPurchaseValue, dailyRows, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, salesTarget, purchaseTarget, isManagementCycle };
   }, [shifts, invoicesRaw, expenses, suppliers, targets, purchaseTargets, from, to, branch, today]);
 
   const loading = loadingShifts || loadingInvoices || loadingExpenses;
@@ -214,7 +219,9 @@ export default function DataReconciliation() {
         <Card className="p-3">{qualityBadge((data.pendingInvoices.length + data.rejectedInvoices.length) ? "warn" : "ok", `مراجعة/مرفوضة: ${data.pendingInvoices.length}/${data.rejectedInvoices.length}`)}</Card>
       </div>
 
-      {data.pendingInvoices.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">قيمة صافي المشتريات الموجودة حاليًا في «انتظار المراجعة»: <b>{money(data.pendingPurchaseValue)} ج</b>. تم فصلها عن رقم المشتريات المعتمد في هذه الصفحة.</div>}
+      {data.pendingInvoices.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-1"><div>فواتير «انتظار المراجعة»: <b>{data.pendingInvoices.length}</b> — شراء خارجي <b>{data.pendingExternal.length}</b> — تحويل داخلي <b>{data.pendingInternal.length}</b>.</div><div>قيمة صافي الشراء الخارجي المعلّقة للمراجعة: <b>{money(data.pendingPurchaseValue)} ج</b>. لم تدخل في رقم المشتريات المعتمد.</div><div className="text-xs">{data.pendingByBranch.map((x) => `${x.branch}: ${x.total} (${x.external} خارجي + ${x.internal} داخلي)`).join(" — ")}</div></div>}
+
+      {!data.isManagementCycle && <div className="rounded-xl border bg-gray-50 p-3 text-xs text-gray-600">الفترة المختارة ليست دورة 26→25 كاملة؛ لذلك لا تتم مقارنة الأرقام بتارجت المبيعات أو سقف المشتريات.</div>}
 
       <Card className="overflow-hidden">
         <div className="p-4 border-b"><h2 className="font-bold text-gray-800">المطابقة اليومية حسب الفرع</h2><p className="text-xs text-gray-500 mt-1">الصف الأحمر/الأصفر يعني وجود سبب واضح للمراجعة في هذا اليوم، وليس حكمًا بأن الرقم خاطئ.</p></div>
