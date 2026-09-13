@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { Bell, X, FileText, RotateCcw, Receipt, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -21,7 +22,7 @@ export default function SmartAlerts() {
   const { data: pendingInvoices = [] } = useQuery({
     // نفس المفتاح المستخدم في القائمة الجانبية لتجنب طلب الشبكة المكرر لنفس البيانات.
     queryKey: ["pending-invoices-count"],
-    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }),
+    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
     staleTime: 60000,
   });
 
@@ -30,18 +31,26 @@ export default function SmartAlerts() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const returnCutoff = useMemo(() => new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), []);
+  const expenseCutoff = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), []);
+
   const { data: returns = [] } = useQuery({
-    queryKey: ["alerts-returns"],
-    queryFn: () => base44.entities.Return.list("-created_date", 200),
+    queryKey: ["alerts-returns", returnCutoff.slice(0, 10)],
+    queryFn: () => loadAllEntityFiltered(base44.entities.Return, {
+      status: { $in: ["Pending", "Under Review"] },
+      created_date: { $lte: returnCutoff },
+    }, "-created_date"),
     enabled: secondaryAlertsEnabled,
-    staleTime: 120000,
+    staleTime: 180000,
   });
 
   const { data: expenses = [] } = useQuery({
-    queryKey: ["alerts-expenses"],
-    queryFn: () => base44.entities.Expense.list("-created_date", 50),
+    queryKey: ["alerts-expenses", expenseCutoff.slice(0, 13)],
+    queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
+      created_date: { $gte: expenseCutoff },
+    }, "-created_date", 5000),
     enabled: secondaryAlertsEnabled,
-    staleTime: 120000,
+    staleTime: 180000,
   });
 
   const alerts = useMemo(() => {
@@ -66,9 +75,7 @@ export default function SmartAlerts() {
     });
 
     // Returns older than 3 days not executed (Pending or Under Review)
-    returns
-      .filter((r) => ["Pending", "Under Review"].includes(r.status) && daysDiff(r.created_date) > 3)
-      .forEach((r) => {
+    returns.forEach((r) => {
         const id = `ret-${r.id}`;
         if (!dismissed.includes(id)) {
           list.push({
@@ -86,9 +93,7 @@ export default function SmartAlerts() {
       });
 
     // New expenses (last 24h)
-    expenses
-      .filter((e) => daysDiff(e.created_date) < 1)
-      .forEach((e) => {
+    expenses.forEach((e) => {
         const id = `exp-${e.id}`;
         if (!dismissed.includes(id)) {
           list.push({
