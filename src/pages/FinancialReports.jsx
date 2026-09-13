@@ -37,8 +37,11 @@ const PERIOD_OPTIONS = [
 async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
   const PAGE = 500;
   const rows = [];
+  const hasFilter = query && Object.keys(query).length > 0;
   for (let offset = 0; rows.length < maxRows; offset += PAGE) {
-    const batch = await entity.filter(query, sort, PAGE, offset);
+    const batch = hasFilter
+      ? await entity.filter(query, sort, PAGE, offset)
+      : await entity.list(sort, PAGE, offset);
     rows.push(...batch);
     if (batch.length < PAGE) break;
   }
