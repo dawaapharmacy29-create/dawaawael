@@ -34,6 +34,17 @@ const PERIOD_OPTIONS = [
   { value: "custom", label: "فترة مخصصة" },
 ];
 
+async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.filter(query, sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function FinancialReports() {
   const [periodType, setPeriodType] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
@@ -46,10 +57,43 @@ export default function FinancialReports() {
     [periodType, customFrom, customTo]
   );
 
-  const { data: handovers = [] } = useQuery({ queryKey: ["shift-deliveries-fr"], queryFn: () => base44.entities.ShiftDelivery.list("-shift_date", 2000) });
-  const { data: invoices = [] } = useQuery({ queryKey: ["purchase-invoices-fr"], queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000) });
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments-fr"], queryFn: () => base44.entities.SupplierPayment.list("-created_date", 2000) });
-  const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts-fr"], queryFn: () => base44.entities.SupplierDebt.list() });
+  const periodEnabled = Boolean(dateFrom && dateTo);
+  const { data: handovers = [] } = useQuery({
+    queryKey: ["shift-deliveries-fr", dateFrom, dateTo],
+    queryFn: () => loadAllFiltered(base44.entities.ShiftDelivery, { shift_date: { $gte: dateFrom, $lte: dateTo } }, "-shift_date"),
+    enabled: periodEnabled,
+    staleTime: 120000,
+  });
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["purchase-invoices-fr", dateFrom, dateTo],
+    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, {
+      $or: [
+        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
+        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
+      ],
+    }, "-created_date"),
+    enabled: periodEnabled,
+    staleTime: 120000,
+  });
+  const { data: payments = [] } = useQuery({
+    queryKey: ["supplier-payments-fr", dateFrom, dateTo],
+    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, { payment_date: { $gte: dateFrom, $lte: dateTo } }, "-payment_date"),
+    enabled: periodEnabled,
+    staleTime: 120000,
+  });
+  const balanceInvoiceQuery = supplier === "all" ? { payment_type: "آجل" } : { payment_type: "آجل", supplier_name: supplier };
+  const balancePaymentQuery = supplier === "all" ? {} : { supplier_name: supplier };
+  const { data: balanceInvoices = [] } = useQuery({
+    queryKey: ["purchase-credit-balance-fr", supplier],
+    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, balanceInvoiceQuery, "-invoice_date"),
+    staleTime: 300000,
+  });
+  const { data: balancePayments = [] } = useQuery({
+    queryKey: ["supplier-balance-payments-fr", supplier],
+    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, balancePaymentQuery, "-payment_date"),
+    staleTime: 300000,
+  });
+  const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts-fr"], queryFn: () => base44.entities.SupplierDebt.list(), staleTime: 300000 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers-list-fr"], queryFn: () => base44.entities.Supplier.list() });
   const { data: branchTargets = [] } = useQuery({ queryKey: ["target-goals-fr"], queryFn: () => base44.entities.TargetGoal.list() });
   const { data: adminExpenseItems = [] } = useQuery({
@@ -59,30 +103,31 @@ export default function FinancialReports() {
   });
   const { data: adminExpenseRecords = [] } = useQuery({ queryKey: ["admin-expense-records-fr"], queryFn: () => base44.entities.AdminExpenseRecord.list() });
 
-  const activeHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true), [handovers]);
-  const fHandovers = useMemo(() => activeHandovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo) && (branch === "all" || h.branch === branch)), [activeHandovers, dateFrom, dateTo, branch]);
-  const fInvoices = useMemo(() => invoices.filter(i => inDateRange(i.invoice_date, dateFrom, dateTo) && (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [invoices, dateFrom, dateTo, branch, supplier]);
-  const fPayments = useMemo(() => payments.filter(p => inDateRange(p.payment_date, dateFrom, dateTo) && (supplier === "all" || p.supplier_name === supplier)), [payments, dateFrom, dateTo, supplier]);
+  const reviewableHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true), [handovers]);
+  const activeHandovers = useMemo(() => reviewableHandovers.filter(h => h.status !== "مراجعة"), [reviewableHandovers]);
+  const fHandovers = useMemo(() => activeHandovers.filter(h => branch === "all" || h.branch === branch), [activeHandovers, branch]);
+  const fInvoices = useMemo(() => invoices.filter(i => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [invoices, branch, supplier]);
+  const fPayments = useMemo(() => payments.filter(p => supplier === "all" || p.supplier_name === supplier), [payments, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
 
   const duplicateHandoverGroups = useMemo(() => {
     const groups = new Map();
-    fHandovers.forEach((record) => {
+    reviewableHandovers.forEach((record) => {
       const key = `${record.branch || ""}|${record.shift_date || ""}|${record.shift_type || ""}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(record);
     });
     return Array.from(groups.values()).filter((records) => records.length > 1);
-  }, [fHandovers]);
+  }, [reviewableHandovers]);
 
   const kpiData = useMemo(() => ({
     totalSales: fHandovers.reduce((s,h) => s + (h.total_sales || 0), 0),
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
     totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
-    currentDebts: computeTotalRemaining(invoices, payments, debts, supplier),
+    currentDebts: computeTotalRemaining(balanceInvoices, balancePayments, debts, supplier),
     supplierPayments: fPayments.reduce((s,p) => s + (p.amount || 0), 0),
-  }), [fHandovers, fInvoices, fPayments, invoices, payments, debts, supplier, suppliers]);
+  }), [fHandovers, fInvoices, fPayments, balanceInvoices, balancePayments, debts, supplier, suppliers]);
 
   const distinctDayCount = (arr, field) => {
     const days = new Set(arr.map(r => (r[field] || "").slice(0, 10)).filter(Boolean));
@@ -93,14 +138,13 @@ export default function FinancialReports() {
 
   // متوسط المبيعات اليومي لكل فرع على حدة (بغض النظر عن فلتر الفرع المختار) عشان مودال "متوسط المبيعات اليومي"
   const branchAvgSales = useMemo(() => {
-    const dateFilteredHandovers = activeHandovers.filter(h => inDateRange(h.shift_date, dateFrom, dateTo));
     return BRANCHES.map(b => {
-      const bHandovers = dateFilteredHandovers.filter(h => h.branch === b);
+      const bHandovers = activeHandovers.filter(h => h.branch === b);
       const bTotalSales = bHandovers.reduce((s, h) => s + (h.total_sales || 0), 0);
       const bDays = distinctDayCount(bHandovers, "shift_date");
       return { branch: b, avgSales: bDays > 0 ? bTotalSales / bDays : 0, days: bDays };
     });
-  }, [activeHandovers, dateFrom, dateTo]);
+  }, [activeHandovers]);
 
   const totalExpenses = useMemo(() =>
     fHandovers.reduce((sum, h) => sum + (h.expenses || []).reduce((s, e) => {
@@ -122,7 +166,7 @@ export default function FinancialReports() {
   const chartData = useMemo(() => buildChartData(fHandovers, fInvoices, dateFrom, dateTo, suppliers), [fHandovers, fInvoices, dateFrom, dateTo, suppliers]);
 
   const branchComparison = useMemo(() => buildBranchComparison(fHandovers, fInvoices, suppliers), [fHandovers, fInvoices, suppliers]);
-  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts), [fInvoices, fPayments, fDebts]);
+  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts, balanceInvoices, balancePayments), [fInvoices, fPayments, fDebts, balanceInvoices, balancePayments]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -199,7 +243,7 @@ export default function FinancialReports() {
       <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       <FinancialBranchComparisonTable data={branchComparison} />
       <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />
-      <FinancialSupplierBalanceTrendChart invoices={invoices} payments={payments} debts={debts} supplier={supplier} />
+      <FinancialSupplierBalanceTrendChart invoices={balanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />
     </div>
   );
 }
