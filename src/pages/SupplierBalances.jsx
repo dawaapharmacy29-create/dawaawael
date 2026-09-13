@@ -33,22 +33,22 @@ export default function SupplierBalances() {
   const [savingMonthStart, setSavingMonthStart] = useState(false);
 
   const { data: invoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
+    queryKey: ["supplier-credit-invoices"],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
       while (true) {
-        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        const batch = await base44.entities.PurchaseInvoice.filter({ payment_type: "آجل" }, "-created_date", PAGE, page * PAGE);
         all = [...all, ...batch];
         if (batch.length < PAGE) break;
         page++;
       }
       return all;
     },
-    staleTime: 0,
+    staleTime: 120000,
     placeholderData: (prev) => prev,
   });
 
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 0 });
+  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 60000 });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
