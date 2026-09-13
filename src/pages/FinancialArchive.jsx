@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ArchiveRestore, Lock, Search, RotateCcw, FileText } from "lucide-react";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const TYPE_LABEL = {
   PurchaseInvoice: "فاتورة شراء",
@@ -23,8 +24,9 @@ export default function FinancialArchive() {
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["financial-archive"],
-    queryFn: () => base44.entities.FinancialArchiveLog.list("-archived_at", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.FinancialArchiveLog, "-archived_at", 20000),
     enabled: isAdmin,
+    staleTime: 120000,
   });
 
   const restoreMutation = useMutation({
