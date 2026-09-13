@@ -27,10 +27,12 @@ const paymentMethodTotal = (expenses) =>
   }, 0);
 
 const PERIOD_OPTIONS = [
+  { value: "cycle", label: "الدورة 26→25" },
+  { value: "previous_cycle", label: "الدورة السابقة" },
   { value: "today", label: "اليوم" },
   { value: "week", label: "هذا الأسبوع" },
-  { value: "month", label: "هذا الشهر" },
-  { value: "last_month", label: "الشهر السابق" },
+  { value: "month", label: "الشهر الميلادي" },
+  { value: "last_month", label: "الشهر الميلادي السابق" },
   { value: "custom", label: "فترة مخصصة" },
 ];
 
@@ -49,7 +51,7 @@ async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
 }
 
 export default function FinancialReports() {
-  const [periodType, setPeriodType] = useState("month");
+  const [periodType, setPeriodType] = useState("cycle");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [branch, setBranch] = useState("all");
@@ -269,7 +271,7 @@ export default function FinancialReports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch">
         <div className="lg:col-span-3"><FinancialAverageCards data={avgData} branchAvgSales={branchAvgSales} /></div>
-        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={activeHandovers} targets={branchTargets} /></div>
+        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={activeHandovers} targets={branchTargets} dateFrom={dateFrom} dateTo={dateTo} /></div>
       </div>
       <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       <FinancialBranchComparisonTable data={branchComparison} />
