@@ -156,15 +156,18 @@ export function buildFinancialSummary(handovers, invoices, dateFrom, dateTo, bra
   };
 }
 
-export function buildSupplierAnalysis(invoices, payments, debts) {
+export function buildSupplierAnalysis(invoices, payments, debts, balanceInvoices = invoices, balancePayments = payments) {
   const names = new Set();
   invoices.forEach(i => i.supplier_name && names.add(i.supplier_name));
   payments.forEach(p => p.supplier_name && names.add(p.supplier_name));
   debts.forEach(d => d.supplier_name && names.add(d.supplier_name));
+  balanceInvoices.forEach(i => i.supplier_name && names.add(i.supplier_name));
+  balancePayments.forEach(p => p.supplier_name && names.add(p.supplier_name));
 
   return Array.from(names).map(name => {
     const totalPurchases = invoices.filter(i => i.supplier_name === name).reduce((s,i) => s + (i.total_value || 0), 0);
-    const bal = computeSupplierBalance(invoices, payments, debts, name);
-    return { name, totalPurchases, totalPayments: bal.totalPaid, currentDebt: bal.totalNet };
+    const periodPayments = payments.filter(p => p.supplier_name === name).reduce((s,p) => s + (p.amount || 0), 0);
+    const bal = computeSupplierBalance(balanceInvoices, balancePayments, debts, name);
+    return { name, totalPurchases, totalPayments: periodPayments, currentDebt: bal.totalNet };
   }).sort((a,b) => b.totalPurchases - a.totalPurchases);
 }
