@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
@@ -21,6 +21,35 @@ const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
 const STATUS_LIST_PHARMACY = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
+
+async function loadAllPharmacyOrders(maxRows = 10000) {
+  const all = [];
+  for (let offset = 0; offset < maxRows; offset += 500) {
+    const batch = await base44.entities.PharmacyOrder.list("-created_date", 500, offset);
+    const rows = Array.isArray(batch) ? batch : [];
+    all.push(...rows);
+    if (rows.length < 500) break;
+  }
+  return all;
+}
+
+async function loadPharmacyOrdersForCycle(cycle) {
+  const all = [];
+  const query = {
+    $or: [
+      { request_date: { $gte: cycle.start, $lte: cycle.end } },
+      { requested_at: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
+      { created_date: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
+    ],
+  };
+  for (let offset = 0; offset < 10000; offset += 500) {
+    const batch = await base44.entities.PharmacyOrder.filter(query, "-created_date", 500, offset);
+    const rows = Array.isArray(batch) ? batch : [];
+    all.push(...rows);
+    if (rows.length < 500) break;
+  }
+  return all;
+}
 
 function exportPharmacyOrdersToExcel(orders) {
   const rows = orders.map((o) => ({
@@ -68,10 +97,30 @@ export default function PharmacyOrders() {
   const [activeTab, setActiveTab] = useState("orders");
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["pharmacy-orders"],
-    queryFn: () => base44.entities.PharmacyOrder.list("-created_date", 500),
+  const { data: currentOrders = [], isLoading: currentLoading } = useQuery({
+    queryKey: ["pharmacy-orders", "cycle", currentCycle.start, currentCycle.end],
+    queryFn: () => loadPharmacyOrdersForCycle(currentCycle),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
+
+  const { data: archiveSourceOrders = [], isLoading: archiveLoading } = useQuery({
+    queryKey: ["pharmacy-orders", "archive"],
+    queryFn: () => loadAllPharmacyOrders(),
+    enabled: showArchived,
+    staleTime: 120000,
+    refetchOnWindowFocus: false,
+  });
+  const isLoading = showArchived ? archiveLoading : currentLoading;
+
+  useEffect(() => {
+    let timer;
+    const unsub = base44.entities.PharmacyOrder.subscribe(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => qc.invalidateQueries({ queryKey: ["pharmacy-orders"] }), 800);
+    });
+    return () => { clearTimeout(timer); unsub(); };
+  }, [qc]);
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["active-team-members"],
@@ -112,9 +161,10 @@ export default function PharmacyOrders() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-orders"] }),
   });
 
-  const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
-  const operationalOrders = accessibleOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
-  const archivedOrders = accessibleOrders.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
+  const accessibleCurrentOrders = currentOrders.filter((o) => canAccessBranch(o.branch));
+  const operationalOrders = accessibleCurrentOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
+  const accessibleArchiveSource = archiveSourceOrders.filter((o) => canAccessBranch(o.branch));
+  const archivedOrders = accessibleArchiveSource.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
   const visibleOrders = showArchived ? archivedOrders : operationalOrders;
   const filteredOrders = visibleOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
