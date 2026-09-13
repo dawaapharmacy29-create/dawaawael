@@ -77,6 +77,8 @@ function SearchableSelect({ value, onChange, options, placeholder, className = "
   );
 }
 
+const normalizeInvoiceNumber = (value) => String(value || "").trim().replace(/[\s\-_.:*]+$/g, "");
+
 const emptyForm = {
   system_invoice_number: "",
   supplier_invoice_number: "",
@@ -271,15 +273,17 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       }
     }
 
-    // Check duplicate system_invoice_number per branch
-    const isDuplicate = allInvoices.some(
-      (inv) =>
-        inv.branch === form.branch &&
-        inv.system_invoice_number === form.system_invoice_number &&
-        (!invoice || inv.id !== invoice.id)
-    );
+    // المفتاح المالي الرسمي لمنع التكرار: رقم الفاتورة + الفرع + تاريخ الفاتورة.
+    // يتم تطبيع العلامات الطرفية حتى لا تتحول 17307 و 17307* إلى سجلين لنفس الفاتورة بالخطأ.
+    const canonicalNumber = normalizeInvoiceNumber(form.system_invoice_number);
+    const effectiveDate = form.invoice_date || invoice?.invoice_date || invoice?.created_date?.slice(0, 10) || "";
+    const isDuplicate = allInvoices.some((inv) => {
+      const invNumber = normalizeInvoiceNumber(inv.system_invoice_number);
+      const invDate = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
+      return inv.branch === form.branch && invNumber === canonicalNumber && invDate === effectiveDate && (!invoice || inv.id !== invoice.id);
+    });
     if (isDuplicate) {
-      setDupError(`رقم الفاتورة "${form.system_invoice_number}" موجود بالفعل في ${form.branch}`);
+      setDupError(`الفاتورة "${form.system_invoice_number}" موجودة بالفعل في ${form.branch} بتاريخ ${effectiveDate}`);
       return;
     }
     setDupError("");
