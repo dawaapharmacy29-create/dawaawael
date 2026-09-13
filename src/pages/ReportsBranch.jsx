@@ -56,32 +56,45 @@ export default function ReportsBranch() {
   const SETTING_KEY_FROM = `report_date_from_${branch}`;
   const SETTING_KEY_TO = `report_date_to_${branch}`;
 
-  const { data: allInvoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
+  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
+  const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
+  const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
+  const activeFrom = settingFrom?.value || DEFAULT_FROM;
+  const activeTo = settingTo?.value || DEFAULT_TO;
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["reports-branch-invoices", branch, activeFrom, activeTo],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
+      const query = {
+        branch,
+        $or: [
+          { invoice_date: { $gte: activeFrom, $lte: activeTo } },
+          { created_date: { $gte: `${activeFrom}T00:00:00`, $lte: `${activeTo}T23:59:59` } },
+        ],
+      };
       while (true) {
-        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        const batch = await base44.entities.PurchaseInvoice.filter(query, "-created_date", PAGE, page * PAGE);
         all = [...all, ...batch];
         if (batch.length < PAGE) break;
         page++;
       }
       return all;
     },
-    staleTime: 60000,
+    staleTime: 120000,
   });
-  const { data: allExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["reports-branch-expenses", branch, activeFrom, activeTo],
+    queryFn: () => base44.entities.Expense.filter({
+      branch,
+      $or: [
+        { date: { $gte: activeFrom, $lte: activeTo } },
+        { created_date: { $gte: `${activeFrom}T00:00:00`, $lte: `${activeTo}T23:59:59` } },
+      ],
+    }, "-created_date", 5000),
+    staleTime: 120000,
+  });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
-  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
-
-  // Filter to this branch only
-  const invoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
-  const expenses = useMemo(() => allExpenses.filter(e => e.branch === branch), [allExpenses, branch]);
-
-  const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
-  const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
-  const activeFrom = settingFrom?.value || DEFAULT_FROM;
-  const activeTo = settingTo?.value || DEFAULT_TO;
 
   useEffect(() => {
     if (settingFrom) setPendingFrom(settingFrom.value);
