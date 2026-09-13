@@ -36,7 +36,7 @@ export default function ShiftDelivery() {
 
   const { data: activeDrafts = [] } = useQuery({
     queryKey: ["shift-drafts-active"],
-    queryFn: () => base44.entities.ShiftDraft.filter({ $or: [{ status: "draft" }, { status: "submitting" }] }, "-last_saved_at", 500),
+    queryFn: async () => (await base44.entities.ShiftDraft.list("-last_saved_at", 500)).filter((d) => ["draft", "submitting"].includes(d.status)),
     enabled: canViewAll,
     staleTime: 15000,
     refetchOnWindowFocus: true,
