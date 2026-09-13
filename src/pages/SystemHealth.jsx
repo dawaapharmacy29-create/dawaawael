@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Activity, AlertTriangle, CheckCircle2, Database, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { getInvoiceDueDate } from "@/lib/supplierAging";
+import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 
 const normalize = (value = "") => value.trim().replace(/\s+/g, " ").replace(/^د\/?\s*/, "د ").replace(/^ا\s+/, "").toLowerCase();
 
@@ -79,6 +81,21 @@ export default function SystemHealth() {
     queryFn: () => loadAllFiltered(base44.entities.DailyClose, { status: { $in: ["needs_review", "reopened"] } }, "-business_date", 5000),
     staleTime: 60000,
   });
+  const { data: shiftDraftRows = [], isLoading: draftsLoading } = useQuery({
+    queryKey: ["system-health-shift-drafts"],
+    queryFn: async () => (await base44.entities.ShiftDraft.list("-last_saved_at", 500)).filter((d) => ["draft", "submitting"].includes(d.status)),
+    staleTime: 30000,
+  });
+  const { data: creditInvoices = [], isLoading: creditLoading } = useQuery({
+    queryKey: ["system-health-credit-invoices"],
+    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, { payment_type: "آجل" }, "-invoice_date", 20000),
+    staleTime: 120000,
+  });
+  const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
+    queryKey: ["system-health-suppliers"],
+    queryFn: () => base44.entities.Supplier.list("name"),
+    staleTime: 300000,
+  });
 
   const activeMembers = useMemo(() => members.filter((m) => m.is_active !== false), [members]);
   const duplicateMembers = useMemo(() => {
@@ -123,10 +140,27 @@ export default function SystemHealth() {
     return [...groups.values()].filter((group) => group.length > 1);
   }, [activeShifts]);
 
+  const activeDraftIssues = useMemo(() => shiftDraftRows.filter((d) => {
+    if (d.last_error || Number(d.retry_count || 0) > 0) return true;
+    if (d.status !== "submitting") return false;
+    const stamp = d.last_saved_at || d.updated_date || d.created_date;
+    return stamp ? Date.now() - new Date(stamp).getTime() > 5 * 60 * 1000 : true;
+  }), [shiftDraftRows]);
+  const overdueSupplierInvoices = useMemo(() => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const supplierMap = new Map(suppliers.map((s) => [s.name, s]));
+    return creditInvoices.filter(isInvoiceFinanciallyApproved).filter((inv) => {
+      const remaining = Math.max(0, (Number(inv.total_value) || 0) - (Number(inv.returned_value) || 0) - (Number(inv.paid_value) || 0));
+      if (remaining <= 0.009) return false;
+      const due = getInvoiceDueDate(inv, supplierMap.get(inv.supplier_name));
+      return due && due < today;
+    });
+  }, [creditInvoices, suppliers]);
+
   const failedSync = failedSyncRows;
   const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
-  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading;
-  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length;
+  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || creditLoading || suppliersLoading;
+  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length;
 
   if (!isAdmin) {
     return <div dir="rtl" className="p-8 text-center text-gray-500">هذه الصفحة للمدير فقط.</div>;
@@ -153,6 +187,8 @@ export default function SystemHealth() {
         <HealthCard title="فواتير تنتظر المراجعة" value={pendingInvoices.length} subtitle="لا تدخل في المسار النهائي قبل المراجعة" icon={Activity} warn={pendingInvoices.length > 0} />
         <HealthCard title="مزامنة متعثرة" value={failedSync.length} subtitle="كل سجلات Failed أو Pending retry غير المحلولة" icon={RefreshCw} bad={failedSync.length > 0} />
         <HealthCard title="إقفالات تحتاج مراجعة" value={openDailyCloses.length} subtitle="إقفال محفوظ بحالة يحتاج مراجعة أو أعيد فتحه" icon={AlertTriangle} warn={openDailyCloses.length > 0} />
+        <HealthCard title="مسودات شيفت متعثرة" value={activeDraftIssues.length} subtitle="فشل سابق أو إرسال عالق لأكثر من 5 دقائق" icon={RefreshCw} bad={activeDraftIssues.length > 0} />
+        <HealthCard title="فواتير موردين متأخرة" value={overdueSupplierInvoices.length} subtitle="آجل معتمد ومتجاوز تاريخ الاستحقاق" icon={AlertTriangle} warn={overdueSupplierInvoices.length > 0} />
         <HealthCard title="آخر مزامنة ناجحة" value={lastSync ? 1 : 0} subtitle={lastSync ? new Date(lastSync).toLocaleString("ar-EG") : "لا توجد مزامنة ناجحة مسجلة"} icon={CheckCircle2} bad={!lastSync} />
       </div>
 
@@ -174,7 +210,9 @@ export default function SystemHealth() {
             {reviewShifts.slice(0, 20).map((s) => <div key={`review-${s.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>تحت المراجعة:</b> {s.branch} — {s.shift_date} — {s.shift_type}</div>)}
             {failedSync.slice(0, 20).map((r) => <div key={`sync-${r.id}`} className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm"><b>مزامنة متعثرة:</b> {r.entity_name || "سجل"} — {r.status}</div>)}
             {openDailyCloses.slice(0, 20).map((r) => <div key={`close-${r.id}`} className="rounded-lg border border-orange-100 bg-orange-50 p-3 text-sm"><b>إقفال يومي يحتاج مراجعة:</b> {r.branch} — {r.business_date} — {r.quality_issue_count || 0} نقطة</div>)}
-            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
+            {activeDraftIssues.slice(0, 20).map((d) => <div key={`draft-${d.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>مسودة شيفت متعثرة:</b> {d.branch} — {d.business_date} — {d.shift_type} {d.last_error ? `— ${d.last_error}` : "— إرسال عالق"}</div>)}
+            {overdueSupplierInvoices.slice(0, 20).map((inv) => <div key={`due-${inv.id}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>فاتورة مورد متأخرة:</b> {inv.supplier_name || "مورد"} — {inv.system_invoice_number || inv.id} — متبقي {Math.max(0, (Number(inv.total_value) || 0) - (Number(inv.returned_value) || 0) - (Number(inv.paid_value) || 0)).toLocaleString("ar-EG")} ج</div>)}
+            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && activeDraftIssues.length === 0 && overdueSupplierInvoices.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
           </div>
         </div>
       </div>
