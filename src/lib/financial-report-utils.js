@@ -99,8 +99,8 @@ export function buildBranchComparison(handovers, invoices, suppliers = []) {
     const totalSales = bHandovers.reduce((s,h) => s + (h.total_sales || 0), 0);
     const netSales = bHandovers.reduce((s,h) => s + (h.net_amount || 0), 0);
     const totalPurchases = bInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0);
-    const diff = netSales - totalPurchases;
-    const ratio = netSales > 0 ? (totalPurchases / netSales) * 100 : 0;
+    const diff = totalSales - totalPurchases;
+    const ratio = totalSales > 0 ? (totalPurchases / totalSales) * 100 : 0;
     return { branch, totalSales, netSales, totalPurchases, diff, ratio, invoiceCount: bInvoices.length, handoverCount: bHandovers.length };
   });
 }
