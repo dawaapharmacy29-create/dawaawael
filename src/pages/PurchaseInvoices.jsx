@@ -38,6 +38,18 @@ const NET_MODE_OPTIONS = [
   { value: "excluded", label: "مستثناة فقط" },
 ];
 
+function monthRange(offset = 0) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + offset);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
 export default function PurchaseInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -53,8 +65,8 @@ export default function PurchaseInvoices() {
   const [filterManualException, setFilterManualException] = useState(false);
   const [filterReviewNeeded, setFilterReviewNeeded] = useState(false);
   const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => monthRange(0).from);
+  const [dateTo, setDateTo] = useState(() => monthRange(0).to);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
@@ -107,9 +119,17 @@ export default function PurchaseInvoices() {
 
   // تحميل متوازي بدل التسلسلي — يقلل وقت التحميل من ~10 ثواني لـ ~3 ثواني
   const { data: invoices = [], isLoading, isFetching } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: async () => fetchAllParallel(base44.entities.PurchaseInvoice, { pageSize: 1000 }),
-    staleTime: 60000,
+    queryKey: ["purchase-invoices", "range", dateFrom || "all", dateTo || "all"],
+    queryFn: async () => fetchAllParallel(base44.entities.PurchaseInvoice, {
+      pageSize: 1000,
+      query: dateFrom && dateTo ? {
+        $or: [
+          { invoice_date: { $gte: dateFrom, $lte: dateTo } },
+          { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
+        ],
+      } : null,
+    }),
+    staleTime: 120000,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
   });
