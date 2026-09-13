@@ -13,6 +13,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
 import { RETURN_STATUS_ORDER } from "@/lib/sortUtils";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const RETURN_SORT_COLUMNS = [
   { field: "return_number", label: "رقم المرتجع", type: "number" },
@@ -53,16 +54,21 @@ export default function Returns() {
   });
 
   useEffect(() => {
+    let timer;
     const unsub = base44.entities.Return.subscribe(() => {
-      queryClient.invalidateQueries({ queryKey: ["returns"] });
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => queryClient.invalidateQueries({ queryKey: ["returns"] }), 600);
     });
-    return unsub;
-  }, []);
+    return () => {
+      window.clearTimeout(timer);
+      unsub();
+    };
+  }, [queryClient]);
 
   const { data: allReturns = [], isLoading } = useQuery({
     queryKey: ["returns"],
-    queryFn: () => base44.entities.Return.list("-created_date", 500),
-    staleTime: 20000,
+    queryFn: () => loadAllEntityRows(base44.entities.Return, "-created_date"),
+    staleTime: 120000,
   });
 
   const filteredRaw = allReturns.filter((r) => {
