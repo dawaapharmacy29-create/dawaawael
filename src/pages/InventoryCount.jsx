@@ -31,7 +31,7 @@ export default function InventoryCount() {
 
   const { data: products = [] } = useQuery({
     queryKey: ["inventory-products", branch],
-    queryFn: () => base44.entities.InventoryProduct.filter({ branch, is_active: true }, "name"),
+    queryFn: () => base44.entities.InventoryProduct.filter({ branch }, "product_name"),
     staleTime: 120000,
   });
 
@@ -50,7 +50,7 @@ export default function InventoryCount() {
     tasks.filter(t => t.status === "مجدول" && isNotExpired(t))
       .sort((a, b) => a.task_date.localeCompare(b.task_date))[0] ||
     tasks.find(t => t.task_date === TODAY);
-  const branchProducts = products;
+  const branchProducts = products.filter((p) => p.is_active !== false);
 
   return (
     <div className="p-4 md:p-6" dir="rtl">
