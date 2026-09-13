@@ -41,6 +41,34 @@
       "default": 0,
       "description": "\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a \u0627\u0644\u0645\u0633\u062c\u0644 \u0641\u064a \u0627\u0644\u0645\u0633\u0648\u062f\u0629"
     },
+    "cash_sales": {
+      "type": "number",
+      "default": 0
+    },
+    "visa_sales": {
+      "type": "number",
+      "default": 0
+    },
+    "insta_sales": {
+      "type": "number",
+      "default": 0
+    },
+    "vodafone_sales": {
+      "type": "number",
+      "default": 0
+    },
+    "other_sales": {
+      "type": "number",
+      "default": 0
+    },
+    "cash_handover": {
+      "type": "number",
+      "default": 0
+    },
+    "cash_variance": {
+      "type": "number",
+      "default": 0
+    },
     "expenses": {
       "type": "array",
       "items": {
@@ -86,6 +114,15 @@
     "submitted_shift_id": {
       "type": "string",
       "description": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0634\u064a\u0641\u062a \u0627\u0644\u0646\u0647\u0627\u0626\u064a \u0628\u0639\u062f \u0627\u0644\u0646\u062c\u0627\u062d"
+    },
+    "last_error": {
+      "type": "string",
+      "description": "\u0622\u062e\u0631 \u062e\u0637\u0623 \u0625\u0631\u0633\u0627\u0644 \u0644\u0644\u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u0627\u0633\u062a\u0639\u0627\u062f\u0629"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0,
+      "description": "\u0639\u062f\u062f \u0645\u062d\u0627\u0648\u0644\u0627\u062a \u0627\u0644\u0625\u0631\u0633\u0627\u0644"
     }
   },
   "required": [
