@@ -11,8 +11,8 @@ export default function FinancialBranchComparisonTable({ data }) {
     netSales: acc.netSales + b.netSales,
     totalPurchases: acc.totalPurchases + b.totalPurchases,
   }), { totalSales: 0, netSales: 0, totalPurchases: 0 });
-  const totalDiff = totals.netSales - totals.totalPurchases;
-  const totalRatio = totals.netSales > 0 ? (totals.totalPurchases / totals.netSales) * 100 : 0;
+  const totalDiff = totals.totalSales - totals.totalPurchases;
+  const totalRatio = totals.totalSales > 0 ? (totals.totalPurchases / totals.totalSales) * 100 : 0;
 
   return (
     <Card className="p-4">
