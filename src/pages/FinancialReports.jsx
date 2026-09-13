@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { lazy, Suspense, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
@@ -10,13 +10,14 @@ import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity"
 import FinancialKpiCards from "@/components/financial-reports/FinancialKpiCards";
 import FinancialAverageCards from "@/components/financial-reports/FinancialAverageCards";
 import FinancialTargetCard from "@/components/financial-reports/FinancialTargetCard";
-import FinancialSalesVsPurchasesChart from "@/components/financial-reports/FinancialSalesVsPurchasesChart";
 import FinancialBranchComparisonTable from "@/components/financial-reports/FinancialBranchComparisonTable";
 import FinancialSupplierAnalysisTable from "@/components/financial-reports/FinancialSupplierAnalysisTable";
 import FinancialReportExport from "@/components/financial-reports/FinancialReportExport";
 import FinancialAdminExpensesCard from "@/components/financial-reports/FinancialAdminExpensesCard";
-import FinancialSupplierBalanceTrendChart from "@/components/financial-reports/FinancialSupplierBalanceTrendChart";
 import { Calendar, Building2, Truck, AlertTriangle } from "lucide-react";
+
+const FinancialSalesVsPurchasesChart = lazy(() => import("@/components/financial-reports/FinancialSalesVsPurchasesChart"));
+const FinancialSupplierBalanceTrendChart = lazy(() => import("@/components/financial-reports/FinancialSupplierBalanceTrendChart"));
 
 // بنود ليست مصروفات حقيقية بل طرق دفع تُضاف لصافي المبيعات
 const PAYMENT_METHOD_KEYWORDS = ["فودافون كاش", "انستا", "فيزا"];
@@ -299,10 +300,12 @@ export default function FinancialReports() {
         <div className="lg:col-span-3"><FinancialAverageCards data={avgData} branchAvgSales={branchAvgSales} /></div>
         <div className="flex flex-col justify-end"><FinancialTargetCard handovers={activeHandovers} targets={branchTargets} dateFrom={dateFrom} dateTo={dateTo} /></div>
       </div>
-      <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
+      <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل الرسم المالي...</div>}>
+        <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
+      </Suspense>
       <FinancialBranchComparisonTable data={branchComparison} />
       {supplierDepthEnabled && <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />}
-      {supplierDepthEnabled && <FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />}
+      {supplierDepthEnabled && <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل تطور رصيد الموردين...</div>}><FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} /></Suspense>}
     </div>
   );
 }
