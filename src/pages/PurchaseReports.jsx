@@ -10,7 +10,8 @@ import BranchBreakdown from "@/components/purchase-reports/BranchBreakdown";
 import SupplierBreakdown from "@/components/purchase-reports/SupplierBreakdown";
 import AdminSummary from "@/components/purchase-reports/AdminSummary";
 import MonthlySalesPurchasesChart from "@/components/purchase-reports/MonthlySalesPurchasesChart";
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { isInvoiceInRange } from "@/lib/invoiceIdentity";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -95,16 +96,17 @@ export default function PurchaseReports() {
     [invoices]
   );
 
-  const filtered = useMemo(() => {
+  const filteredAllStatuses = useMemo(() => {
     return invoices.filter((inv) => {
-      const dateKey = inv.invoice_date || inv.created_date?.split("T")[0];
-      if (dateFrom && (!dateKey || dateKey < dateFrom)) return false;
-      if (dateTo && (!dateKey || dateKey > dateTo)) return false;
+      if (!isInvoiceInRange(inv, dateFrom, dateTo)) return false;
       if (filterBranch !== "الكل" && inv.branch !== filterBranch) return false;
       if (filterSupplier !== "الكل" && inv.supplier_name !== filterSupplier) return false;
       return true;
     });
   }, [invoices, dateFrom, dateTo, filterBranch, filterSupplier]);
+  const filtered = useMemo(() => filteredAllStatuses.filter(isInvoiceFinanciallyApproved), [filteredAllStatuses]);
+  const pendingCount = filteredAllStatuses.filter((i) => i.status === "انتظار المراجعة").length;
+  const rejectedCount = filteredAllStatuses.filter((i) => i.status === "مرفوضة").length;
 
   const totalPurchases = filtered.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalInvoices = filtered.length;
@@ -243,7 +245,7 @@ export default function PurchaseReports() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-800">تقارير المشتريات اليومي</h1>
-          <p className="text-gray-500 text-xs mt-0.5">{totalInvoices} فاتورة في الفترة المحددة · صافي شراء {fmt(totalPurchases)} ج.م</p>
+          <p className="text-gray-500 text-xs mt-0.5">{totalInvoices} فاتورة مالية محتسبة · صافي شراء {fmt(totalPurchases)} ج.م{pendingCount > 0 ? ` · ${pendingCount} انتظار مراجعة` : ""}{rejectedCount > 0 ? ` · ${rejectedCount} مرفوضة` : ""}</p>
         </div>
       </div>
 
