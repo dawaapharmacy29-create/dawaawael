@@ -96,6 +96,11 @@ export default function SystemHealth() {
     queryFn: () => base44.entities.Supplier.list("name"),
     staleTime: 300000,
   });
+  const { data: paymentSyncIssues = [], isLoading: paymentSyncLoading } = useQuery({
+    queryKey: ["system-health-supplier-payment-sync"],
+    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, { allocation_sync_status: { $in: ["pending", "needs_review"] } }, "-created_date", 5000),
+    staleTime: 30000,
+  });
 
   const activeMembers = useMemo(() => members.filter((m) => m.is_active !== false), [members]);
   const duplicateMembers = useMemo(() => {
@@ -159,8 +164,8 @@ export default function SystemHealth() {
 
   const failedSync = failedSyncRows;
   const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
-  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || creditLoading || suppliersLoading;
-  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length;
+  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || creditLoading || suppliersLoading || paymentSyncLoading;
+  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length + paymentSyncIssues.length;
 
   if (!isAdmin) {
     return <div dir="rtl" className="p-8 text-center text-gray-500">هذه الصفحة للمدير فقط.</div>;
@@ -189,6 +194,7 @@ export default function SystemHealth() {
         <HealthCard title="إقفالات تحتاج مراجعة" value={openDailyCloses.length} subtitle="إقفال محفوظ بحالة يحتاج مراجعة أو أعيد فتحه" icon={AlertTriangle} warn={openDailyCloses.length > 0} />
         <HealthCard title="مسودات شيفت متعثرة" value={activeDraftIssues.length} subtitle="فشل سابق أو إرسال عالق لأكثر من 5 دقائق" icon={RefreshCw} bad={activeDraftIssues.length > 0} />
         <HealthCard title="فواتير موردين متأخرة" value={overdueSupplierInvoices.length} subtitle="آجل معتمد ومتجاوز تاريخ الاستحقاق" icon={AlertTriangle} warn={overdueSupplierInvoices.length > 0} />
+        <HealthCard title="دفعات مورد تحتاج تسوية" value={paymentSyncIssues.length} subtitle="توزيع دفع pending أو needs_review" icon={AlertTriangle} bad={paymentSyncIssues.length > 0} />
         <HealthCard title="آخر مزامنة ناجحة" value={lastSync ? 1 : 0} subtitle={lastSync ? new Date(lastSync).toLocaleString("ar-EG") : "لا توجد مزامنة ناجحة مسجلة"} icon={CheckCircle2} bad={!lastSync} />
       </div>
 
@@ -212,7 +218,8 @@ export default function SystemHealth() {
             {openDailyCloses.slice(0, 20).map((r) => <div key={`close-${r.id}`} className="rounded-lg border border-orange-100 bg-orange-50 p-3 text-sm"><b>إقفال يومي يحتاج مراجعة:</b> {r.branch} — {r.business_date} — {r.quality_issue_count || 0} نقطة</div>)}
             {activeDraftIssues.slice(0, 20).map((d) => <div key={`draft-${d.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>مسودة شيفت متعثرة:</b> {d.branch} — {d.business_date} — {d.shift_type} {d.last_error ? `— ${d.last_error}` : "— إرسال عالق"}</div>)}
             {overdueSupplierInvoices.slice(0, 20).map((inv) => <div key={`due-${inv.id}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>فاتورة مورد متأخرة:</b> {inv.supplier_name || "مورد"} — {inv.system_invoice_number || inv.id} — متبقي {Math.max(0, (Number(inv.total_value) || 0) - (Number(inv.returned_value) || 0) - (Number(inv.paid_value) || 0)).toLocaleString("ar-EG")} ج</div>)}
-            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && activeDraftIssues.length === 0 && overdueSupplierInvoices.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
+            {paymentSyncIssues.slice(0, 20).map((p) => <div key={`pay-sync-${p.id}`} className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm"><b>دفعة مورد لم يكتمل توزيعها:</b> {p.supplier_name || "مورد"} — {Number(p.amount || 0).toLocaleString("ar-EG")} ج — {p.allocation_sync_status}{p.allocation_sync_error ? ` — ${p.allocation_sync_error}` : ""}</div>)}
+            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && activeDraftIssues.length === 0 && overdueSupplierInvoices.length === 0 && paymentSyncIssues.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
           </div>
         </div>
       </div>
