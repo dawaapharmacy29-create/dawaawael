@@ -78,7 +78,10 @@ export default function SupplierStatement({ branch, onClose }) {
       if (!payment?.id || payment.transaction_type === "reversal") throw new Error("لا يمكن عكس هذه الحركة");
       const existing = await base44.entities.SupplierPayment.filter({ reversal_of_payment_id: payment.id, transaction_type: "reversal" }, "-created_date", 5);
       if (existing.some((r) => r.status !== "reversed")) throw new Error("تم عكس هذه الدفعة بالفعل");
-      await base44.entities.SupplierPayment.create({
+      const reversalAllocations = Array.isArray(payment.allocations) && payment.allocations.length > 0
+        ? payment.allocations
+        : payment.invoice_id ? [{ invoice_id: payment.invoice_id, invoice_number: payment.invoice_number || "", amount: Number(payment.amount) || 0 }] : [];
+      const reversalRow = await base44.entities.SupplierPayment.create({
         supplier_name: payment.supplier_name,
         invoice_id: payment.invoice_id || "",
         invoice_number: payment.invoice_number || "",
@@ -90,20 +93,24 @@ export default function SupplierStatement({ branch, onClose }) {
         status: "posted",
         reversal_of_payment_id: payment.id,
         allocation_type: payment.allocation_type || (payment.invoice_id ? "invoice" : "general"),
-        allocations: payment.allocations || [],
+        allocations: reversalAllocations,
+        allocation_sync_status: reversalAllocations.length > 0 ? "pending" : "not_applicable",
         branch: payment.branch || branch,
         notes: `عكس دفعة بتاريخ ${payment.payment_date}${payment.notes ? ` — ${payment.notes}` : ""}`,
       });
-      const reversalAllocations = Array.isArray(payment.allocations) && payment.allocations.length > 0
-        ? payment.allocations
-        : payment.invoice_id ? [{ invoice_id: payment.invoice_id, amount: Number(payment.amount) || 0 }] : [];
-      for (const allocation of reversalAllocations) {
-        if (!allocation.invoice_id) continue;
-        const invoiceRows = await base44.entities.PurchaseInvoice.filter({ id: allocation.invoice_id }, "-created_date", 1);
-        const invoice = invoiceRows[0];
-        if (!invoice) continue;
-        const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(allocation.amount) || 0));
-        await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
+      try {
+        for (const allocation of reversalAllocations) {
+          if (!allocation.invoice_id) continue;
+          const invoiceRows = await base44.entities.PurchaseInvoice.filter({ id: allocation.invoice_id }, "-created_date", 1);
+          const invoice = invoiceRows[0];
+          if (!invoice) continue;
+          const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(allocation.amount) || 0));
+          await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
+        }
+        if (reversalAllocations.length > 0) await base44.entities.SupplierPayment.update(reversalRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
+      } catch (err) {
+        try { await base44.entities.SupplierPayment.update(reversalRow.id, { allocation_sync_status: "needs_review", allocation_sync_error: err?.message || "فشل جزئي أثناء عكس الدفعة" }); } catch {}
+        throw err;
       }
     },
     onSuccess: () => {
