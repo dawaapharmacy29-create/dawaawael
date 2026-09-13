@@ -10,6 +10,7 @@ import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
+import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -36,16 +37,13 @@ export default function PendingInvoices() {
     mutationFn: async ({ id, data }) => {
       if (data?.branch && data?.system_invoice_number) {
         const current = invoices.find((inv) => inv.id === id);
-        const effectiveDate = data.invoice_date || current?.invoice_date || current?.created_date?.slice(0, 10) || "";
-        const sameNumberAndBranch = await base44.entities.PurchaseInvoice.filter({
-          branch: data.branch,
-          system_invoice_number: data.system_invoice_number,
-        }, "-created_date", 50);
-        const isSameCanonicalInvoice = (inv) => {
-          const invDate = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
-          return inv.id !== id && invDate === effectiveDate;
-        };
-        if (sameNumberAndBranch.some(isSameCanonicalInvoice)) {
+        const effectiveDate = data.invoice_date || getInvoiceEffectiveDate(current) || "";
+        const canonicalNumber = normalizeInvoiceNumber(data.system_invoice_number);
+        const candidates = effectiveDate
+          ? await base44.entities.PurchaseInvoice.filter({ branch: data.branch, invoice_date: effectiveDate }, "-created_date", 1000)
+          : await base44.entities.PurchaseInvoice.filter({ branch: data.branch }, "-created_date", 1000);
+        const duplicate = candidates.some((inv) => inv.id !== id && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber && getInvoiceEffectiveDate(inv) === effectiveDate);
+        if (duplicate) {
           throw new Error(`الفاتورة "${data.system_invoice_number}" موجودة بالفعل في ${data.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
         }
       }
