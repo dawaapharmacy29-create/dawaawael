@@ -12,6 +12,7 @@ import { Plus, Trash2, Pencil, RefreshCw, Copy, Check } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import NewListCycleDialog from "@/components/medicine/NewListCycleDialog";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const TODAY = new Date().toISOString().split("T")[0];
@@ -69,7 +70,7 @@ export default function MedicineSalesTab() {
 
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["medicine-sales"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-week_start"),
     staleTime: 15000,
   });
 
