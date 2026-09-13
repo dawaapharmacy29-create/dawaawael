@@ -34,12 +34,18 @@ export default function PendingInvoices() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       if (data?.branch && data?.system_invoice_number) {
-        const duplicates = await base44.entities.PurchaseInvoice.filter({
+        const current = invoices.find((inv) => inv.id === id);
+        const effectiveDate = data.invoice_date || current?.invoice_date || current?.created_date?.slice(0, 10) || "";
+        const sameNumberAndBranch = await base44.entities.PurchaseInvoice.filter({
           branch: data.branch,
           system_invoice_number: data.system_invoice_number,
-        }, "-created_date", 10);
-        if (duplicates.some((inv) => inv.id !== id)) {
-          throw new Error(`رقم الفاتورة "${data.system_invoice_number}" موجود بالفعل في ${data.branch}`);
+        }, "-created_date", 50);
+        const isSameCanonicalInvoice = (inv) => {
+          const invDate = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
+          return inv.id !== id && invDate === effectiveDate;
+        };
+        if (sameNumberAndBranch.some(isSameCanonicalInvoice)) {
+          throw new Error(`الفاتورة "${data.system_invoice_number}" موجودة بالفعل في ${data.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
         }
       }
       return base44.entities.PurchaseInvoice.update(id, data);
