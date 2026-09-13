@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Wallet, Plus, Trash2, Save, Loader2 } from "lucide-react";
-import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
-import { cairoTodayKey } from "@/lib/smart-commerce-analytics";
+import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyCloseGuard";
 
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -85,7 +84,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
 
     setSaving(true);
     try {
-      await assertDailyCloseOpen(form.branch, cairoTodayKey(), "تسجيل تسليم شيفت جديد");
+      await assertDailyCloseOpen(form.branch, currentShiftBusinessDate(form.shift_type), "تسجيل تسليم شيفت جديد");
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
       if (!selectedEmployee?.admin_staff_id) {
         setError("اسم الموظف غير مربوط بحساب الإدارة");
