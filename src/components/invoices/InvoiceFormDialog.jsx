@@ -16,6 +16,7 @@ import {
   EXCLUSION_REASONS,
 } from "@/lib/purchaseCalculations";
 import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
+import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -76,8 +77,6 @@ function SearchableSelect({ value, onChange, options, placeholder, className = "
     </div>
   );
 }
-
-const normalizeInvoiceNumber = (value) => String(value || "").trim().replace(/[\s\-_.:*]+$/g, "");
 
 const emptyForm = {
   system_invoice_number: "",
@@ -276,7 +275,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     // المفتاح المالي الرسمي لمنع التكرار: رقم الفاتورة + الفرع + تاريخ الفاتورة.
     // يتم تطبيع العلامات الطرفية حتى لا تتحول 17307 و 17307* إلى سجلين لنفس الفاتورة بالخطأ.
     const canonicalNumber = normalizeInvoiceNumber(form.system_invoice_number);
-    const effectiveDate = form.invoice_date || invoice?.invoice_date || invoice?.created_date?.slice(0, 10) || "";
+    const effectiveDate = form.invoice_date || getInvoiceEffectiveDate(invoice) || "";
     const isDuplicate = allInvoices.some((inv) => {
       const invNumber = normalizeInvoiceNumber(inv.system_invoice_number);
       const invDate = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
