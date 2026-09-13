@@ -88,7 +88,7 @@ export default function AppLayout() {
   const { data: pendingInvoices = [] } = useQuery({
     queryKey: ["pending-invoices-count"],
     queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }),
-    staleTime: 30000,
+    staleTime: 60000,
   });
   const pendingCount = pendingInvoices.length;
 
