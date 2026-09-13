@@ -18,39 +18,42 @@ export default function SupplierStatement({ branch, onClose }) {
   const [dateTo, setDateTo] = useState(today);
   const [selectedSupplier, setSelectedSupplier] = useState("");
 
-  const { data: allInvoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date", 2000),
-    staleTime: 60000,
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["active-suppliers"],
+    queryFn: () => base44.entities.Supplier.filter({ is_active: true }, "name"),
+    staleTime: 300000,
   });
-  const { data: payments = [] } = useQuery({
-    queryKey: ["supplier-payments"],
-    queryFn: () => base44.entities.SupplierPayment.list("-payment_date"),
-    staleTime: 60000,
+  const supplierNames = useMemo(() => suppliers.map((s) => s.name).filter(Boolean).sort(), [suppliers]);
+
+  const statementEnabled = Boolean(selectedSupplier && dateFrom && dateTo);
+  const { data: filteredRows = [] } = useQuery({
+    queryKey: ["supplier-statement-invoices", branch, selectedSupplier, dateFrom, dateTo],
+    queryFn: () => base44.entities.PurchaseInvoice.filter({
+      branch,
+      supplier_name: selectedSupplier,
+      $or: [
+        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
+        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
+      ],
+    }, "invoice_date", 2000),
+    enabled: statementEnabled,
+    staleTime: 120000,
+  });
+  const { data: paymentRows = [] } = useQuery({
+    queryKey: ["supplier-statement-payments", branch, selectedSupplier, dateFrom, dateTo],
+    queryFn: () => base44.entities.SupplierPayment.filter({
+      supplier_name: selectedSupplier,
+      payment_date: { $gte: dateFrom, $lte: dateTo },
+    }, "payment_date", 2000),
+    enabled: statementEnabled,
+    staleTime: 120000,
   });
 
-  const branchInvoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
-
-  const supplierNames = useMemo(() => {
-    const names = new Set(branchInvoices.map(i => i.supplier_name).filter(Boolean));
-    return [...names].sort();
-  }, [branchInvoices]);
-
-  const filtered = useMemo(() => {
-    if (!selectedSupplier || !dateFrom || !dateTo) return null;
-    return branchInvoices.filter(inv => {
-      const d = (inv.invoice_date || inv.created_date || "").slice(0, 10);
-      return inv.supplier_name === selectedSupplier && d >= dateFrom && d <= dateTo;
-    });
-  }, [branchInvoices, selectedSupplier, dateFrom, dateTo]);
-
-  const periodPayments = useMemo(() => {
-    if (!selectedSupplier || !dateFrom || !dateTo) return [];
-    return payments.filter(p => {
-      const d = (p.payment_date || "").slice(0, 10);
-      return p.supplier_name === selectedSupplier && d >= dateFrom && d <= dateTo;
-    });
-  }, [payments, selectedSupplier, dateFrom, dateTo]);
+  const filtered = statementEnabled ? filteredRows : null;
+  const periodPayments = useMemo(
+    () => paymentRows.filter((p) => !p.branch || p.branch === branch),
+    [paymentRows, branch]
+  );
 
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
