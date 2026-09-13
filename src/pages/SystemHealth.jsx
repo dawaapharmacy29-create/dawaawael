@@ -146,7 +146,7 @@ export default function SystemHealth() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card className="p-4">
+        <div className="rounded-xl border bg-white p-4">
           <h2 className="font-bold text-gray-800 mb-3">مشكلات هوية الموظفين</h2>
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {duplicateMembers.map((group) => <div key={`dup-${normalize(group[0]?.name)}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>اسم مكرر:</b> {group.map((x) => x.name).join(" / ")}</div>)}
@@ -156,7 +156,7 @@ export default function SystemHealth() {
           </div>
         </div>
 
-        <Card className="p-4">
+        <div className="rounded-xl border bg-white p-4">
           <h2 className="font-bold text-gray-800 mb-3">مشكلات التشغيل المؤثرة على التقارير</h2>
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {duplicateShiftGroups.map((group) => <div key={`shift-${group[0]?.branch}-${group[0]?.shift_date}-${group[0]?.shift_type}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>شيفت مكرر:</b> {group[0]?.branch} — {group[0]?.shift_date} — {group[0]?.shift_type} ({group.length} سجلات)</div>)}
