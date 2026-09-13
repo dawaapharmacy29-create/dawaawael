@@ -147,7 +147,7 @@ export default function PurchaseInvoices() {
     },
     onSuccess: (inv) => {
       // تحديث ذكي: أضف الفاتورة الجديدة للكاش مباشرة بدلاً من إعادة تحميل الكل
-      queryClient.setQueryData(["purchase-invoices"], (old = []) => [inv, ...old]);
+      queryClient.setQueriesData({ queryKey: ["purchase-invoices"] }, (old = []) => [inv, ...old.filter((x) => x.id !== inv.id)]);
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
       setDialogOpen(false);
@@ -185,7 +185,7 @@ export default function PurchaseInvoices() {
     },
     onSuccess: ({ id, data }) => {
       // تحديث ذكي: عدّل الفاتورة في الكاش مباشرة بدلاً من إعادة تحميل الكل
-      queryClient.setQueryData(["purchase-invoices"], (old = []) =>
+      queryClient.setQueriesData({ queryKey: ["purchase-invoices"] }, (old = []) =>
         old.map((inv) => (inv.id === id ? { ...inv, ...data } : inv))
       );
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
@@ -207,7 +207,7 @@ export default function PurchaseInvoices() {
       return id;
     },
     onSuccess: (id) => {
-      queryClient.setQueryData(["purchase-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
+      queryClient.setQueriesData({ queryKey: ["purchase-invoices"] }, (old = []) => old.filter((inv) => inv.id !== id));
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       setSelectedIds((prev) => prev.filter((s) => s !== id));
     },
