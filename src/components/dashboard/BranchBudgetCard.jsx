@@ -17,7 +17,7 @@ const branchColor = {
   "دواء الشامي": { bar: "bg-purple-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
 };
 
-export default function BranchBudgetCard({ invoices, budgets, suppliers = [], startDate, endDate }) {
+export default function BranchBudgetCard({ invoices, budgets, purchaseTargets = [], targetGoals = [], managementMonth, suppliers = [], startDate, endDate }) {
   const { canSetBudget } = useUserRole();
   const [editOpen, setEditOpen] = useState(false);
   const [limits, setLimits] = useState({});
@@ -26,17 +26,23 @@ export default function BranchBudgetCard({ invoices, budgets, suppliers = [], st
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       for (const branch of BRANCHES) {
-        const existing = budgets.find((b) => b.branch === branch);
+        const existing = purchaseTargets.find((b) => b.branch === branch && b.month === managementMonth);
         const val = parseFloat(data[branch]) || 0;
-        if (existing) {
-          await base44.entities.BranchBudget.update(existing.id, { budget_limit: val });
-        } else {
-          await base44.entities.BranchBudget.create({ branch, budget_limit: val });
-        }
+        const salesTarget = Number(targetGoals.find((t) => t.branch === branch && t.month === managementMonth)?.target_amount || 0);
+        const payload = {
+          month: managementMonth,
+          branch,
+          target_amount: val,
+          sales_target_amount: salesTarget,
+          target_ratio: salesTarget > 0 ? (val / salesTarget) * 100 : 0,
+          notes: "تم تحديث سقف المشتريات من الصفحة الرئيسية",
+        };
+        if (existing) await base44.entities.PurchaseTargetHistory.update(existing.id, payload);
+        else await base44.entities.PurchaseTargetHistory.create(payload);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["branch-budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-target-history"] });
       setEditOpen(false);
     },
   });
@@ -44,8 +50,9 @@ export default function BranchBudgetCard({ invoices, budgets, suppliers = [], st
   const openEdit = () => {
     const init = {};
     BRANCHES.forEach((b) => {
-      const found = budgets.find((x) => x.branch === b);
-      init[b] = found ? found.budget_limit : "";
+      const monthly = purchaseTargets.find((x) => x.branch === b && x.month === managementMonth);
+      const fallback = budgets.find((x) => x.branch === b);
+      init[b] = monthly?.target_amount ?? fallback?.budget_limit ?? "";
     });
     setLimits(init);
     setEditOpen(true);
@@ -54,7 +61,7 @@ export default function BranchBudgetCard({ invoices, budgets, suppliers = [], st
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold text-gray-700">📊 الحد الأقصى للمشتريات لكل فرع</h2>
+        <h2 className="text-base font-semibold text-gray-700">📊 سقف المشتريات للدورة — {managementMonth}</h2>
         {canSetBudget && (
           <Button size="sm" variant="outline" onClick={openEdit} className="gap-1 text-xs">
             <Settings className="w-3.5 h-3.5" /> تعديل الحدود
@@ -65,8 +72,9 @@ export default function BranchBudgetCard({ invoices, budgets, suppliers = [], st
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BRANCHES.map((branch) => {
           const c = branchColor[branch];
+          const monthly = purchaseTargets.find((b) => b.branch === branch && b.month === managementMonth);
           const budget = budgets.find((b) => b.branch === branch);
-          const limit = budget?.budget_limit || 0;
+          const limit = Number(monthly?.target_amount ?? budget?.budget_limit ?? 0);
           const spent = invoices.filter((i) => i.branch === branch).reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
           const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
           const remaining = limit - spent;
@@ -98,7 +106,7 @@ export default function BranchBudgetCard({ invoices, budgets, suppliers = [], st
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
-            <DialogTitle className="text-right">تعديل الحد الأقصى للفروع</DialogTitle>
+            <DialogTitle className="text-right">تعديل سقف المشتريات للدورة {managementMonth}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {BRANCHES.map((branch) => (
