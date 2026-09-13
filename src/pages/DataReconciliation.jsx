@@ -7,10 +7,10 @@ import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-reac
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { normalizeInvoiceNumber, getInvoiceOfficialDate, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const PAYMENT_METHOD_KEYWORDS = ["فودافون كاش", "انستا", "فيزا"];
-const normalizeInvoiceNumber = (value) => String(value || "").trim().replace(/[\s\-_.:*]+$/g, "");
 const money = (n) => Number(n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 function median(values) {
@@ -18,14 +18,6 @@ function median(values) {
   if (!nums.length) return 0;
   const mid = Math.floor(nums.length / 2);
   return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
-}
-
-function officialInvoiceDate(inv) {
-  return inv.invoice_date || null;
-}
-
-function inferredInvoiceDate(inv) {
-  return inv.invoice_date || inv.created_date?.slice(0, 10) || null;
 }
 
 function realShiftExpenses(record) {
@@ -61,7 +53,7 @@ export default function DataReconciliation() {
     queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
       $or: [
         { invoice_date: { $gte: from, $lte: to } },
-        { invoice_date: { $exists: false }, created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
+        { created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
       ],
     }, "invoice_date", 30000),
     staleTime: 120000,
@@ -71,7 +63,7 @@ export default function DataReconciliation() {
     queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
       $or: [
         { date: { $gte: from, $lte: to } },
-        { date: { $exists: false }, created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
+        { created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
       ],
     }, "date", 20000),
     staleTime: 120000,
@@ -95,8 +87,7 @@ export default function DataReconciliation() {
   const data = useMemo(() => {
     const scopedShifts = shifts.filter((s) => s.is_archived !== true && (branch === "all" || s.branch === branch));
     const scopedInvoices = invoicesRaw.filter((i) => {
-      const d = inferredInvoiceDate(i);
-      return d && d >= from && d <= to && (branch === "all" || i.branch === branch);
+      return isInvoiceInRange(i, from, to) && (branch === "all" || i.branch === branch);
     });
     const scopedExpenses = expenses.filter((e) => {
       const d = e.date || e.created_date?.slice(0, 10);
@@ -139,15 +130,13 @@ export default function DataReconciliation() {
 
     const invoiceDuplicateMap = new Map();
     scopedInvoices.forEach((inv) => {
-      const number = normalizeInvoiceNumber(inv.system_invoice_number);
-      const date = inferredInvoiceDate(inv) || "";
-      if (!number || !inv.branch || !date) return;
-      const key = `${number}|${inv.branch}|${date}`;
+      const key = getInvoiceCanonicalKey(inv);
+      if (!key) return;
       if (!invoiceDuplicateMap.has(key)) invoiceDuplicateMap.set(key, []);
       invoiceDuplicateMap.get(key).push(inv);
     });
     const duplicateInvoiceGroups = [...invoiceDuplicateMap.values()].filter((rows) => rows.length > 1);
-    const missingOfficialDate = scopedInvoices.filter((i) => !officialInvoiceDate(i));
+    const missingOfficialDate = scopedInvoices.filter((i) => !getInvoiceOfficialDate(i));
     const pendingInvoices = scopedInvoices.filter((i) => i.status === "انتظار المراجعة");
     const pendingPurchaseValue = pendingInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
     const approvedInvoices = scopedInvoices.filter((i) => i.status !== "انتظار المراجعة");
@@ -162,8 +151,8 @@ export default function DataReconciliation() {
     dates.forEach((date) => branches.forEach((b) => {
       const ds = activeShifts.filter((s) => s.branch === b && s.shift_date === date);
       const dr = reviewShifts.filter((s) => s.branch === b && s.shift_date === date);
-      const di = approvedInvoices.filter((i) => i.branch === b && inferredInvoiceDate(i) === date);
-      const dpi = pendingInvoices.filter((i) => i.branch === b && inferredInvoiceDate(i) === date);
+      const di = approvedInvoices.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date);
+      const dpi = pendingInvoices.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date);
       const de = scopedExpenses.filter((e) => e.branch === b && (e.date || e.created_date?.slice(0, 10)) === date);
       const sales = ds.reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
       const purchases = di.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
@@ -171,7 +160,7 @@ export default function DataReconciliation() {
       const shiftExpenses = ds.reduce((sum, s) => sum + realShiftExpenses(s), 0);
       const duplicateShifts = duplicateShiftGroups.filter((g) => g[0]?.branch === b && g[0]?.shift_date === date).length;
       const anomalies = shiftAnomalies.filter((s) => s.branch === b && s.shift_date === date).length;
-      const inferredDates = missingOfficialDate.filter((i) => i.branch === b && inferredInvoiceDate(i) === date).length;
+      const inferredDates = missingOfficialDate.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date).length;
       dailyRows.push({ date, branch: b, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, shiftCount: ds.length, reviewShifts: dr.length, pendingInvoices: dpi.length, pendingPurchaseValue: dpi.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0), externalExpenses, shiftExpenses, duplicateShifts, anomalies, inferredDates });
     }));
 
@@ -243,7 +232,7 @@ export default function DataReconciliation() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card className="p-4"><h2 className="font-bold text-gray-800 mb-3">الشيفتات غير الطبيعية</h2><div className="space-y-2 max-h-96 overflow-auto">{data.shiftAnomalies.slice().sort((a,b) => String(b.shift_date).localeCompare(String(a.shift_date))).map((s) => <div key={s.id} className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs"><div className="font-bold">{s.shift_date} — {s.branch} — {s.shift_type} — {s.submitted_by}</div><div className="mt-1">المبيعات: {money(s.total_sales)} ج</div><ul className="mt-1 list-disc pr-4 text-amber-900">{s.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>)}{data.shiftAnomalies.length === 0 && <p className="text-sm text-emerald-600 flex gap-2 items-center"><CheckCircle2 className="w-4 h-4" /> لا توجد شذوذات حسب القواعد الحالية.</p>}</div></Card>
 
-        <Card className="p-4"><h2 className="font-bold text-gray-800 mb-3">التكرارات وحالات التاريخ</h2><div className="space-y-2 max-h-96 overflow-auto">{data.duplicateShiftGroups.map((g) => <div key={`s-${g[0]?.branch}-${g[0]?.shift_date}-${g[0]?.shift_type}`} className="border border-red-200 bg-red-50 rounded-lg p-3 text-xs"><b>شيفت مكرر:</b> {g[0]?.branch} — {g[0]?.shift_date} — {g[0]?.shift_type} ({g.length} سجلات)</div>)}{data.duplicateInvoiceGroups.map((g) => <div key={`i-${g[0]?.branch}-${inferredInvoiceDate(g[0])}-${normalizeInvoiceNumber(g[0]?.system_invoice_number)}`} className="border border-red-200 bg-red-50 rounded-lg p-3 text-xs"><b>فاتورة مكررة:</b> {normalizeInvoiceNumber(g[0]?.system_invoice_number)} — {g[0]?.branch} — {inferredInvoiceDate(g[0])} ({g.length} سجلات)</div>)}{data.missingOfficialDate.slice(0, 30).map((i) => <div key={`d-${i.id}`} className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs"><b>بدون invoice_date رسمي:</b> {i.system_invoice_number || i.id} — {i.branch || "بدون فرع"} — التاريخ المستنتج {inferredInvoiceDate(i) || "غير متاح"}</div>)}{data.duplicateShiftGroups.length === 0 && data.duplicateInvoiceGroups.length === 0 && data.missingOfficialDate.length === 0 && <p className="text-sm text-emerald-600">لا توجد تكرارات أو تواريخ مستنتجة في الفترة.</p>}</div></Card>
+        <Card className="p-4"><h2 className="font-bold text-gray-800 mb-3">التكرارات وحالات التاريخ</h2><div className="space-y-2 max-h-96 overflow-auto">{data.duplicateShiftGroups.map((g) => <div key={`s-${g[0]?.branch}-${g[0]?.shift_date}-${g[0]?.shift_type}`} className="border border-red-200 bg-red-50 rounded-lg p-3 text-xs"><b>شيفت مكرر:</b> {g[0]?.branch} — {g[0]?.shift_date} — {g[0]?.shift_type} ({g.length} سجلات)</div>)}{data.duplicateInvoiceGroups.map((g) => <div key={`i-${g[0]?.branch}-${getInvoiceEffectiveDate(g[0])}-${normalizeInvoiceNumber(g[0]?.system_invoice_number)}`} className="border border-red-200 bg-red-50 rounded-lg p-3 text-xs"><b>فاتورة مكررة:</b> {normalizeInvoiceNumber(g[0]?.system_invoice_number)} — {g[0]?.branch} — {getInvoiceEffectiveDate(g[0])} ({g.length} سجلات)</div>)}{data.missingOfficialDate.slice(0, 30).map((i) => <div key={`d-${i.id}`} className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs"><b>بدون invoice_date رسمي:</b> {i.system_invoice_number || i.id} — {i.branch || "بدون فرع"} — التاريخ المستنتج {getInvoiceEffectiveDate(i) || "غير متاح"}</div>)}{data.duplicateShiftGroups.length === 0 && data.duplicateInvoiceGroups.length === 0 && data.missingOfficialDate.length === 0 && <p className="text-sm text-emerald-600">لا توجد تكرارات أو تواريخ مستنتجة في الفترة.</p>}</div></Card>
       </div>
 
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900 flex gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /><span>قواعد الشذوذ مصممة لاكتشاف ما يحتاج مراجعة، لا لتغيير البيانات. أي سجل يتم اكتشافه يظل كما هو حتى تتم مطابقته مع المصدر الأصلي/B-Connect أو سجل الشيفت.</span></div>
