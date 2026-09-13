@@ -87,7 +87,7 @@ export default function Dashboard() {
   useEffect(() => { setEditingTarget(false); }, [branch]);
 
   // فلترة الفواتير من الخادم حسب الفترة المختارة — يجيب فقط فواتير الشهر بدل 4000+ فاتورة
-  const { data: invoices = [], isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ["purchase-invoices", "byDate", dateFilter.from, dateFilter.to],
     queryFn: async () =>
       fetchAllParallel(base44.entities.PurchaseInvoice, {
@@ -106,7 +106,7 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Supplier.list(),
     staleTime: 60000,
   });
-  const { data: expenses = [], refetch: refetchExpenses } = useQuery({
+  const { data: expenses = [] } = useQuery({
     queryKey: ["expenses", "range", dateFilter.from, dateFilter.to],
     queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
       $or: [
@@ -120,6 +120,18 @@ export default function Dashboard() {
     queryKey: ["branch-budgets"],
     queryFn: () => base44.entities.BranchBudget.list(),
     staleTime: 60000,
+  });
+  const { data: purchaseTargets = [] } = useQuery({
+    queryKey: ["purchase-target-history", currentMonth],
+    queryFn: () => base44.entities.PurchaseTargetHistory.filter({ month: currentMonth }, "branch"),
+    staleTime: 120000,
+  });
+  const { data: shiftDeliveries = [] } = useQuery({
+    queryKey: ["dashboard-shift-deliveries", dateFilter.from, dateFilter.to],
+    queryFn: () => loadAllEntityFiltered(base44.entities.ShiftDelivery, {
+      shift_date: { $gte: dateFilter.from, $lte: dateFilter.to },
+    }, "-shift_date"),
+    staleTime: 120000,
   });
 
   // Real-time subscriptions مع Debounce لمنع موجات إعادة التحميل عند إدخال عدة سجلات متتالية.
@@ -183,10 +195,19 @@ export default function Dashboard() {
 
   const totalInvoiceValue = branchMonthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
   const totalExpenses = branchMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const totalPayments = totalInvoiceValue + totalExpenses;
-  const targetAmount = branch === "all"
+  const activeShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status !== "مراجعة" && (branch === "all" || s.branch === branch));
+  const reviewShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status === "مراجعة" && (branch === "all" || s.branch === branch));
+  const totalSales = activeShiftDeliveries.reduce((s, row) => s + (Number(row.total_sales) || 0), 0);
+  const salesTargetAmount = branch === "all"
     ? branchTargets.reduce((s, bt) => s + (bt.target?.target_amount || 0), 0)
     : currentBranchTarget?.target_amount || 0;
+  const selectedBranches = branch === "all" ? BRANCHES : [branch];
+  const purchaseTargetAmount = selectedBranches.reduce((sum, b) => {
+    const monthly = purchaseTargets.find((t) => t.month === currentMonth && t.branch === b)?.target_amount;
+    const fallback = budgets.find((x) => x.branch === b)?.budget_limit;
+    return sum + (Number(monthly ?? fallback) || 0);
+  }, 0);
+  const purchaseRatio = totalSales > 0 ? (totalInvoiceValue / totalSales) * 100 : NaN;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
   const totalCashPurchases = branchMonthInvoices
     .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
@@ -247,20 +268,21 @@ export default function Dashboard() {
 
       {/* Stats — كارت كبير للمدفوعات + كروت صغيرة */}
       <DashboardStatsCards
-        totalPayments={totalPayments}
+        totalSales={totalSales}
+        salesTargetAmount={salesTargetAmount}
+        totalPurchases={totalInvoiceValue}
+        purchaseTargetAmount={purchaseTargetAmount}
+        purchaseRatio={purchaseRatio}
         totalCashPurchases={totalCashPurchases}
         totalExpenses={totalExpenses}
         invoiceCount={branchMonthInvoices.length}
-        targetAmount={targetAmount}
-        startDate={monthStart}
-        endDate={monthEnd}
-        canEditTarget={branch !== "all"}
-        editingTarget={editingTarget}
-        targetInput={targetInput}
-        onTargetInputChange={setTargetInput}
-        onStartEditTarget={() => { setTargetInput(targetAmount ? targetAmount.toString() : ""); setEditingTarget(true); }}
-        onSaveTarget={() => saveTargetMutation.mutate(parseFloat(targetInput))}
-        isSavingTarget={saveTargetMutation.isPending}
+        canEditSalesTarget={branch !== "all"}
+        editingSalesTarget={editingTarget}
+        salesTargetInput={targetInput}
+        onSalesTargetInputChange={setTargetInput}
+        onStartEditSalesTarget={() => { setTargetInput(salesTargetAmount ? salesTargetAmount.toString() : ""); setEditingTarget(true); }}
+        onSaveSalesTarget={() => saveTargetMutation.mutate(parseFloat(targetInput))}
+        isSavingSalesTarget={saveTargetMutation.isPending}
       />
 
       {/* Purchase Dashboard */}
@@ -326,13 +348,20 @@ export default function Dashboard() {
       </div>
       )}
 
-      {/* Pending invoices */}
-      {pending > 0 && (
-        <Card className="p-4 border-yellow-200 bg-yellow-50">
-          <p className="text-yellow-800 font-semibold text-sm">
-            ⏳ يوجد {pending} فاتورة في انتظار المراجعة
-          </p>
-        </Card>
+      {/* Data-quality alerts */}
+      {(pending > 0 || reviewShiftDeliveries.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {pending > 0 && (
+            <Card className="p-4 border-yellow-200 bg-yellow-50">
+              <p className="text-yellow-800 font-semibold text-sm">⏳ يوجد {pending} فاتورة في انتظار المراجعة</p>
+            </Card>
+          )}
+          {reviewShiftDeliveries.length > 0 && (
+            <Card className="p-4 border-red-200 bg-red-50">
+              <p className="text-red-800 font-semibold text-sm">⚠️ يوجد {reviewShiftDeliveries.length} سجل شيفت تحت المراجعة ولم يدخل في أرقام المبيعات التنفيذية</p>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
