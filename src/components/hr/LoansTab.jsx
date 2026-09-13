@@ -10,6 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import LoanFormDialog from "./LoanFormDialog";
 import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
 
+async function loadAllRows(entity, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.list(sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 const statusColor = {
   "نشطة": "bg-teal-100 text-teal-700 border-0",
   "مكتملة": "bg-green-100 text-green-700 border-0",
@@ -24,7 +35,7 @@ export default function LoansTab() {
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: ["employee-loans"],
-    queryFn: () => base44.entities.EmployeeLoan.list("-created_date", 500),
+    queryFn: () => loadAllRows(base44.entities.EmployeeLoan, "-created_date"),
   });
   const { data: employees = [] } = useQuery({
     queryKey: ["active-team-members"],
