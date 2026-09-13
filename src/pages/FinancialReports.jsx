@@ -96,7 +96,7 @@ export default function FinancialReports() {
   };
   const balancePaymentQuery = supplier === "all" ? {} : { supplier_name: supplier }; 
   const { data: balanceInvoices = [] } = useQuery({
-    queryKey: ["purchase-credit-balance-fr", supplier],
+    queryKey: ["purchase-credit-balance-fr", supplier, branch],
     queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, balanceInvoiceQuery, "-invoice_date"),
     enabled: supplierDepthEnabled,
     staleTime: 300000,
@@ -115,7 +115,12 @@ export default function FinancialReports() {
     queryFn: () => base44.entities.AdminExpenseItem.list("sort_order"),
     select: (data) => data.filter((i) => i.is_active !== false),
   });
-  const { data: adminExpenseRecords = [] } = useQuery({ queryKey: ["admin-expense-records-fr"], queryFn: () => base44.entities.AdminExpenseRecord.list() });
+  const { data: adminExpenseRecords = [] } = useQuery({
+    queryKey: ["admin-expense-records-fr", dateFrom?.slice(0, 7), dateTo?.slice(0, 7)],
+    queryFn: () => base44.entities.AdminExpenseRecord.filter({ month: { $gte: dateFrom.slice(0, 7), $lte: dateTo.slice(0, 7) } }, "month"),
+    enabled: periodEnabled,
+    staleTime: 300000,
+  });
 
   const reviewableHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true), [handovers]);
   const activeHandovers = useMemo(() => reviewableHandovers.filter(h => h.status !== "مراجعة"), [reviewableHandovers]);
