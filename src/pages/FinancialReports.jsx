@@ -5,7 +5,7 @@ import {
   BRANCHES, computeDateRange, buildChartData, buildBranchComparison,
   buildSupplierAnalysis, computeTotalRemaining,
 } from "@/lib/financial-report-utils";
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import FinancialKpiCards from "@/components/financial-reports/FinancialKpiCards";
 import FinancialAverageCards from "@/components/financial-reports/FinancialAverageCards";
@@ -113,7 +113,7 @@ export default function FinancialReports() {
   const activeHandovers = useMemo(() => reviewableHandovers.filter(h => h.status !== "مراجعة"), [reviewableHandovers]);
   const fHandovers = useMemo(() => activeHandovers.filter(h => branch === "all" || h.branch === branch), [activeHandovers, branch]);
   const periodInvoices = useMemo(() => invoices.filter((i) => isInvoiceInRange(i, dateFrom, dateTo)), [invoices, dateFrom, dateTo]);
-  const fInvoices = useMemo(() => periodInvoices.filter(i => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
+  const fInvoices = useMemo(() => periodInvoices.filter((i) => isInvoiceFinanciallyApproved(i) && (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
   const fPayments = useMemo(() => payments.filter(p => supplier === "all" || p.supplier_name === supplier), [payments, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
 
