@@ -64,10 +64,15 @@ export default function SystemHealth() {
     queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
     staleTime: 60000,
   });
-  const { data: syncRows = [], isLoading: syncLoading } = useQuery({
-    queryKey: ["system-health-sync"],
-    queryFn: () => base44.entities.SyncOutbox.list("-created_date", 300),
-    staleTime: 60000,
+  const { data: failedSyncRows = [], isLoading: syncLoading } = useQuery({
+    queryKey: ["system-health-sync-failed"],
+    queryFn: () => loadAllFiltered(base44.entities.SyncOutbox, { status: { $in: ["failed", "pending_retry"] } }, "-created_date", 20000),
+    staleTime: 120000,
+  });
+  const { data: lastSuccessfulSyncRows = [] } = useQuery({
+    queryKey: ["system-health-last-successful-sync"],
+    queryFn: () => base44.entities.SyncOutbox.filter({ status: "synced" }, "-synced_at", 1),
+    staleTime: 120000,
   });
 
   const activeMembers = useMemo(() => members.filter((m) => m.is_active !== false), [members]);
@@ -113,8 +118,8 @@ export default function SystemHealth() {
     return [...groups.values()].filter((group) => group.length > 1);
   }, [activeShifts]);
 
-  const failedSync = useMemo(() => syncRows.filter((r) => r.status === "failed" || r.status === "pending_retry"), [syncRows]);
-  const lastSync = useMemo(() => syncRows.filter((r) => r.synced_at).map((r) => r.synced_at).sort().pop() || null, [syncRows]);
+  const failedSync = failedSyncRows;
+  const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
   const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading;
   const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length;
 
@@ -141,8 +146,8 @@ export default function SystemHealth() {
         <HealthCard title="شيفتات تحت المراجعة" value={reviewShifts.length} subtitle="مستبعدة من الأرقام التنفيذية" icon={AlertTriangle} warn={reviewShifts.length > 0} />
         <HealthCard title="مجموعات شيفت مكررة" value={duplicateShiftGroups.length} subtitle="آخر 120 يوم" icon={AlertTriangle} bad={duplicateShiftGroups.length > 0} />
         <HealthCard title="فواتير تنتظر المراجعة" value={pendingInvoices.length} subtitle="لا تدخل في المسار النهائي قبل المراجعة" icon={Activity} warn={pendingInvoices.length > 0} />
-        <HealthCard title="مزامنة متعثرة" value={failedSync.length} subtitle="Failed أو Pending retry ضمن آخر 300 سجل" icon={RefreshCw} bad={failedSync.length > 0} />
-        <HealthCard title="آخر مزامنة ناجحة" value={lastSync ? 1 : 0} subtitle={lastSync ? new Date(lastSync).toLocaleString("ar-EG") : "لا توجد مزامنة ناجحة في السجلات المحملة"} icon={CheckCircle2} bad={!lastSync} />
+        <HealthCard title="مزامنة متعثرة" value={failedSync.length} subtitle="كل سجلات Failed أو Pending retry غير المحلولة" icon={RefreshCw} bad={failedSync.length > 0} />
+        <HealthCard title="آخر مزامنة ناجحة" value={lastSync ? 1 : 0} subtitle={lastSync ? new Date(lastSync).toLocaleString("ar-EG") : "لا توجد مزامنة ناجحة مسجلة"} icon={CheckCircle2} bad={!lastSync} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
