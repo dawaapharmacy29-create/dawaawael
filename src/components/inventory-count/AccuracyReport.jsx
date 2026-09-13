@@ -6,6 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart2, TrendingDown, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 
+async function loadAllFiltered(entity, query, sort, maxRows = 20000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.filter(query, sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function AccuracyReport({ branch }) {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
@@ -18,17 +29,11 @@ export default function AccuracyReport({ branch }) {
 
   const { data: entries = [] } = useQuery({
     queryKey: ["inventory-entries-all", branch],
-    queryFn: () => base44.entities.InventoryCountEntry.list("-count_date", 2000),
-    staleTime: 30000,
+    queryFn: () => loadAllFiltered(base44.entities.InventoryCountEntry, { branch, status: "مكتمل" }, "-count_date"),
+    staleTime: 120000,
   });
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["inventory-products", branch],
-    queryFn: () => base44.entities.InventoryProduct.filter({ branch }),
-    staleTime: 60000,
-  });
-
-  const branchEntries = entries.filter(e => e.branch === branch && e.status === "مكتمل");
+  const branchEntries = entries;
 
   const filteredTasks = tasks.filter(t => {
     if (filterFrom && t.task_date < filterFrom) return false;
