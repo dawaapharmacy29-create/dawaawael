@@ -48,7 +48,7 @@ export default function SystemHealth() {
   const [deepChecksEnabled, setDeepChecksEnabled] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDeepChecksEnabled(true), 700);
+    const timer = setTimeout(() => setDeepChecksEnabled(true), 1200);
     return () => clearTimeout(timer);
   }, []);
 
