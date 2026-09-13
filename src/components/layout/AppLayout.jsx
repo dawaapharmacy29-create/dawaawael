@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity, LockKeyhole } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -30,6 +30,7 @@ const navItems = [
   { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports" },
   { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports" },
   { path: "/data-reconciliation", label: "مطابقة البيانات اليومية", icon: ShieldCheck, section: "reports" },
+  { path: "/daily-close", label: "الإقفال اليومي", icon: LockKeyhole, section: "reports" },
   { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية", icon: Wallet, adminOnly: true, section: "reports" },
   { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
