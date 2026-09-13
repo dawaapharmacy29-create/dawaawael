@@ -14,6 +14,17 @@ const CODE_KEYS = ["كود", "كود الصنف", "product_code", "code", "ال�
 
 const findCol = (headers, keys) => headers.find(h => keys.includes(h?.trim()));
 
+async function loadBranchProducts(branch, maxRows = 20000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await base44.entities.InventoryProduct.filter({ branch }, "product_name", PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function ProductUploader({ onClose }) {
   const qc = useQueryClient();
   const fileRef = useRef();
@@ -72,7 +83,7 @@ export default function ProductUploader({ onClose }) {
 
     // مزامنة آمنة: تحديث الموجود، إنشاء الجديد، وتعطيل ما لم يعد موجودًا في الملف.
     // لا نحذف السجلات القديمة حتى لا نفقد حدود الطلب أو تاريخ الجرد أو مؤشرات الصنف.
-    const existing = await base44.entities.InventoryProduct.filter({ branch }, null, 500);
+    const existing = await loadBranchProducts(branch);
     const normalize = (v) => String(v || "").trim().toLowerCase();
     const byCode = new Map(existing.filter((p) => p.product_code).map((p) => [normalize(p.product_code), p]));
     const byName = new Map(existing.map((p) => [normalize(p.product_name), p]));
@@ -121,8 +132,8 @@ export default function ProductUploader({ onClose }) {
     }
     if (chunks.length === 0) setProgress(100);
 
-    qc.invalidateQueries(["inventory-products"]);
-    qc.invalidateQueries(["inventory-products-all"]);
+    qc.invalidateQueries({ queryKey: ["inventory-products"] });
+    qc.invalidateQueries({ queryKey: ["inventory-products-all"] });
     setImporting(false);
     setDone(true);
   };
