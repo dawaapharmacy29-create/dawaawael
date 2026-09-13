@@ -32,9 +32,25 @@ export default function PendingInvoices() {
   const pending = invoices;
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PurchaseInvoice.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      if (data?.branch && data?.system_invoice_number) {
+        const duplicates = await base44.entities.PurchaseInvoice.filter({
+          branch: data.branch,
+          system_invoice_number: data.system_invoice_number,
+        }, "-created_date", 10);
+        if (duplicates.some((inv) => inv.id !== id)) {
+          throw new Error(`رقم الفاتورة "${data.system_invoice_number}" موجود بالفعل في ${data.branch}`);
+        }
+      }
+      return base44.entities.PurchaseInvoice.update(id, data);
+    },
     onSuccess: (_, { data }) => {
+      qc.invalidateQueries({ queryKey: ["pending-invoices"] });
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
+      qc.invalidateQueries({ queryKey: ["reports-invoices"] });
+      qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
       setDialogOpen(false);
       setEditingInvoice(null);
       logActivity({ action_type: "update", entity_type: "invoice", entity_id: _.id, entity_label: data.system_invoice_number, details: `تعديل فاتورة` });
@@ -54,7 +70,12 @@ export default function PendingInvoices() {
       return id;
     },
     onSuccess: (id) => {
-      qc.setQueryData(["purchase-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
+      qc.setQueryData(["pending-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
+      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
+      qc.invalidateQueries({ queryKey: ["reports-invoices"] });
+      qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
       setSelectedIds((prev) => prev.filter((s) => s !== id));
       logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
