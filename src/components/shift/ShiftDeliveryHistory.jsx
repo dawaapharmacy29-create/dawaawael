@@ -11,6 +11,7 @@ import ArchiveDialog from "@/components/common/ArchiveDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
 import { SHIFT_TYPE_ORDER } from "@/lib/sortUtils";
+import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 
 const SHIFT_SORT_COLUMNS = [
   { field: "shift_type", label: "نوع الشفت", type: "status", statusMap: SHIFT_TYPE_ORDER },
@@ -226,16 +227,23 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
 
   const restoreMutation = useMutation({
     mutationFn: async (id) => {
+      const record = (deliveries || []).find((d) => d.id === id);
+      await assertDailyCloseOpen(record?.branch, record?.shift_date, "استعادة تسليم الشيفت من الأرشيف");
       const res = await base44.functions.invoke("updateShiftDeliveryAdmin", { id, action: "restore_archive" });
       const result = res?.data || {};
       if (!result.success) throw new Error(result.error || "تعذر استعادة التسليم");
       return result.record;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reason, note }) => {
+      const record = (deliveries || []).find((d) => d.id === id);
+      await assertDailyCloseOpen(record?.branch, record?.shift_date, "أرشفة تسليم الشيفت");
       const res = await base44.functions.invoke("updateShiftDeliveryAdmin", {
         id,
         action: "archive",
@@ -246,7 +254,10 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
       if (!result.success) throw new Error(result.error || "تعذر أرشفة التسليم");
       return result.record;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["shift-deliveries"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
+    },
   });
 
   // تجميع بالتاريخ (الأحدث أولاً)
