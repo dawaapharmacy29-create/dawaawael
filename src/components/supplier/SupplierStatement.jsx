@@ -10,6 +10,17 @@ import { FileText, X } from "lucide-react";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
+async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.filter(query, sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 export default function SupplierStatement({ branch, onClose }) {
   const today = new Date().toISOString().split("T")[0];
   const firstOfMonth = today.slice(0, 8) + "01";
@@ -28,23 +39,23 @@ export default function SupplierStatement({ branch, onClose }) {
   const statementEnabled = Boolean(selectedSupplier && dateFrom && dateTo);
   const { data: filteredRows = [] } = useQuery({
     queryKey: ["supplier-statement-invoices", branch, selectedSupplier, dateFrom, dateTo],
-    queryFn: () => base44.entities.PurchaseInvoice.filter({
+    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, {
       branch,
       supplier_name: selectedSupplier,
       $or: [
         { invoice_date: { $gte: dateFrom, $lte: dateTo } },
         { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
       ],
-    }, "invoice_date", 2000),
+    }, "invoice_date"),
     enabled: statementEnabled,
     staleTime: 120000,
   });
   const { data: paymentRows = [] } = useQuery({
     queryKey: ["supplier-statement-payments", branch, selectedSupplier, dateFrom, dateTo],
-    queryFn: () => base44.entities.SupplierPayment.filter({
+    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, {
       supplier_name: selectedSupplier,
       payment_date: { $gte: dateFrom, $lte: dateTo },
-    }, "payment_date", 2000),
+    }, "payment_date"),
     enabled: statementEnabled,
     staleTime: 120000,
   });
