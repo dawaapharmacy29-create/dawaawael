@@ -163,6 +163,10 @@ export default function LoansTab() {
   const totalRemaining = activeLoans.reduce((s, l) => s + ((l.amount || 0) - (l.paid_amount || 0)), 0);
 
   const filtered = operationalLoans.filter((l) => !search || l.employee_name?.includes(search));
+  const historyTransactions = historyLoan
+    ? loanTransactions.filter((t) => t.loan_id === historyLoan.id).sort((a, b) => String(b.transaction_date || b.created_date || "").localeCompare(String(a.transaction_date || a.created_date || "")))
+    : [];
+  const transactionLabel = { installment: "قسط مرتب", payment: "سداد مباشر", adjustment_minus: "تسوية تخفض الرصيد", adjustment_plus: "تسوية تزيد الرصيد", reversal: "عكس حركة" };
 
   const handleSubmit = (data) => {
     if (editing) updateMut.mutate({ id: editing.id, data });
@@ -307,6 +311,37 @@ export default function LoansTab() {
             {paymentMut.error && <p className="text-xs text-red-600">{paymentMut.error.message}</p>}
           </div>}
           <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setPaymentLoan(null)}>إلغاء</Button><Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!paymentForm.amount || paymentMut.isPending} onClick={() => paymentMut.mutate({ loan: paymentLoan, form: paymentForm })}>{paymentMut.isPending ? "جاري الحفظ..." : "تسجيل الحركة"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyLoan} onOpenChange={(open) => !open && setHistoryLoan(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+          <DialogHeader><DialogTitle>سجل حركة السلفة — {historyLoan?.employee_name}</DialogTitle></DialogHeader>
+          {historyLoan && <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-blue-50 p-3"><p className="text-[11px] text-gray-500">أصل السلفة</p><p className="font-black text-blue-700">{Number(historyLoan.amount || 0).toLocaleString("ar-EG")} ج</p></div>
+              <div className="rounded-lg bg-green-50 p-3"><p className="text-[11px] text-gray-500">المسدد</p><p className="font-black text-green-700">{Number(historyLoan.paid_amount || 0).toLocaleString("ar-EG")} ج</p></div>
+              <div className="rounded-lg bg-orange-50 p-3"><p className="text-[11px] text-gray-500">المتبقي</p><p className="font-black text-orange-700">{Math.max(0, Number(historyLoan.amount || 0) - Number(historyLoan.paid_amount || 0)).toLocaleString("ar-EG")} ج</p></div>
+            </div>
+            <div className="border rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50"><TableHead>التاريخ</TableHead><TableHead>الحركة</TableHead><TableHead>شهر المرتب</TableHead><TableHead>المبلغ</TableHead><TableHead>ملاحظات</TableHead><TableHead>إجراء</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {historyTransactions.map((t) => <TableRow key={t.id} className={t.status === "reversed" ? "opacity-50 bg-gray-50" : ""}>
+                    <TableCell className="text-xs">{t.transaction_date || "—"}</TableCell>
+                    <TableCell className="text-xs"><Badge className={t.transaction_type === "reversal" ? "bg-red-100 text-red-700 border-0" : "bg-violet-100 text-violet-700 border-0"}>{transactionLabel[t.transaction_type] || t.transaction_type}</Badge>{t.status === "reversed" && <span className="mr-1 text-[10px] text-gray-400">تم عكسها</span>}</TableCell>
+                    <TableCell className="text-xs">{t.payroll_month || "—"}</TableCell>
+                    <TableCell className={`font-bold text-sm ${t.transaction_type === "adjustment_plus" ? "text-red-600" : t.transaction_type === "reversal" ? "text-amber-700" : "text-green-700"}`}>{Number(t.amount || 0).toLocaleString("ar-EG")} ج</TableCell>
+                    <TableCell className="text-xs text-gray-500">{t.notes || "—"}</TableCell>
+                    <TableCell>{t.status !== "reversed" && t.transaction_type !== "reversal" && <Button size="sm" variant="ghost" className="h-7 text-xs text-amber-700" disabled={reverseTransactionMut.isPending} onClick={() => reverseTransactionMut.mutate({ loan: historyLoan, transaction: t })}><RotateCcw className="w-3 h-3" /> عكس</Button>}</TableCell>
+                  </TableRow>)}
+                  {historyTransactions.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-8">لا توجد حركات مسجلة لهذه السلفة حتى الآن.</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+            {reverseTransactionMut.error && <p className="text-xs text-red-600">{reverseTransactionMut.error.message}</p>}
+          </div>}
+          <DialogFooter><Button variant="outline" onClick={() => setHistoryLoan(null)}>إغلاق</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
