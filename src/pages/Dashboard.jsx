@@ -13,6 +13,8 @@ import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
 import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
+import { cycleRangeFor, previousComparableRange } from "@/lib/smart-commerce-analytics";
 import { useSearchParams } from "react-router-dom";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -22,27 +24,19 @@ const branchColor = {
   "دواء الشامي": "bg-purple-50 border-purple-200 text-purple-700",
 };
 
-const pad = (n) => String(n).padStart(2, "0");
-const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fmtLabel = (iso) => {
   const [y, m, d] = (iso || "").split("-");
   return d ? `${d}-${m}-${y}` : iso;
 };
 
-// فترة الشهر تبدأ من يوم 15 من كل شهر حتى يوم 14 من الشهر التالي
-function getBillingPeriod(ref = new Date()) {
-  const start = ref.getDate() >= 15
-    ? new Date(ref.getFullYear(), ref.getMonth(), 15)
-    : new Date(ref.getFullYear(), ref.getMonth() - 1, 15);
-  const end = new Date(start.getFullYear(), start.getMonth() + 1, 14);
-  return { from: fmtDate(start), to: fmtDate(end), key: `${start.getFullYear()}-${pad(start.getMonth() + 1)}` };
+// الدورة الإدارية المعتمدة للصيدلية: من يوم 26 حتى يوم 25 من الشهر التالي.
+function getBillingPeriod() {
+  const range = cycleRangeFor();
+  return { ...range, key: range.to.slice(0, 7) };
 }
 
 function getPrevBillingPeriod() {
-  const start = new Date(getBillingPeriod().from + "T00:00:00");
-  start.setMonth(start.getMonth() - 1);
-  const end = new Date(start.getFullYear(), start.getMonth() + 1, 14);
-  return { from: fmtDate(start), to: fmtDate(end) };
+  return previousComparableRange(getBillingPeriod(), 1);
 }
 
 function getStoredDates() {
@@ -50,7 +44,11 @@ function getStoredDates() {
     const s = localStorage.getItem("dashboard_date_filter");
     if (s) {
       const p = JSON.parse(s);
-      if (p.from && p.to) return { from: p.from, to: p.to };
+      if (p.from && p.to) {
+        // ترحيل تلقائي للفترة الافتراضية القديمة 15→14 حتى لا تظل الرئيسية على دورة منتهية.
+        const looksLikeLegacyDefault = p.from.slice(8, 10) === "15" && p.to.slice(8, 10) === "14";
+        if (!looksLikeLegacyDefault) return { from: p.from, to: p.to };
+      }
     }
   } catch {}
   const p = getBillingPeriod();
@@ -110,12 +108,12 @@ export default function Dashboard() {
   });
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ["expenses", "range", dateFilter.from, dateFilter.to],
-    queryFn: () => base44.entities.Expense.filter({
+    queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
       $or: [
         { date: { $gte: dateFilter.from, $lte: dateFilter.to } },
         { created_date: { $gte: `${dateFilter.from}T00:00:00`, $lte: `${dateFilter.to}T23:59:59` } },
       ],
-    }, "-created_date", 2000),
+    }, "-created_date"),
     staleTime: 120000,
   });
   const { data: budgets = [] } = useQuery({
@@ -124,20 +122,31 @@ export default function Dashboard() {
     staleTime: 60000,
   });
 
-  // Real-time subscriptions
+  // Real-time subscriptions مع Debounce لمنع موجات إعادة التحميل عند إدخال عدة سجلات متتالية.
   useEffect(() => {
+    let invoiceTimer;
+    let expenseTimer;
     const unsub1 = base44.entities.PurchaseInvoice.subscribe(() => {
-      refetchInvoices();
-      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      window.clearTimeout(invoiceTimer);
+      invoiceTimer = window.setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+        qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      }, 600);
     });
     const unsub2 = base44.entities.Expense.subscribe(() => {
-      refetchExpenses();
+      window.clearTimeout(expenseTimer);
+      expenseTimer = window.setTimeout(() => qc.invalidateQueries({ queryKey: ["expenses"] }), 600);
     });
-    return () => { unsub1(); unsub2(); };
-  }, []);
+    return () => {
+      window.clearTimeout(invoiceTimer);
+      window.clearTimeout(expenseTimer);
+      unsub1();
+      unsub2();
+    };
+  }, [qc]);
 
-  // مفتاح الشهر الحالي حسب دورة الفوترة (من 15 حتى 14) — الشهر يُنسب لشهر البداية
-  const currentMonth = getBillingPeriod().key;
+  // التارجت يُنسب لشهر نهاية دورة 26→25 المختارة، مثل 26-08 → 25-09 = 2026-09.
+  const currentMonth = dateFilter.to.slice(0, 7);
   const { data: targetGoals = [] } = useQuery({
     queryKey: ["target-goals"],
     queryFn: () => base44.entities.TargetGoal.list(),
@@ -159,7 +168,6 @@ export default function Dashboard() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["target-goals"] }); setEditingTarget(false); },
   });
 
-  const now = new Date();
   const { from: monthStart, to: monthEnd } = dateFilter;
 
   const monthInvoices = invoices.filter((i) => {
@@ -200,7 +208,7 @@ export default function Dashboard() {
             className={isCurrentMonth ? "bg-teal-600 hover:bg-teal-700" : "text-gray-700"}
             onClick={() => setPeriod(currentPeriod)}
           >
-            الشهر الحالي
+            الدورة الحالية
           </Button>
           <Button
             size="sm"
@@ -208,7 +216,7 @@ export default function Dashboard() {
             className={isPrevMonth ? "bg-teal-600 hover:bg-teal-700" : "text-gray-700"}
             onClick={() => setPeriod(prevPeriod)}
           >
-            الشهر السابق
+            الدورة السابقة
           </Button>
           <div className="relative">
             <Button variant="outline" size="sm" onClick={() => { setTempDate(dateFilter); setShowDateFilter((v) => !v); }} className="gap-2 text-sm">
