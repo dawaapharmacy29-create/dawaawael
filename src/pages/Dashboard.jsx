@@ -109,9 +109,14 @@ export default function Dashboard() {
     staleTime: 60000,
   });
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
-    queryKey: ["expenses"],
-    queryFn: () => base44.entities.Expense.list("-created_date", 2000),
-    staleTime: 60000,
+    queryKey: ["expenses", "range", dateFilter.from, dateFilter.to],
+    queryFn: () => base44.entities.Expense.filter({
+      $or: [
+        { date: { $gte: dateFilter.from, $lte: dateFilter.to } },
+        { created_date: { $gte: `${dateFilter.from}T00:00:00`, $lte: `${dateFilter.to}T23:59:59` } },
+      ],
+    }, "-created_date", 2000),
+    staleTime: 120000,
   });
   const { data: budgets = [] } = useQuery({
     queryKey: ["branch-budgets"],
