@@ -113,7 +113,8 @@ export default function LoanFormDialog({ open, onOpenChange, onSubmit, initial, 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">المبلغ المسدد</Label>
-              <Input type="number" value={form.paid_amount} onChange={(e) => set("paid_amount", e.target.value)} className="h-9" />
+              <Input type="number" value={form.paid_amount || 0} readOnly className="h-9 bg-gray-50" />
+              <p className="text-[10px] text-gray-400">السداد يتم من زر «تسجيل سداد» ليُحفظ كحركة مالية مستقلة.</p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الحالة</Label>
