@@ -43,7 +43,7 @@ export default function FinancialKpiCards({ data }) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {ROW2_KPIS.map((kpi) => (
-          <KpiCard key={kpi.key} {...kpi} value={fmtCurrency(data[kpi.key])} />
+          <KpiCard key={kpi.key} {...kpi} value={data[kpi.key] === null ? "تحميل عند الطلب" : fmtCurrency(data[kpi.key])} />
         ))}
         <div className={`rounded-xl p-4 border border-black/5 shadow-sm ${ratioIsHealthy ? "bg-emerald-50" : "bg-red-50"}`}>
           <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${ratioIsHealthy ? "from-emerald-500 to-emerald-600" : "from-red-500 to-red-600"} flex items-center justify-center mb-2`}>
