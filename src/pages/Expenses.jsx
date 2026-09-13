@@ -41,11 +41,31 @@ const PAYMENT_METHODS = ["كاش", "انستا/فودافون"];
 
 const emptyForm = { description: "", amount: "", branch: "", category: "", payment_method: "", date: new Date().toISOString().split("T")[0], team_member_name: "", notes: "" };
 
+function defaultExpenseRange() {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return { from, to: today };
+}
+
+async function loadExpensesRange(query) {
+  const rows = [];
+  const PAGE = 500;
+  for (let offset = 0; offset < 20000; offset += PAGE) {
+    const batch = await base44.entities.Expense.filter(query, "-created_date", PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows;
+}
+
 export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [filterBranch, setFilterBranch] = useState("الكل");
+  const [dateFrom, setDateFrom] = useState(() => defaultExpenseRange().from);
+  const [dateTo, setDateTo] = useState(() => defaultExpenseRange().to);
   const [activeTab, setActiveTab] = useState("list");
   const queryClient = useQueryClient();
   const { isManager } = useUserRole();
@@ -56,9 +76,17 @@ export default function Expenses() {
   });
 
   const { data: expenses = [], isLoading } = useQuery({
-    queryKey: ["expenses"],
-    queryFn: () => base44.entities.Expense.list("-created_date", 500),
-    staleTime: 15000,
+    queryKey: ["expenses", "range", dateFrom, dateTo, filterBranch],
+    queryFn: () => loadExpensesRange({
+      ...(filterBranch !== "الكل" ? { branch: filterBranch } : {}),
+      $or: [
+        { date: { $gte: dateFrom, $lte: dateTo } },
+        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
+      ],
+    }),
+    enabled: Boolean(dateFrom && dateTo),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   // Real-time: تحديث تلقائي عند أي تغيير
@@ -120,7 +148,7 @@ export default function Expenses() {
     else createMutation.mutate(data);
   };
 
-  const filteredRaw = filterBranch === "الكل" ? expenses : expenses.filter((e) => e.branch === filterBranch);
+  const filteredRaw = expenses;
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: EXPENSE_SORT_COLUMNS,
     defaultSort: { field: "created_date", direction: "desc" },
@@ -134,7 +162,7 @@ export default function Expenses() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">المصروفات</h1>
-          <p className="text-gray-500 text-sm mt-0.5">إجمالي: {total.toLocaleString("ar-EG")} ج</p>
+          <p className="text-gray-500 text-sm mt-0.5">إجمالي الفترة: {total.toLocaleString("ar-EG")} ج — من {dateFrom} إلى {dateTo}</p>
         </div>
         {isManager && (
           <Button onClick={openNew} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
@@ -158,14 +186,20 @@ export default function Expenses() {
       {activeTab === "report" && <ExpensesReport expenses={filtered} />}
 
       {activeTab === "list" && <>
-      {/* Branch Filter */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Branch + Date Filters */}
+      <div className="flex gap-2 flex-wrap items-center">
         {["الكل", ...BRANCHES].map((b) => (
           <button key={b} onClick={() => setFilterBranch(b)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}>
             {b}
           </button>
         ))}
+        <div className="flex items-center gap-2 mr-auto bg-white border rounded-lg px-3 py-1.5">
+          <span className="text-xs text-gray-500">من</span>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36" />
+          <span className="text-xs text-gray-500">إلى</span>
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36" />
+        </div>
       </div>
 
       <SortControls
