@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle, CalendarClock, Banknote } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle, CalendarClock, Banknote, History, RotateCcw } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LoanFormDialog from "./LoanFormDialog";
 import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
@@ -35,6 +35,7 @@ export default function LoansTab() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [paymentLoan, setPaymentLoan] = useState(null);
+  const [historyLoan, setHistoryLoan] = useState(null);
   const [paymentForm, setPaymentForm] = useState({ amount: "", transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "payment", payroll_month: "", notes: "" });
 
   const { data: loans = [], isLoading } = useQuery({
@@ -77,8 +78,12 @@ export default function LoansTab() {
       const amount = Number(form.amount) || 0;
       const currentPaid = Number(loan.paid_amount) || 0;
       const remaining = Math.max(0, (Number(loan.amount) || 0) - currentPaid);
-      if (amount <= 0) throw new Error("قيمة السداد يجب أن تكون أكبر من صفر");
-      if (amount > remaining + 0.01 && form.transaction_type !== "adjustment_plus") throw new Error(`قيمة السداد أكبر من المتبقي (${remaining.toLocaleString("ar-EG")} ج)`);
+      if (amount <= 0) throw new Error("قيمة الحركة يجب أن تكون أكبر من صفر");
+      if (["payment", "installment", "adjustment_minus"].includes(form.transaction_type) && amount > remaining + 0.01) throw new Error(`قيمة الحركة أكبر من المتبقي (${remaining.toLocaleString("ar-EG")} ج)`);
+      if (form.transaction_type === "installment" && form.payroll_month) {
+        const duplicateInstallment = await base44.entities.EmployeeLoanTransaction.filter({ loan_id: loan.id, payroll_month: form.payroll_month, transaction_type: "installment", status: "posted" }, "-transaction_date", 5);
+        if (duplicateInstallment.length > 0) throw new Error(`تم تسجيل قسط لهذه السلفة بالفعل في شهر ${form.payroll_month}`);
+      }
       await base44.entities.EmployeeLoanTransaction.create({
         loan_id: loan.id,
         employee_name: loan.employee_name,
@@ -92,7 +97,7 @@ export default function LoansTab() {
       });
       let nextPaid = currentPaid;
       if (["payment", "installment", "adjustment_minus"].includes(form.transaction_type)) nextPaid += amount;
-      if (form.transaction_type === "reversal") nextPaid = Math.max(0, nextPaid - amount);
+      if (form.transaction_type === "adjustment_plus") nextPaid = Math.max(0, nextPaid - amount);
       const nextStatus = nextPaid >= (Number(loan.amount) || 0) - 0.01 ? "مكتملة" : loan.status === "ملغاة" ? "ملغاة" : "نشطة";
       await base44.entities.EmployeeLoan.update(loan.id, { paid_amount: nextPaid, status: nextStatus });
     },
@@ -103,6 +108,37 @@ export default function LoansTab() {
       setPaymentForm({ amount: "", transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "payment", payroll_month: "", notes: "" });
     },
   });
+  const reverseTransactionMut = useMutation({
+    mutationFn: async ({ loan, transaction }) => {
+      if (!transaction || transaction.status === "reversed" || transaction.transaction_type === "reversal") throw new Error("هذه الحركة غير قابلة للعكس");
+      const existing = await base44.entities.EmployeeLoanTransaction.filter({ reference_transaction_id: transaction.id, transaction_type: "reversal", status: "posted" }, "-transaction_date", 5);
+      if (existing.length > 0) throw new Error("تم عكس هذه الحركة بالفعل");
+      await base44.entities.EmployeeLoanTransaction.create({
+        loan_id: loan.id,
+        employee_name: loan.employee_name,
+        branch: loan.branch,
+        transaction_date: new Date().toISOString().slice(0, 10),
+        transaction_type: "reversal",
+        amount: Number(transaction.amount) || 0,
+        reference_transaction_id: transaction.id,
+        payroll_month: transaction.payroll_month || "",
+        notes: `عكس حركة ${transaction.transaction_type} بتاريخ ${transaction.transaction_date}`,
+        status: "posted",
+      });
+      await base44.entities.EmployeeLoanTransaction.update(transaction.id, { status: "reversed" });
+      const amount = Number(transaction.amount) || 0;
+      let nextPaid = Number(loan.paid_amount) || 0;
+      if (["payment", "installment", "adjustment_minus"].includes(transaction.transaction_type)) nextPaid = Math.max(0, nextPaid - amount);
+      if (transaction.transaction_type === "adjustment_plus") nextPaid += amount;
+      const nextStatus = nextPaid >= (Number(loan.amount) || 0) - 0.01 ? "مكتملة" : "نشطة";
+      await base44.entities.EmployeeLoan.update(loan.id, { paid_amount: nextPaid, status: nextStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-loans"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-loan-transactions"] });
+    },
+  });
+
   const deleteMut = useMutation({
     mutationFn: async (id) => {
       const res = await base44.functions.invoke("archiveHRRecordSafe", {
@@ -209,6 +245,7 @@ export default function LoansTab() {
                         <TableCell>
                           <div className="flex gap-0.5">
                             {remaining > 0 && l.status !== "ملغاة" && <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" title="تسجيل سداد أو قسط" onClick={() => { setPaymentLoan(l); setPaymentForm({ amount: Math.min(remaining, l.monthly_deduction || remaining).toString(), transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "installment", payroll_month: new Date().toISOString().slice(0, 7), notes: "" }); }}><Banknote className="w-3.5 h-3.5" /></Button>}
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-violet-600 hover:bg-violet-50" title="سجل الحركات" onClick={() => setHistoryLoan(l)}><History className="w-3.5 h-3.5" /></Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => { setEditing(l); setDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMut.mutate(l.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
@@ -238,6 +275,7 @@ export default function LoansTab() {
                     </div>
                     <div className="flex gap-1 mt-2">
                       {remaining > 0 && l.status !== "ملغاة" && <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-700" onClick={() => { setPaymentLoan(l); setPaymentForm({ amount: Math.min(remaining, l.monthly_deduction || remaining).toString(), transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "installment", payroll_month: new Date().toISOString().slice(0, 7), notes: "" }); }}><Banknote className="w-3 h-3" /> تسجيل سداد</Button>}
+                      <Button size="sm" variant="outline" className="h-7 text-xs text-violet-700" onClick={() => setHistoryLoan(l)}><History className="w-3 h-3" /> الحركات</Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditing(l); setDialogOpen(true); }}><Pencil className="w-3 h-3" /> تعديل</Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs text-red-500" onClick={() => deleteMut.mutate(l.id)}><Trash2 className="w-3 h-3" /> حذف</Button>
                     </div>
@@ -258,7 +296,7 @@ export default function LoansTab() {
               <p className="text-gray-500 mt-1">المتبقي الحالي: <b className="text-orange-700">{Math.max(0, (paymentLoan.amount || 0) - (paymentLoan.paid_amount || 0)).toLocaleString("ar-EG")} ج</b></p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1"><Label className="text-xs">نوع الحركة</Label><select className="h-9 w-full rounded-md border px-2 text-sm" value={paymentForm.transaction_type} onChange={(e) => setPaymentForm((f) => ({ ...f, transaction_type: e.target.value }))}><option value="installment">قسط من المرتب</option><option value="payment">سداد مباشر</option><option value="adjustment_minus">تسوية تخفض الرصيد</option><option value="reversal">عكس سداد سابق</option></select></div>
+              <div className="space-y-1"><Label className="text-xs">نوع الحركة</Label><select className="h-9 w-full rounded-md border px-2 text-sm" value={paymentForm.transaction_type} onChange={(e) => setPaymentForm((f) => ({ ...f, transaction_type: e.target.value }))}><option value="installment">قسط من المرتب</option><option value="payment">سداد مباشر</option><option value="adjustment_minus">تسوية تخفض الرصيد</option><option value="adjustment_plus">تسوية تزيد الرصيد</option></select></div>
               <div className="space-y-1"><Label className="text-xs">المبلغ</Label><Input type="number" min="0" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
