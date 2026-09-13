@@ -6,6 +6,7 @@ import {
   buildSupplierAnalysis, computeTotalRemaining,
 } from "@/lib/financial-report-utils";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import FinancialKpiCards from "@/components/financial-reports/FinancialKpiCards";
 import FinancialAverageCards from "@/components/financial-reports/FinancialAverageCards";
 import FinancialTargetCard from "@/components/financial-reports/FinancialTargetCard";
@@ -111,7 +112,8 @@ export default function FinancialReports() {
   const reviewableHandovers = useMemo(() => handovers.filter(h => h.is_archived !== true), [handovers]);
   const activeHandovers = useMemo(() => reviewableHandovers.filter(h => h.status !== "مراجعة"), [reviewableHandovers]);
   const fHandovers = useMemo(() => activeHandovers.filter(h => branch === "all" || h.branch === branch), [activeHandovers, branch]);
-  const fInvoices = useMemo(() => invoices.filter(i => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [invoices, branch, supplier]);
+  const periodInvoices = useMemo(() => invoices.filter((i) => isInvoiceInRange(i, dateFrom, dateTo)), [invoices, dateFrom, dateTo]);
+  const fInvoices = useMemo(() => periodInvoices.filter(i => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
   const fPayments = useMemo(() => payments.filter(p => supplier === "all" || p.supplier_name === supplier), [payments, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
 
@@ -128,10 +130,8 @@ export default function FinancialReports() {
   const dataQuality = useMemo(() => {
     const duplicateInvoiceGroups = new Map();
     fInvoices.forEach((inv) => {
-      const number = String(inv.system_invoice_number || "").trim();
-      const date = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
-      if (!number || !inv.branch || !date) return;
-      const key = `${number}|${inv.branch}|${date}`;
+      const key = getInvoiceCanonicalKey(inv);
+      if (!key) return;
       if (!duplicateInvoiceGroups.has(key)) duplicateInvoiceGroups.set(key, []);
       duplicateInvoiceGroups.get(key).push(inv);
     });
@@ -199,7 +199,7 @@ export default function FinancialReports() {
         <h1 className="text-2xl font-bold text-gray-800">التقارير المالية</h1>
         <FinancialReportExport
           handovers={activeHandovers}
-          invoices={invoices}
+          invoices={periodInvoices}
           suppliers={suppliers}
           dateFrom={dateFrom}
           dateTo={dateTo}
