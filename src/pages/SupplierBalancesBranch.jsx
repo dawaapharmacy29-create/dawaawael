@@ -80,6 +80,7 @@ export default function SupplierBalancesBranch() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      qc.invalidateQueries({ queryKey: ["supplier-credit-invoices"] });
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
       setPayDialog(null);
       setPayForm({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
