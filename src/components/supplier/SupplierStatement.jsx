@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, X } from "lucide-react";
+import { FileText, X, RotateCcw } from "lucide-react";
 import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { isInvoiceInRange } from "@/lib/invoiceIdentity";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -24,6 +25,8 @@ async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
 }
 
 export default function SupplierStatement({ branch, onClose }) {
+  const qc = useQueryClient();
+  const { isManager } = useUserRole();
   const today = new Date().toISOString().split("T")[0];
   const firstOfMonth = today.slice(0, 8) + "01";
 
@@ -68,12 +71,52 @@ export default function SupplierStatement({ branch, onClose }) {
     [paymentRows, branch]
   );
 
+  const signedPaymentAmount = (p) => (p.transaction_type === "reversal" ? -1 : 1) * (Number(p.amount) || 0);
+
+  const reversePayment = useMutation({
+    mutationFn: async (payment) => {
+      if (!payment?.id || payment.transaction_type === "reversal") throw new Error("لا يمكن عكس هذه الحركة");
+      const existing = await base44.entities.SupplierPayment.filter({ reversal_of_payment_id: payment.id, transaction_type: "reversal" }, "-created_date", 5);
+      if (existing.some((r) => r.status !== "reversed")) throw new Error("تم عكس هذه الدفعة بالفعل");
+      await base44.entities.SupplierPayment.create({
+        supplier_name: payment.supplier_name,
+        invoice_id: payment.invoice_id || "",
+        invoice_number: payment.invoice_number || "",
+        amount: Number(payment.amount) || 0,
+        payment_date: today,
+        payment_method: payment.payment_method || "أخرى",
+        reference_number: payment.reference_number || "",
+        transaction_type: "reversal",
+        status: "posted",
+        reversal_of_payment_id: payment.id,
+        allocation_type: payment.allocation_type || (payment.invoice_id ? "invoice" : "general"),
+        allocations: payment.allocations || [],
+        branch: payment.branch || branch,
+        notes: `عكس دفعة بتاريخ ${payment.payment_date}${payment.notes ? ` — ${payment.notes}` : ""}`,
+      });
+      if (payment.invoice_id) {
+        const invoiceRows = await base44.entities.PurchaseInvoice.filter({ id: payment.invoice_id }, "-created_date", 1);
+        const invoice = invoiceRows[0];
+        if (invoice) {
+          const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(payment.amount) || 0));
+          await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
+        }
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["supplier-statement-payments"] });
+      qc.invalidateQueries({ queryKey: ["supplier-payments"] });
+      qc.invalidateQueries({ queryKey: ["supplier-credit-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+    },
+  });
+
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
   const totalPurchases = filtered?.reduce((s, i) => s + (i.total_value || 0), 0) || 0;
   const totalReturned = filtered?.reduce((s, i) => s + (i.returned_value || 0), 0) || 0;
   const totalNet = totalPurchases - totalReturned;
-  const totalPaid = periodPayments.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPaid = periodPayments.reduce((s, p) => s + signedPaymentAmount(p), 0);
 
   return (
     <div dir="rtl" className="space-y-5">
@@ -195,7 +238,7 @@ export default function SupplierStatement({ branch, onClose }) {
               <span className="text-blue-700">الإجمالي: {fmt(totalPurchases)} ج</span>
               <span className="text-orange-600">المرتجع: {fmt(totalReturned)} ج</span>
               <span className="text-red-600">الصافي: {fmt(totalNet)} ج</span>
-              <span className="text-green-600">المدفوع: {fmt(periodPayments.reduce((s, p) => s + (p.amount || 0), 0))} ج</span>
+              <span className="text-green-600">المدفوع الصافي: {fmt(periodPayments.reduce((s, p) => s + signedPaymentAmount(p), 0))} ج</span>
             </div>
           </Card>
 
@@ -211,8 +254,10 @@ export default function SupplierStatement({ branch, onClose }) {
                     <TableRow className="bg-gray-50">
                       <TableHead className="text-right text-xs">تاريخ السداد</TableHead>
                       <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
+                      <TableHead className="text-right text-xs">الوسيلة / المرجع</TableHead>
                       <TableHead className="text-right text-xs">ملاحظات</TableHead>
                       <TableHead className="text-right text-xs">المبلغ</TableHead>
+                      <TableHead className="text-right text-xs">إجراء</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -220,8 +265,10 @@ export default function SupplierStatement({ branch, onClose }) {
                       <TableRow key={p.id} className="text-sm">
                         <TableCell className="text-gray-600">{p.payment_date}</TableCell>
                         <TableCell className="font-mono text-teal-700">{p.invoice_number || "—"}</TableCell>
+                        <TableCell className="text-gray-500 text-xs">{p.payment_method || "قديم"}{p.reference_number ? ` — ${p.reference_number}` : ""}</TableCell>
                         <TableCell className="text-gray-500">{p.notes || "—"}</TableCell>
-                        <TableCell className="font-semibold text-green-700">{fmt(p.amount)} ج</TableCell>
+                        <TableCell className={`font-semibold ${p.transaction_type === "reversal" ? "text-red-600" : "text-green-700"}`}>{p.transaction_type === "reversal" ? "-" : "+"}{fmt(p.amount)} ج</TableCell>
+                        <TableCell>{isManager && p.transaction_type !== "reversal" && <Button size="sm" variant="ghost" className="h-7 text-xs text-amber-700" disabled={reversePayment.isPending} onClick={() => reversePayment.mutate(p)}><RotateCcw className="w-3 h-3" /> عكس</Button>}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
