@@ -124,6 +124,7 @@ export default function PurchaseInvoices() {
       timeout = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
         queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+        invalidatePurchaseDerivedCaches();
       }, 800);
     });
     return () => { unsub(); clearTimeout(timeout); };
@@ -162,6 +163,7 @@ export default function PurchaseInvoices() {
       queryClient.setQueriesData({ queryKey: ["purchase-invoices"] }, (old = []) => [inv, ...old.filter((x) => x.id !== inv.id)]);
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       queryClient.invalidateQueries({ queryKey: ["pending-invoices-count"] });
+      invalidatePurchaseDerivedCaches();
       setDialogOpen(false);
     },
   });
@@ -201,6 +203,7 @@ export default function PurchaseInvoices() {
         old.map((inv) => (inv.id === id ? { ...inv, ...data } : inv))
       );
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+      invalidatePurchaseDerivedCaches();
       setDialogOpen(false);
       setEditingInvoice(null);
     },
@@ -221,6 +224,7 @@ export default function PurchaseInvoices() {
     onSuccess: (id) => {
       queryClient.setQueriesData({ queryKey: ["purchase-invoices"] }, (old = []) => old.filter((inv) => inv.id !== id));
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+      invalidatePurchaseDerivedCaches();
       setSelectedIds((prev) => prev.filter((s) => s !== id));
     },
   });
