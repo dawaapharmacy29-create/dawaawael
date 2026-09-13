@@ -157,7 +157,13 @@ export function isInvoiceExcluded(invoice, suppliers = []) {
 /**
  * حساب القيمة الصافية للفاتورة في صافي المشتريات (0 إذا مستثناة).
  */
-export function getInvoiceNetAmount(invoice, suppliers = []) {
+export function isInvoiceFinanciallyApproved(invoice) {
+  return !["انتظار المراجعة", "مرفوضة"].includes(invoice?.status);
+}
+
+export function getInvoiceNetAmount(invoice, suppliers = [], options = {}) {
+  const { requireFinancialApproval = false } = options;
+  if (requireFinancialApproval && !isInvoiceFinanciallyApproved(invoice)) return 0;
   const { excluded } = isInvoiceExcluded(invoice, suppliers);
   if (excluded) return 0;
   const gross = (invoice.total_value || 0) - (invoice.returned_value || 0);
