@@ -604,6 +604,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                   <SelectItem value="انتظار المراجعة">⏳ انتظار المراجعة</SelectItem>
                   <SelectItem value="يتم الحفظ">✅ يتم الحفظ</SelectItem>
                   <SelectItem value="تعلق تحت التصريف">🔄 تعلق تحت التصريف</SelectItem>
+                  <SelectItem value="معتمدة">✅ معتمدة</SelectItem>
+                  <SelectItem value="مرفوضة">❌ مرفوضة</SelectItem>
                 </SelectContent>
               </Select>
             </div>
