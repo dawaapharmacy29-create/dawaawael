@@ -57,6 +57,7 @@ export default function FinancialReports() {
   const [customTo, setCustomTo] = useState("");
   const [branch, setBranch] = useState("all");
   const [supplier, setSupplier] = useState("all");
+  const [loadSupplierDepth, setLoadSupplierDepth] = useState(false);
 
   const { dateFrom, dateTo } = useMemo(
     () => computeDateRange(periodType, customFrom, customTo),
@@ -87,19 +88,26 @@ export default function FinancialReports() {
     enabled: periodEnabled,
     staleTime: 120000,
   });
-  const balanceInvoiceQuery = supplier === "all" ? { payment_type: "آجل" } : { payment_type: "آجل", supplier_name: supplier };
-  const balancePaymentQuery = supplier === "all" ? {} : { supplier_name: supplier };
+  const supplierDepthEnabled = loadSupplierDepth || supplier !== "all";
+  const balanceInvoiceQuery = {
+    payment_type: "آجل",
+    ...(supplier === "all" ? {} : { supplier_name: supplier }),
+    ...(branch === "all" ? {} : { branch }),
+  };
+  const balancePaymentQuery = supplier === "all" ? {} : { supplier_name: supplier }; 
   const { data: balanceInvoices = [] } = useQuery({
     queryKey: ["purchase-credit-balance-fr", supplier],
     queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, balanceInvoiceQuery, "-invoice_date"),
+    enabled: supplierDepthEnabled,
     staleTime: 300000,
   });
   const { data: balancePayments = [] } = useQuery({
     queryKey: ["supplier-balance-payments-fr", supplier],
     queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, balancePaymentQuery, "-payment_date"),
+    enabled: supplierDepthEnabled,
     staleTime: 300000,
   });
-  const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts-fr"], queryFn: () => base44.entities.SupplierDebt.list(), staleTime: 300000 });
+  const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts-fr"], queryFn: () => base44.entities.SupplierDebt.list(), enabled: supplierDepthEnabled, staleTime: 300000 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers-list-fr"], queryFn: () => base44.entities.Supplier.list() });
   const { data: branchTargets = [] } = useQuery({ queryKey: ["target-goals-fr"], queryFn: () => base44.entities.TargetGoal.list() });
   const { data: adminExpenseItems = [] } = useQuery({
@@ -154,9 +162,9 @@ export default function FinancialReports() {
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
     totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
-    currentDebts: computeTotalRemaining(approvedBalanceInvoices, balancePayments, debts, supplier),
+    currentDebts: supplierDepthEnabled ? computeTotalRemaining(approvedBalanceInvoices, balancePayments, debts, supplier) : null,
     supplierPayments: fPayments.reduce((s,p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0),
-  }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, balancePayments, debts, supplier, suppliers]);
+  }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, balancePayments, debts, supplier, suppliers, supplierDepthEnabled]);
 
   const distinctDayCount = (arr, field) => {
     const days = new Set(arr.map(r => (r[field] || "").slice(0, 10)).filter(Boolean));
@@ -273,6 +281,13 @@ export default function FinancialReports() {
 
       <FinancialKpiCards data={kpiData} />
 
+      {!supplierDepthEnabled && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div><p className="font-bold text-blue-900 text-sm">تحليل الذمم التاريخي للموردين مؤجل لتسريع فتح التقرير</p><p className="text-xs text-blue-700 mt-1">الأرقام الأساسية للفترة ظهرت بالفعل. حمّل الذمم فقط لو محتاج الرصيد الحالي وتحليل الموردين التاريخي.</p></div>
+          <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700" onClick={() => setLoadSupplierDepth(true)}>تحميل الذمم وتحليل الموردين</button>
+        </div>
+      )}
+
       <FinancialAdminExpensesCard items={adminExpenseItems} records={adminExpenseRecords} dateFrom={dateFrom} dateTo={dateTo} />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch">
@@ -281,8 +296,8 @@ export default function FinancialReports() {
       </div>
       <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       <FinancialBranchComparisonTable data={branchComparison} />
-      <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />
-      <FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />
+      {supplierDepthEnabled && <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />}
+      {supplierDepthEnabled && <FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />}
     </div>
   );
 }
