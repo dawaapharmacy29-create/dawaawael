@@ -43,6 +43,7 @@ const navItems = [
   { path: "/team-members", label: "فريق العمل", icon: UserCheck, section: "management" },
   { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, section: "management" },
   { path: "/supabase-sync", label: "مركز مزامنة Supabase", icon: Database, adminOnly: true, section: "management" },
+  { path: "/system-health", label: "صحة النظام والبيانات", icon: ShieldCheck, adminOnly: true, section: "management" },
 ];
 
 const NAV_SECTIONS = [
