@@ -15,7 +15,7 @@ const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 const PAYMENT_EXPENSE_NAMES = new Set(["انستا", "فيزا", "فودافون كاش", "فودافون", "Visa", "Insta"]);
 
-export default function ShiftDeliveryForm({ onSaved }) {
+export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const qc = useQueryClient();
 
   const { data: expenseItems = [] } = useQuery({
@@ -44,9 +44,38 @@ export default function ShiftDeliveryForm({ onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [draftState, setDraftState] = useState("");
+  const [draftBusinessDate, setDraftBusinessDate] = useState("");
   const draftIdRef = useRef(null);
   const draftKeyRef = useRef("");
+  const retryCountRef = useRef(0);
   const submissionTokenRef = useRef(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shift-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    if (!initialDraft?.id) return;
+    setForm({
+      branch: initialDraft.branch || "",
+      shift_type: initialDraft.shift_type || "",
+      employee_map_id: initialDraft.employee_map_id || "",
+      pin: "",
+      total_sales: initialDraft.total_sales || "",
+      notes: initialDraft.notes || "",
+    });
+    setPayments({
+      cash: initialDraft.cash_sales || "",
+      visa: initialDraft.visa_sales || "",
+      insta: initialDraft.insta_sales || "",
+      vodafone: initialDraft.vodafone_sales || "",
+      other: initialDraft.other_sales || "",
+    });
+    setCashHandover(initialDraft.cash_handover ?? "");
+    setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses : [{ description: "", amount: "", category: "" }]);
+    setDraftBusinessDate(initialDraft.business_date || "");
+    draftIdRef.current = initialDraft.id;
+    draftKeyRef.current = initialDraft.draft_key || "";
+    retryCountRef.current = Number(initialDraft.retry_count || 0);
+    if (initialDraft.submission_token) submissionTokenRef.current = initialDraft.submission_token;
+    setDraftState(`تم استعادة المسودة المحفوظة${initialDraft.last_error ? ` — آخر خطأ: ${initialDraft.last_error}` : ""}`);
+  }, [initialDraft]);
 
   // تاريخ ووقت التسجيل يظهر تلقائيًا ولا يمكن للمستخدم تعديله
   const [now, setNow] = useState(new Date());
@@ -67,7 +96,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
 
   useEffect(() => {
     if (!form.branch || !form.shift_type || !form.employee_map_id) return;
-    const businessDate = currentShiftBusinessDate(form.shift_type);
+    const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
     const draftKey = `${form.branch}|${businessDate}|${form.shift_type}|${form.employee_map_id}`;
     if (draftKeyRef.current !== draftKey) {
       draftKeyRef.current = draftKey;
@@ -84,6 +113,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
           employee_map_id: form.employee_map_id,
           employee_name: employeeNameMap.find((m) => m.id === form.employee_map_id)?.canonical_name || "",
           total_sales: paymentTotal,
+          cash_sales: parseFloat(payments.cash) || 0,
+          visa_sales: parseFloat(payments.visa) || 0,
+          insta_sales: parseFloat(payments.insta) || 0,
+          vodafone_sales: parseFloat(payments.vodafone) || 0,
+          other_sales: parseFloat(payments.other) || 0,
+          cash_handover: actualCashHandover,
+          cash_variance: cashVariance,
           expenses: expenses.map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "" })),
           notes: form.notes || "",
           status: "draft",
@@ -105,7 +141,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
       }
     }, 1200);
     return () => clearTimeout(timer);
-  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap]);
+  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap, cashHandover, cashVariance, draftBusinessDate]);
 
   const updateExpense = (idx, field, value) => {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
@@ -139,7 +175,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
 
     setSaving(true);
     try {
-      const businessDate = currentShiftBusinessDate(form.shift_type);
+      const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
       await assertDailyCloseOpen(form.branch, businessDate, "تسجيل تسليم شيفت جديد");
       const existingShift = await base44.entities.ShiftDelivery.filter({ branch: form.branch, shift_date: businessDate, shift_type: form.shift_type }, "-created_date", 20);
       const activeDuplicate = existingShift.find((s) => s.is_archived !== true);
@@ -181,7 +217,12 @@ export default function ShiftDeliveryForm({ onSaved }) {
       });
       const saved = saveRes?.data || {};
       if (!saved.success) {
-        setError(saved.error || "تعذر التحقق من الهوية أو حفظ التسليم");
+        const message = saved.error || "تعذر التحقق من الهوية أو حفظ التسليم";
+        if (draftIdRef.current) {
+          retryCountRef.current += 1;
+          await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() });
+        }
+        setError(message);
         return;
       }
       if (draftIdRef.current) {
@@ -205,12 +246,19 @@ export default function ShiftDeliveryForm({ onSaved }) {
       setCashHandover("");
       setExpenses([{ description: "", amount: "", category: "" }]);
       setDraftState("");
+      setDraftBusinessDate("");
       draftIdRef.current = null;
       draftKeyRef.current = "";
+      retryCountRef.current = 0;
       submissionTokenRef.current = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shift-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       if (onSaved) onSaved();
     } catch (e) {
-      setError(e.message || "حدث خطأ أثناء الحفظ");
+      const message = e.message || "حدث خطأ أثناء الحفظ";
+      if (draftIdRef.current) {
+        retryCountRef.current += 1;
+        try { await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() }); } catch {}
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -238,7 +286,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} onValueChange={(v) => setForm({ ...form, branch: v, employee_map_id: "", pin: "" })}>
+              <Select value={form.branch} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -247,7 +295,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">نوع الشيفت <span className="text-red-500">*</span></Label>
-              <Select value={form.shift_type} onValueChange={(v) => setForm({ ...form, shift_type: v })}>
+              <Select value={form.shift_type} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, shift_type: v }); }}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>
                   {SHIFT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
