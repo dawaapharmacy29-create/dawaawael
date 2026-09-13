@@ -109,7 +109,7 @@ export function computeSupplierBalance(invoices, payments, debts, name) {
   const creditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
   const totalCreditPurchases = creditInvoices.reduce((s, inv) => s + (inv.total_value || 0) - (inv.returned_value || 0), 0);
   const initialDebt = debts.filter(d => d.supplier_name === name).reduce((s, d) => s + (d.initial_debt || 0), 0);
-  const totalPaid = payments.filter(p => p.supplier_name === name).reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPaid = payments.filter(p => p.supplier_name === name).reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0);
   return { totalCreditPurchases, initialDebt, totalPaid, totalNet: totalCreditPurchases + initialDebt - totalPaid };
 }
 
@@ -175,7 +175,7 @@ export function buildSupplierAnalysis(invoices, payments, debts, balanceInvoices
 
   return Array.from(names).map(name => {
     const totalPurchases = invoices.filter(i => i.supplier_name === name).reduce((s,i) => s + (i.total_value || 0), 0);
-    const periodPayments = payments.filter(p => p.supplier_name === name).reduce((s,p) => s + (p.amount || 0), 0);
+    const periodPayments = payments.filter(p => p.supplier_name === name).reduce((s,p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0);
     const bal = computeSupplierBalance(balanceInvoices, balancePayments, debts, name);
     return { name, totalPurchases, totalPayments: periodPayments, currentDebt: bal.totalNet };
   }).sort((a,b) => b.totalPurchases - a.totalPurchases);
