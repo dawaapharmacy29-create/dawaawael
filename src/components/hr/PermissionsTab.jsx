@@ -10,6 +10,17 @@ import PermissionFormDialog from "./PermissionFormDialog";
 import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
 
 const currentYear = new Date().getFullYear();
+
+async function loadAllRows(entity, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.list(sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
 const statusColor = {
   "موافق": "bg-green-100 text-green-700 border-0",
   "بانتظار": "bg-yellow-100 text-yellow-700 border-0",
@@ -23,7 +34,7 @@ export default function PermissionsTab() {
 
   const { data: permissions = [], isLoading } = useQuery({
     queryKey: ["employee-permissions"],
-    queryFn: () => base44.entities.EmployeePermission.list("-created_date", 500),
+    queryFn: () => loadAllRows(base44.entities.EmployeePermission, "-created_date"),
   });
   const { data: employees = [] } = useQuery({
     queryKey: ["active-team-members"],
