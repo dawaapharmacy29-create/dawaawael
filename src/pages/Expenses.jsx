@@ -183,9 +183,6 @@ export default function Expenses() {
         </button>
       </div>
 
-      {activeTab === "report" && <ExpensesReport expenses={filtered} />}
-
-      {activeTab === "list" && <>
       {/* Branch + Date Filters */}
       <div className="flex gap-2 flex-wrap items-center">
         {["الكل", ...BRANCHES].map((b) => (
@@ -202,6 +199,9 @@ export default function Expenses() {
         </div>
       </div>
 
+      {activeTab === "report" && <ExpensesReport expenses={filtered} />}
+
+      {activeTab === "list" && <>
       <SortControls
         columns={EXPENSE_SORT_COLUMNS}
         sortField={sortField}
