@@ -24,11 +24,12 @@ export default function PendingInvoices() {
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
   const { data: invoices = [], isLoading } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.list("-created_date"),
+    queryKey: ["pending-invoices"],
+    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }, "-created_date", 1000),
+    staleTime: 60000,
   });
 
-  const pending = invoices.filter((i) => i.status === "انتظار المراجعة");
+  const pending = invoices;
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.PurchaseInvoice.update(id, data),
