@@ -13,6 +13,7 @@ import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2,
 import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { summarizeSupplierAging } from "@/lib/supplierAging";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -162,6 +163,7 @@ export default function SupplierBalancesBranch() {
   const supplierGroups = useMemo(() => {
     const calcRemaining = (inv) => round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0)));
     const invDate = (inv) => inv.invoice_date || inv.created_date?.slice(0, 10) || "";
+    const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const map = {};
     allSupplierNames.forEach(name => {
       const debtRecord = debts.find(d => d.supplier_name === name && d.branch === branch);
@@ -171,7 +173,10 @@ export default function SupplierBalancesBranch() {
 
       // كل فواتير الآجل لهذا المورد في هذا الفرع — المتبقي من كل فاتورة حسب بياناتها المسجلة فقط
       const allCreditInvoices = invoices.filter(inv => inv.payment_type === "آجل" && inv.supplier_name === name);
-      const withRemaining = allCreditInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+      const rawWithRemaining = allCreditInvoices.map(inv => ({ ...inv, remaining: calcRemaining(inv) }));
+      const supplierRecord = suppliers.find((s) => s.name === name);
+      const aging = summarizeSupplierAging(rawWithRemaining, supplierRecord, todayKey);
+      const withRemaining = aging.rows;
 
       const oldInvoices = monthStartDate ? withRemaining.filter(inv => invDate(inv) < monthStartDate) : withRemaining;
       const newInvoices = monthStartDate ? withRemaining.filter(inv => invDate(inv) >= monthStartDate) : [];
@@ -206,10 +211,11 @@ export default function SupplierBalancesBranch() {
         totalNet,
         debtRecord,
         monthStartDate,
+        aging: aging.summary,
       };
     });
     return Object.values(map).sort((a, b) => b.totalNet - a.totalNet);
-  }, [invoices, payments, debts, allSupplierNames, monthStarts, branch]);
+  }, [invoices, payments, debts, allSupplierNames, monthStarts, branch, suppliers]);
 
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
 
@@ -419,12 +425,20 @@ export default function SupplierBalancesBranch() {
                         </Button>
                       </>
                     )}
+                    {group.aging?.overdue > 0 && <div className="hidden lg:flex flex-col items-center bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 min-w-[90px]"><p className="text-[10px] text-red-500">متأخر</p><p className="font-bold text-red-700 text-sm">{fmt(group.aging.overdue)} ج</p></div>}
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="border-t">
+
+                    <div className="p-4 pb-0 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] text-red-600">متأخر السداد</p><p className="font-black text-red-700">{fmt(group.aging?.overdue)} ج</p><p className="text-[10px] text-red-500">{group.aging?.overdueCount || 0} فاتورة</p></div>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] text-amber-700">مستحق خلال 7 أيام</p><p className="font-black text-amber-800">{fmt(group.aging?.due7)} ج</p><p className="text-[10px] text-amber-600">{group.aging?.due7Count || 0} فاتورة</p></div>
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3"><p className="text-[11px] text-blue-700">خلال 8–30 يوم</p><p className="font-black text-blue-800">{fmt(group.aging?.due30)} ج</p><p className="text-[10px] text-blue-600">{group.aging?.due30Count || 0} فاتورة</p></div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3"><p className="text-[11px] text-gray-600">أبعد من 30 يوم</p><p className="font-black text-gray-800">{fmt(group.aging?.later)} ج</p><p className="text-[10px] text-gray-500">{group.aging?.laterCount || 0} فاتورة</p></div>
+                    </div>
 
                     {/* ── 3 Summary Cards ── */}
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
