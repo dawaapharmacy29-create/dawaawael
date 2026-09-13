@@ -10,6 +10,25 @@ const NAME_KEYS = ["اسم الصنف", "اسم", "product_name", "name", "ال�
 const QTY_KEYS  = ["الرصيد", "رصيد", "الكمية", "كمية", "stock_quantity", "quantity", "qty", "الكميه"];
 const CODE_KEYS = ["كود", "كود الصنف", "product_code", "code", "الكود", "رقم الصنف"];
 const findCol = (headers, keys) => headers.find(h => keys.some(k => k === h?.trim()));
+const normalize = (v) => String(v || "").trim().toLowerCase();
+
+async function loadAllProducts(maxRows = 20000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await base44.entities.InventoryProduct.list("product_name", PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
+async function updateInChunks(rows, mapper, chunkSize = 20) {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(mapper));
+  }
+}
 
 function BranchCard({ branch, allProducts, onRefetch, qc }) {
   const fileInputRef = useRef(null);
@@ -23,7 +42,7 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
   const [viewing, setViewing] = useState(false);
   const [search, setSearch] = useState("");
 
-  const count = allProducts.filter(p => p.branch === branch).length;
+  const count = allProducts.filter(p => p.branch === branch && p.is_active !== false).length;
 
   const showMsg = (msg, error = false) => {
     setStatusMsg(msg);
@@ -37,17 +56,18 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
     await onRefetch();
   };
 
-  // ── DELETE via backend function ──
+  // ── ARCHIVE safely — no hard delete ──
   const handleDelete = async () => {
     setBusy(true);
     setConfirm(false);
-    showMsg("جاري الحذف...");
+    const branchProducts = allProducts.filter((p) => p.branch === branch && p.is_active !== false);
+    showMsg("جاري أرشفة أصناف الفرع بأمان...");
     try {
-      const res = await base44.functions.invoke("deleteInventoryProducts", { branch });
+      await updateInChunks(branchProducts, (p) => base44.entities.InventoryProduct.update(p.id, { is_active: false }));
       await invalidate();
-      showMsg(`تم حذف ${res.data.deleted} صنف بنجاح ✓`);
+      showMsg(`تمت أرشفة ${branchProducts.length} صنف مع الاحتفاظ بتاريخها ✓`);
     } catch (e) {
-      showMsg("فشل الحذف: " + e.message, true);
+      showMsg("فشلت الأرشفة: " + e.message, true);
     }
     setBusy(false);
   };
@@ -87,28 +107,63 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
     e.target.value = "";
   };
 
-  // ── UPLOAD via backend function ──
+  // ── SAFE SYNC: update existing, create new, archive missing ──
   const handleUpload = async () => {
     if (!uploadPreview) return;
     setBusy(true);
     setUploadOpen(false);
-    showMsg(`جاري رفع ${uploadPreview.length} صنف...`);
+    showMsg(`جاري مزامنة ${uploadPreview.length} صنف بأمان...`);
     try {
-      const res = await base44.functions.invoke("uploadInventoryProducts", {
-        branch,
-        products: uploadPreview,
+      const existing = allProducts.filter((p) => p.branch === branch);
+      const byCode = new Map(existing.filter((p) => p.product_code).map((p) => [normalize(p.product_code), p]));
+      const byName = new Map(existing.map((p) => [normalize(p.product_name), p]));
+      const matchedIds = new Set();
+      const creates = [];
+      const updates = [];
+
+      uploadPreview.forEach((item) => {
+        const match = (item.product_code && byCode.get(normalize(item.product_code))) || byName.get(normalize(item.product_name));
+        if (match) {
+          matchedIds.add(match.id);
+          updates.push({ id: match.id, data: {
+            product_name: item.product_name,
+            stock_quantity: item.stock_quantity,
+            product_code: item.product_code || match.product_code || "",
+            branch,
+            is_active: true,
+          }});
+        } else {
+          creates.push({
+            product_name: item.product_name,
+            stock_quantity: item.stock_quantity,
+            product_code: item.product_code || "",
+            branch,
+            is_active: true,
+            priority_score: 0,
+            discrepancy_count: 0,
+          });
+        }
       });
+
+      await updateInChunks(updates, (row) => base44.entities.InventoryProduct.update(row.id, row.data));
+      const missingActive = existing.filter((p) => !matchedIds.has(p.id) && p.is_active !== false);
+      await updateInChunks(missingActive, (p) => base44.entities.InventoryProduct.update(p.id, { is_active: false }));
+
+      for (let i = 0; i < creates.length; i += 20) {
+        await base44.entities.InventoryProduct.bulkCreate(creates.slice(i, i + 20));
+      }
+
       await invalidate();
       setUploadPreview(null);
-      showMsg(`تم رفع ${res.data.inserted} صنف بنجاح ✓`);
+      showMsg(`تمت المزامنة: ${updates.length} تحديث، ${creates.length} جديد، ${missingActive.length} مؤرشف ✓`);
     } catch (e) {
-      showMsg("فشل الرفع: " + e.message, true);
+      showMsg("فشلت المزامنة: " + e.message, true);
     }
     setBusy(false);
   };
 
   const viewedProducts = allProducts.filter(p =>
-    p.branch === branch &&
+    p.branch === branch && p.is_active !== false &&
     (!search || p.product_name?.includes(search) || p.product_code?.includes(search))
   );
 
@@ -148,7 +203,7 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
 
         {/* Confirm message */}
         {confirm && (
-          <p className="text-xs text-center text-red-600 font-medium">هل أنت متأكد من حذف {count} صنف؟</p>
+          <p className="text-xs text-center text-amber-700 font-medium">هل تريد أرشفة {count} صنف نشط؟ ستبقى البيانات محفوظة ويمكن استرجاعها.</p>
         )}
 
         {/* Action buttons */}
@@ -167,7 +222,7 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
               confirm ? (
                 <>
                   <Button size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-xs h-8" onClick={handleDelete}>
-                    <Trash2 className="w-3.5 h-3.5 ml-1" /> تأكيد
+                    <Trash2 className="w-3.5 h-3.5 ml-1" /> تأكيد الأرشفة
                   </Button>
                   <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => setConfirm(false)}>
                     إلغاء
@@ -180,7 +235,7 @@ function BranchCard({ branch, allProducts, onRefetch, qc }) {
                   className="flex-1 text-xs h-8 text-red-600 border-red-200 hover:bg-red-50 gap-1"
                   onClick={() => { setConfirm(true); setUploadOpen(false); }}
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> حذف
+                  <Trash2 className="w-3.5 h-3.5" /> أرشفة
                 </Button>
               )
             )}
@@ -263,8 +318,8 @@ export default function ProductsManager() {
   const qc = useQueryClient();
   const { data: allProducts = [], isLoading, refetch } = useQuery({
     queryKey: ["inventory-products-all"],
-    queryFn: () => base44.entities.InventoryProduct.list(),
-    staleTime: 30000,
+    queryFn: () => loadAllProducts(),
+    staleTime: 120000,
   });
 
   if (isLoading) return <div className="text-center text-gray-400 py-8">جاري التحميل...</div>;
@@ -273,7 +328,7 @@ export default function ProductsManager() {
     <div dir="rtl" className="space-y-4">
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2 text-yellow-800 text-sm">
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>يمكنك حذف أصناف الفرع أو رفع ملف جديد مباشرة. الحذف نهائي.</span>
+        <span>رفع الملف يعمل كمزامنة آمنة: تحديث الموجود، إضافة الجديد، وأرشفة غير الموجود بدون حذف التاريخ. زر الأرشفة الجماعية لا يحذف السجلات نهائياً.</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BRANCHES.map(branch => (
