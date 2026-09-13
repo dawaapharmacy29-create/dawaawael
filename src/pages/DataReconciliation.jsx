@@ -42,15 +42,19 @@ export default function DataReconciliation() {
   const [to, setTo] = useState(currentCycle.to);
   const [branch, setBranch] = useState("all");
   const today = cairoTodayKey();
+  const serverBranchFilter = branch === "all" ? {} : { branch };
+  const expectedCycleForSelection = cycleRangeFor(to);
+  const managementCycleSelected = expectedCycleForSelection.from === from && expectedCycleForSelection.to === to;
 
   const { data: shifts = [], isLoading: loadingShifts, refetch: refetchShifts } = useQuery({
-    queryKey: ["reconciliation-shifts", from, to],
-    queryFn: () => loadAllEntityFiltered(base44.entities.ShiftDelivery, { shift_date: { $gte: from, $lte: to } }, "shift_date", 20000),
+    queryKey: ["reconciliation-shifts", from, to, branch],
+    queryFn: () => loadAllEntityFiltered(base44.entities.ShiftDelivery, { ...serverBranchFilter, shift_date: { $gte: from, $lte: to } }, "shift_date", 20000),
     staleTime: 120000,
   });
   const { data: invoicesRaw = [], isLoading: loadingInvoices, refetch: refetchInvoices } = useQuery({
-    queryKey: ["reconciliation-invoices", from, to],
+    queryKey: ["reconciliation-invoices", from, to, branch],
     queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
+      ...serverBranchFilter,
       $or: [
         { invoice_date: { $gte: from, $lte: to } },
         { created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
@@ -59,8 +63,9 @@ export default function DataReconciliation() {
     staleTime: 120000,
   });
   const { data: expenses = [], isLoading: loadingExpenses, refetch: refetchExpenses } = useQuery({
-    queryKey: ["reconciliation-expenses", from, to],
+    queryKey: ["reconciliation-expenses", from, to, branch],
     queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
+      ...serverBranchFilter,
       $or: [
         { date: { $gte: from, $lte: to } },
         { created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
@@ -76,11 +81,13 @@ export default function DataReconciliation() {
   const { data: targets = [] } = useQuery({
     queryKey: ["reconciliation-targets", to.slice(0, 7)],
     queryFn: () => base44.entities.TargetGoal.filter({ month: to.slice(0, 7) }, "branch"),
+    enabled: managementCycleSelected,
     staleTime: 300000,
   });
   const { data: purchaseTargets = [] } = useQuery({
     queryKey: ["reconciliation-purchase-targets", to.slice(0, 7)],
     queryFn: () => base44.entities.PurchaseTargetHistory.filter({ month: to.slice(0, 7) }, "branch"),
+    enabled: managementCycleSelected,
     staleTime: 300000,
   });
 
@@ -170,14 +177,13 @@ export default function DataReconciliation() {
     const sales = activeShifts.reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
     const purchases = approvedInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
     const selectedBranches = branch === "all" ? BRANCHES : [branch];
-    const expectedCycle = cycleRangeFor(to);
-    const isManagementCycle = expectedCycle.from === from && expectedCycle.to === to;
+    const isManagementCycle = managementCycleSelected;
     const salesTarget = isManagementCycle ? selectedBranches.reduce((sum, b) => sum + Number(targets.find((t) => t.branch === b)?.target_amount || 0), 0) : 0;
     const purchaseTarget = isManagementCycle ? selectedBranches.reduce((sum, b) => sum + Number(purchaseTargets.find((t) => t.branch === b)?.target_amount || 0), 0) : 0;
     const pendingByBranch = selectedBranches.map((b) => ({ branch: b, total: pendingInvoices.filter((i) => i.branch === b).length, external: pendingExternal.filter((i) => i.branch === b).length, internal: pendingInternal.filter((i) => i.branch === b).length }));
 
     return { scopedShifts, scopedInvoices, activeShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies, duplicateInvoiceGroups, missingOfficialDate, pendingInvoices, rejectedInvoices, pendingExternal, pendingInternal, pendingByBranch, pendingPurchaseValue, dailyRows, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, salesTarget, purchaseTarget, isManagementCycle };
-  }, [shifts, invoicesRaw, expenses, suppliers, targets, purchaseTargets, from, to, branch, today]);
+  }, [shifts, invoicesRaw, expenses, suppliers, targets, purchaseTargets, from, to, branch, today, managementCycleSelected]);
 
   const loading = loadingShifts || loadingInvoices || loadingExpenses;
   const totalIssues = data.reviewShifts.length + data.duplicateShiftGroups.length + data.shiftAnomalies.length + data.duplicateInvoiceGroups.length + data.missingOfficialDate.length + data.pendingInvoices.length + data.rejectedInvoices.length;
