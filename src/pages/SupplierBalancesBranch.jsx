@@ -84,7 +84,7 @@ export default function SupplierBalancesBranch() {
       if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
       if (paymentAmount > invoiceRemaining + 0.01) throw new Error(`قيمة الدفعة أكبر من المتبقي على الفاتورة (${invoiceRemaining.toLocaleString("ar-EG")} ج)`);
       const newPaid = round2((invoice.paid_value || 0) + paymentAmount);
-      await base44.entities.SupplierPayment.create({
+      const paymentRow = await base44.entities.SupplierPayment.create({
         supplier_name: invoice.supplier_name,
         invoice_id: invoice.id,
         invoice_number: invoice.system_invoice_number,
@@ -96,11 +96,18 @@ export default function SupplierBalancesBranch() {
         status: "posted",
         allocation_type: "invoice",
         allocations: [{ invoice_id: invoice.id, invoice_number: invoice.system_invoice_number, amount: paymentAmount }],
+        allocation_sync_status: "pending",
         notes,
         branch,
       });
-      // paid_value يظل Projection متوافقًا مع الشاشات القديمة؛ سجل SupplierPayment هو دفتر الحركة التفصيلي الجديد.
-      await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
+      try {
+        // paid_value يظل Projection متوافقًا مع الشاشات القديمة؛ سجل SupplierPayment هو دفتر الحركة التفصيلي الجديد.
+        await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
+        await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
+      } catch (err) {
+        try { await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "needs_review", allocation_sync_error: err?.message || "تعذر تحديث paid_value" }); } catch {}
+        throw err;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
@@ -255,7 +262,7 @@ export default function SupplierBalancesBranch() {
     mutationFn: async ({ supplier_name, amount, payment_date, payment_method, reference_number, notes }) => {
       const paymentAmount = round2(parseFloat(amount));
       if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes, branch });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", allocation_sync_status: "not_applicable", notes, branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
@@ -289,7 +296,7 @@ export default function SupplierBalancesBranch() {
         }
         if (Math.abs(left) > 0.01) throw new Error("تعذر توزيع كامل الدفعة على الفواتير المفتوحة");
 
-        await base44.entities.SupplierPayment.create({
+        const paymentRow = await base44.entities.SupplierPayment.create({
           supplier_name,
           amount: paymentAmount,
           payment_date,
@@ -301,18 +308,25 @@ export default function SupplierBalancesBranch() {
           invoice_id: allocations.length === 1 ? allocations[0].invoice_id : "",
           invoice_number: allocations.length === 1 ? allocations[0].invoice_number : "",
           allocations,
+          allocation_sync_status: "pending",
           notes: notes || `توزيع تلقائي على ${allocations.length} فاتورة`,
           branch,
         });
-        for (const allocation of allocations) {
-          const inv = openInvoices.find((x) => x.id === allocation.invoice_id);
-          if (!inv) continue;
-          await base44.entities.PurchaseInvoice.update(inv.id, { paid_value: round2((inv.paid_value || 0) + allocation.amount) });
+        try {
+          for (const allocation of allocations) {
+            const inv = openInvoices.find((x) => x.id === allocation.invoice_id);
+            if (!inv) continue;
+            await base44.entities.PurchaseInvoice.update(inv.id, { paid_value: round2((inv.paid_value || 0) + allocation.amount) });
+          }
+          await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
+        } catch (err) {
+          try { await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "needs_review", allocation_sync_error: err?.message || "فشل جزئي في توزيع الدفعة" }); } catch {}
+          throw err;
         }
         return;
       }
 
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes: notes || "دفعة عامة غير مخصصة", branch });
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", allocation_sync_status: "not_applicable", notes: notes || "دفعة عامة غير مخصصة", branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
