@@ -334,13 +334,17 @@ export default function Dashboard() {
       {/* Low Stock Alerts */}
       <LowStockAlert />
 
-      {/* Budget Alerts */}
-      <BudgetAlert invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} managementMonth={currentMonth} suppliers={suppliers} />
+      {isManagementCycle && (
+        <>
+          {/* Budget Alerts */}
+          <BudgetAlert invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} managementMonth={currentMonth} suppliers={suppliers} />
 
-      {/* Branch Budget */}
-      <div>
-        <BranchBudgetCard invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} targetGoals={targetGoals} managementMonth={currentMonth} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
-      </div>
+          {/* Branch Budget */}
+          <div>
+            <BranchBudgetCard invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} targetGoals={targetGoals} managementMonth={currentMonth} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
+          </div>
+        </>
+      )}
 
       {/* Branches Summary - only when all branches selected */}
       {branch === "all" && (
