@@ -1,4 +1,5 @@
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 
 export const ANALYTICS_BRANCHES = ["دواء شكري", "دواء الشامي"];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -61,7 +62,8 @@ export function getSalesRows(handovers = [], { from, to, branch = "all", include
 }
 
 export function getPurchaseRows(invoices = [], { from, to, branch = "all" } = {}) {
-  return invoices.filter((i) => inRange(i.invoice_date, from, to))
+  return invoices.filter(isInvoiceFinanciallyApproved)
+    .filter((i) => inRange(getInvoiceEffectiveDate(i), from, to))
     .filter((i) => branch === "all" || i.branch === branch);
 }
 
