@@ -58,11 +58,13 @@ function RatioStatus({ ratio, baseline }) {
   return { label: "معدل الشراء متوازن", tone: "blue", delta };
 }
 
-async function loadAllEntityRows(entity, sort, maxRows = 10000) {
+async function loadAllEntityRows(entity, sort, maxRows = 10000, query = null) {
   const PAGE = 500;
   const rows = [];
   for (let page = 0; rows.length < maxRows; page += 1) {
-    const batch = await entity.list(sort, PAGE, page * PAGE);
+    const batch = query
+      ? await entity.filter(query, sort, PAGE, page * PAGE)
+      : await entity.list(sort, PAGE, page * PAGE);
     rows.push(...batch);
     if (batch.length < PAGE) break;
   }
@@ -76,15 +78,39 @@ export default function SmartCommerceAnalytics() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
+  const fullRange = useMemo(() => {
+    if (mode === "month") return calendarMonthRange(today);
+    if (mode === "custom") return { from: customFrom || today, to: customTo || today };
+    return cycleRangeFor(today);
+  }, [mode, customFrom, customTo, today]);
+  const currentRange = useMemo(() => clampRangeToToday(fullRange, today), [fullRange, today]);
+  const prevRange = useMemo(() => previousComparableRange(currentRange, 1), [currentRange]);
+  const prevRanges = useMemo(() => [1,2,3].map((i) => previousComparableRange(currentRange, i)), [currentRange]);
+  const analyticsDataRange = useMemo(() => ({
+    from: prevRanges[prevRanges.length - 1]?.from || currentRange.from,
+    to: currentRange.to,
+  }), [prevRanges, currentRange]);
+
+  const branchQuery = branch === "all" ? {} : { branch };
+
   const { data: handovers = [], isLoading: salesLoading } = useQuery({
-    queryKey: ["smart-analytics-handovers"],
-    queryFn: () => loadAllEntityRows(base44.entities.ShiftDelivery, "-shift_date"),
-    staleTime: 30000,
+    queryKey: ["smart-analytics-handovers", analyticsDataRange.from, analyticsDataRange.to, branch],
+    queryFn: () => loadAllEntityRows(base44.entities.ShiftDelivery, "-shift_date", 10000, {
+      ...branchQuery,
+      shift_date: { $gte: analyticsDataRange.from, $lte: analyticsDataRange.to },
+    }),
+    staleTime: 120000,
   });
   const { data: invoices = [], isLoading: purchaseLoading } = useQuery({
-    queryKey: ["smart-analytics-purchases"],
-    queryFn: () => loadAllEntityRows(base44.entities.PurchaseInvoice, "-invoice_date"),
-    staleTime: 30000,
+    queryKey: ["smart-analytics-purchases", analyticsDataRange.from, analyticsDataRange.to, branch],
+    queryFn: () => loadAllEntityRows(base44.entities.PurchaseInvoice, "-invoice_date", 10000, {
+      ...branchQuery,
+      $or: [
+        { invoice_date: { $gte: analyticsDataRange.from, $lte: analyticsDataRange.to } },
+        { created_date: { $gte: `${analyticsDataRange.from}T00:00:00`, $lte: `${analyticsDataRange.to}T23:59:59` } },
+      ],
+    }),
+    staleTime: 120000,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["smart-analytics-suppliers"],
@@ -106,15 +132,6 @@ export default function SmartCommerceAnalytics() {
     queryFn: () => base44.entities.PurchaseTargetHistory.list("-month"),
     staleTime: 60000,
   });
-
-  const fullRange = useMemo(() => {
-    if (mode === "month") return calendarMonthRange(today);
-    if (mode === "custom") return { from: customFrom || today, to: customTo || today };
-    return cycleRangeFor(today);
-  }, [mode, customFrom, customTo, today]);
-  const currentRange = useMemo(() => clampRangeToToday(fullRange, today), [fullRange, today]);
-  const prevRange = useMemo(() => previousComparableRange(currentRange, 1), [currentRange]);
-  const prevRanges = useMemo(() => [1,2,3].map((i) => previousComparableRange(currentRange, i)), [currentRange]);
 
   const current = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, ...currentRange, branch }), [handovers, invoices, suppliers, currentRange, branch]);
   const previous = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, ...prevRange, branch }), [handovers, invoices, suppliers, prevRange, branch]);
