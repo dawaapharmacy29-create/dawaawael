@@ -44,7 +44,7 @@ export default function SupplierBalancesBranch() {
   const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "" });
   const [savingDebt, setSavingDebt] = useState(false);
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
-  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
+  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", allocation_mode: "auto_oldest", notes: "" });
   const [statementOpen, setStatementOpen] = useState(false);
   const [monthStartDialog, setMonthStartDialog] = useState(null);
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
@@ -182,7 +182,7 @@ export default function SupplierBalancesBranch() {
       const oldDebt = round2(initialDebt + oldInvoicesRemaining);
 
       // الدفعات العامة (غير المخصصة على فاتورة محددة) تُخصم من الإجمالي مباشرة دون تغيير بيانات الفواتير
-      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
+      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && (!p.branch || p.branch === branch));
       const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
 
       // المديونية المحسوبة من السجلات + فرق التسوية اليدوي = الرصيد النهائي
@@ -259,15 +259,61 @@ export default function SupplierBalancesBranch() {
   });
 
   const addGeneralPayment = useMutation({
-    mutationFn: async ({ supplier_name, amount, payment_date, payment_method, reference_number, notes }) => {
+    mutationFn: async ({ supplier_name, amount, payment_date, payment_method, reference_number, allocation_mode, notes }) => {
       const paymentAmount = round2(parseFloat(amount));
       if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes: notes || "دفعة عامة", branch });
+
+      if (allocation_mode === "auto_oldest") {
+        const openInvoices = invoices
+          .filter((inv) => inv.supplier_name === supplier_name && inv.payment_type === "آجل")
+          .map((inv) => ({ ...inv, remaining: round2(Math.max(0, (inv.total_value || 0) - (inv.returned_value || 0) - (inv.paid_value || 0))) }))
+          .filter((inv) => inv.remaining > 0.009)
+          .sort((a, b) => String(a.invoice_date || a.created_date || "").localeCompare(String(b.invoice_date || b.created_date || "")));
+        const totalOpen = round2(openInvoices.reduce((s, inv) => s + inv.remaining, 0));
+        if (paymentAmount > totalOpen + 0.01) throw new Error(`الدفعة أكبر من إجمالي الفواتير المفتوحة (${totalOpen.toLocaleString("ar-EG")} ج). اختر «دفعة عامة غير مخصصة» لو المقصود سداد رصيد قديم.`);
+
+        let left = paymentAmount;
+        const allocations = [];
+        for (const inv of openInvoices) {
+          if (left <= 0.009) break;
+          const allocated = round2(Math.min(left, inv.remaining));
+          if (allocated <= 0) continue;
+          allocations.push({ invoice_id: inv.id, invoice_number: inv.system_invoice_number, amount: allocated });
+          left = round2(left - allocated);
+        }
+        if (Math.abs(left) > 0.01) throw new Error("تعذر توزيع كامل الدفعة على الفواتير المفتوحة");
+
+        await base44.entities.SupplierPayment.create({
+          supplier_name,
+          amount: paymentAmount,
+          payment_date,
+          payment_method: payment_method || "كاش",
+          reference_number: reference_number || "",
+          transaction_type: "payment",
+          status: "posted",
+          allocation_type: allocations.length > 1 ? "multi_invoice" : "invoice",
+          invoice_id: allocations.length === 1 ? allocations[0].invoice_id : "",
+          invoice_number: allocations.length === 1 ? allocations[0].invoice_number : "",
+          allocations,
+          notes: notes || `توزيع تلقائي على ${allocations.length} فاتورة`,
+          branch,
+        });
+        for (const allocation of allocations) {
+          const inv = openInvoices.find((x) => x.id === allocation.invoice_id);
+          if (!inv) continue;
+          await base44.entities.PurchaseInvoice.update(inv.id, { paid_value: round2((inv.paid_value || 0) + allocation.amount) });
+        }
+        return;
+      }
+
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes: notes || "دفعة عامة غير مخصصة", branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
+      qc.invalidateQueries({ queryKey: ["supplier-credit-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
       setGeneralPayDialog(false);
-      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
+      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", allocation_mode: "auto_oldest", notes: "" });
     },
   });
 
@@ -618,6 +664,14 @@ export default function SupplierBalancesBranch() {
               <div className="space-y-1"><Label>وسيلة الدفع</Label><select className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm" value={generalPayForm.payment_method} onChange={e => setGeneralPayForm(f => ({ ...f, payment_method: e.target.value }))}>{["كاش","تحويل بنكي","انستا","فودافون","شيك","أخرى"].map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
             </div>
             <div className="space-y-1"><Label>رقم المرجع / التحويل / الشيك</Label><Input value={generalPayForm.reference_number} onChange={e => setGeneralPayForm(f => ({ ...f, reference_number: e.target.value }))} placeholder="اختياري للكاش — مهم للتحويلات" /></div>
+            <div className="space-y-1">
+              <Label>تخصيص الدفعة</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm" value={generalPayForm.allocation_mode} onChange={e => setGeneralPayForm(f => ({ ...f, allocation_mode: e.target.value }))}>
+                <option value="auto_oldest">توزيع تلقائي على أقدم الفواتير</option>
+                <option value="general">دفعة عامة غير مخصصة / رصيد قديم</option>
+              </select>
+              <p className="text-[11px] text-gray-400">التوزيع التلقائي يغلق أقدم الفواتير أولًا ويحفظ تفاصيل التوزيع داخل حركة واحدة.</p>
+            </div>
             <div className="space-y-1"><Label>ملاحظات (اختياري)</Label><Textarea value={generalPayForm.notes} onChange={e => setGeneralPayForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter className="gap-2">
