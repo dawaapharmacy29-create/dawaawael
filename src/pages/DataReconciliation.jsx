@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { normalizeInvoiceNumber, getInvoiceOfficialDate, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -138,8 +138,9 @@ export default function DataReconciliation() {
     const duplicateInvoiceGroups = [...invoiceDuplicateMap.values()].filter((rows) => rows.length > 1);
     const missingOfficialDate = scopedInvoices.filter((i) => !getInvoiceOfficialDate(i));
     const pendingInvoices = scopedInvoices.filter((i) => i.status === "انتظار المراجعة");
+    const rejectedInvoices = scopedInvoices.filter((i) => i.status === "مرفوضة");
     const pendingPurchaseValue = pendingInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
-    const approvedInvoices = scopedInvoices.filter((i) => i.status !== "انتظار المراجعة");
+    const approvedInvoices = scopedInvoices.filter(isInvoiceFinanciallyApproved);
 
     const dates = [];
     for (let d = new Date(`${from}T00:00:00`), end = new Date(`${to}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
@@ -170,11 +171,11 @@ export default function DataReconciliation() {
     const salesTarget = selectedBranches.reduce((sum, b) => sum + Number(targets.find((t) => t.branch === b)?.target_amount || 0), 0);
     const purchaseTarget = selectedBranches.reduce((sum, b) => sum + Number(purchaseTargets.find((t) => t.branch === b)?.target_amount || 0), 0);
 
-    return { scopedShifts, scopedInvoices, activeShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies, duplicateInvoiceGroups, missingOfficialDate, pendingInvoices, pendingPurchaseValue, dailyRows, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, salesTarget, purchaseTarget };
+    return { scopedShifts, scopedInvoices, activeShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies, duplicateInvoiceGroups, missingOfficialDate, pendingInvoices, rejectedInvoices, pendingPurchaseValue, dailyRows, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, salesTarget, purchaseTarget };
   }, [shifts, invoicesRaw, expenses, suppliers, targets, purchaseTargets, from, to, branch, today]);
 
   const loading = loadingShifts || loadingInvoices || loadingExpenses;
-  const totalIssues = data.reviewShifts.length + data.duplicateShiftGroups.length + data.shiftAnomalies.length + data.duplicateInvoiceGroups.length + data.missingOfficialDate.length + data.pendingInvoices.length;
+  const totalIssues = data.reviewShifts.length + data.duplicateShiftGroups.length + data.shiftAnomalies.length + data.duplicateInvoiceGroups.length + data.missingOfficialDate.length + data.pendingInvoices.length + data.rejectedInvoices.length;
 
   const refreshAll = async () => Promise.all([refetchShifts(), refetchInvoices(), refetchExpenses()]);
 
@@ -210,7 +211,7 @@ export default function DataReconciliation() {
         <Card className="p-3">{qualityBadge(data.shiftAnomalies.length ? "warn" : "ok", `شيفتات شاذة: ${data.shiftAnomalies.length}`)}</Card>
         <Card className="p-3">{qualityBadge(data.duplicateInvoiceGroups.length ? "bad" : "ok", `تكرار فواتير: ${data.duplicateInvoiceGroups.length}`)}</Card>
         <Card className="p-3">{qualityBadge(data.missingOfficialDate.length ? "warn" : "ok", `تاريخ فاتورة مستنتج: ${data.missingOfficialDate.length}`)}</Card>
-        <Card className="p-3">{qualityBadge(data.pendingInvoices.length ? "warn" : "ok", `فواتير مراجعة: ${data.pendingInvoices.length}`)}</Card>
+        <Card className="p-3">{qualityBadge((data.pendingInvoices.length + data.rejectedInvoices.length) ? "warn" : "ok", `مراجعة/مرفوضة: ${data.pendingInvoices.length}/${data.rejectedInvoices.length}`)}</Card>
       </div>
 
       {data.pendingInvoices.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">قيمة صافي المشتريات الموجودة حاليًا في «انتظار المراجعة»: <b>{money(data.pendingPurchaseValue)} ج</b>. تم فصلها عن رقم المشتريات المعتمد في هذه الصفحة.</div>}
