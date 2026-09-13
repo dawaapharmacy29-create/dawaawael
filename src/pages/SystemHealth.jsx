@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Activity, AlertTriangle, CheckCircle2, Database, RefreshCw, ShieldCheck, Users } from "lucide-react";
@@ -45,6 +45,12 @@ function HealthCard({ title, value, subtitle, icon: Icon, bad = false, warn = fa
 export default function SystemHealth() {
   const { isAdmin } = useUserRole();
   const recentFrom = dateDaysAgo(120);
+  const [deepChecksEnabled, setDeepChecksEnabled] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDeepChecksEnabled(true), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: ["system-health-team-members"],
@@ -83,17 +89,19 @@ export default function SystemHealth() {
   });
   const { data: shiftDraftRows = [], isLoading: draftsLoading } = useQuery({
     queryKey: ["system-health-shift-drafts"],
-    queryFn: async () => (await base44.entities.ShiftDraft.list("-last_saved_at", 500)).filter((d) => ["draft", "submitting"].includes(d.status)),
+    queryFn: () => loadAllFiltered(base44.entities.ShiftDraft, { status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 5000),
     staleTime: 30000,
   });
   const { data: creditInvoices = [], isLoading: creditLoading } = useQuery({
     queryKey: ["system-health-credit-invoices"],
     queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, { payment_type: "آجل" }, "-invoice_date", 20000),
-    staleTime: 120000,
+    enabled: deepChecksEnabled,
+    staleTime: 300000,
   });
   const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: ["system-health-suppliers"],
     queryFn: () => base44.entities.Supplier.list("name"),
+    enabled: deepChecksEnabled,
     staleTime: 300000,
   });
   const { data: paymentSyncIssues = [], isLoading: paymentSyncLoading } = useQuery({
@@ -164,7 +172,7 @@ export default function SystemHealth() {
 
   const failedSync = failedSyncRows;
   const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
-  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || creditLoading || suppliersLoading || paymentSyncLoading;
+  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || paymentSyncLoading || (deepChecksEnabled && (creditLoading || suppliersLoading));
   const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length + paymentSyncIssues.length;
 
   if (!isAdmin) {
