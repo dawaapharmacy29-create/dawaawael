@@ -123,6 +123,26 @@ export default function FinancialReports() {
     return Array.from(groups.values()).filter((records) => records.length > 1);
   }, [reviewableHandovers, branch]);
 
+  const dataQuality = useMemo(() => {
+    const duplicateInvoiceGroups = new Map();
+    fInvoices.forEach((inv) => {
+      const number = String(inv.system_invoice_number || "").trim();
+      const date = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
+      if (!number || !inv.branch || !date) return;
+      const key = `${number}|${inv.branch}|${date}`;
+      if (!duplicateInvoiceGroups.has(key)) duplicateInvoiceGroups.set(key, []);
+      duplicateInvoiceGroups.get(key).push(inv);
+    });
+    return {
+      reviewShifts: reviewableHandovers.filter((h) => h.status === "مراجعة" && (branch === "all" || h.branch === branch)).length,
+      missingInvoiceDate: fInvoices.filter((i) => !i.invoice_date).length,
+      missingInvoiceBranch: fInvoices.filter((i) => !i.branch).length,
+      uncategorizedInvoices: fInvoices.filter((i) => !i.purchase_category || i.purchase_category === "unclassified").length,
+      duplicateInvoiceGroups: [...duplicateInvoiceGroups.values()].filter((rows) => rows.length > 1).length,
+    };
+  }, [fInvoices, reviewableHandovers, branch]);
+  const qualityIssueCount = Object.values(dataQuality).reduce((s, n) => s + Number(n || 0), 0);
+
   const kpiData = useMemo(() => ({
     totalSales: fHandovers.reduce((s,h) => s + (h.total_sales || 0), 0),
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
@@ -185,12 +205,20 @@ export default function FinancialReports() {
         />
       </div>
 
-      {duplicateHandoverGroups.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 flex items-start gap-2">
+      {(duplicateHandoverGroups.length > 0 || qualityIssueCount > 0) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-sm">تنبيه مراجعة: يوجد {duplicateHandoverGroups.length} شيفت مكرر داخل الفترة المختارة</p>
-            <p className="text-xs mt-1">إجماليات المبيعات والتارجت قد تكون أعلى من الرقم الصحيح لحين مراجعة السجلات المكررة من صفحة تسليم الشيفت. لم يتم استبعاد أي سجل تلقائيًا حفاظًا على البيانات.</p>
+          <div className="space-y-2">
+            <p className="font-bold text-sm">جودة البيانات قبل اعتماد التقرير</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {duplicateHandoverGroups.length > 0 && <span className="rounded-full bg-white border px-2 py-1">شيفتات مكررة: {duplicateHandoverGroups.length}</span>}
+              {dataQuality.reviewShifts > 0 && <span className="rounded-full bg-white border px-2 py-1">شيفتات تحت المراجعة: {dataQuality.reviewShifts}</span>}
+              {dataQuality.duplicateInvoiceGroups > 0 && <span className="rounded-full bg-white border px-2 py-1">مجموعات فواتير مكررة: {dataQuality.duplicateInvoiceGroups}</span>}
+              {dataQuality.missingInvoiceDate > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير بدون تاريخ رسمي: {dataQuality.missingInvoiceDate}</span>}
+              {dataQuality.missingInvoiceBranch > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير بدون فرع: {dataQuality.missingInvoiceBranch}</span>}
+              {dataQuality.uncategorizedInvoices > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير غير مصنفة: {dataQuality.uncategorizedInvoices}</span>}
+            </div>
+            <p className="text-xs">سجلات الشيفت بحالة «مراجعة» لا تدخل في أرقام المبيعات التنفيذية. باقي التنبيهات لا تُعدَّل تلقائيًا حتى تتم مراجعتها من مصدرها.</p>
           </div>
         </div>
       )}
