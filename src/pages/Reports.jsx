@@ -47,28 +47,43 @@ export default function Reports() {
   const [pendingFrom, setPendingFrom] = useState(DEFAULT_FROM);
   const [pendingTo, setPendingTo] = useState(DEFAULT_TO);
 
+  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
+  const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
+  const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
+  const activeFrom = settingFrom?.value || DEFAULT_FROM;
+  const activeTo = settingTo?.value || DEFAULT_TO;
+
   const { data: invoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
+    queryKey: ["reports-invoices", activeFrom, activeTo],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
+      const query = {
+        $or: [
+          { invoice_date: { $gte: activeFrom, $lte: activeTo } },
+          { created_date: { $gte: `${activeFrom}T00:00:00`, $lte: `${activeTo}T23:59:59` } },
+        ],
+      };
       while (true) {
-        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        const batch = await base44.entities.PurchaseInvoice.filter(query, "-created_date", PAGE, page * PAGE);
         all = [...all, ...batch];
         if (batch.length < PAGE) break;
         page++;
       }
       return all;
     },
-    staleTime: 60000,
+    staleTime: 120000,
   });
-  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list("-created_date", 5000) });
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["reports-expenses", activeFrom, activeTo],
+    queryFn: () => base44.entities.Expense.filter({
+      $or: [
+        { date: { $gte: activeFrom, $lte: activeTo } },
+        { created_date: { $gte: `${activeFrom}T00:00:00`, $lte: `${activeTo}T23:59:59` } },
+      ],
+    }, "-created_date", 5000),
+    staleTime: 120000,
+  });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
-  const { data: settings = [] } = useQuery({ queryKey: ["report-settings"], queryFn: () => base44.entities.ReportSettings.list() });
-
-  const settingFrom = settings.find(s => s.key === SETTING_KEY_FROM);
-  const settingTo = settings.find(s => s.key === SETTING_KEY_TO);
-  const activeFrom = settingFrom?.value || DEFAULT_FROM;
-  const activeTo = settingTo?.value || DEFAULT_TO;
 
   // Sync pending when settings load
   useEffect(() => {
