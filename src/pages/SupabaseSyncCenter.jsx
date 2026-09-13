@@ -85,6 +85,7 @@ export default function SupabaseSyncCenter() {
     onSuccess: (res) => {
       setTestResult(res?.data || res);
       qc.invalidateQueries({ queryKey: ["sync-outbox"] });
+      qc.invalidateQueries({ queryKey: ["sync-outbox-stats"] });
     },
   });
 
@@ -151,6 +152,7 @@ export default function SupabaseSyncCenter() {
     onSuccess: (result) => {
       setSnapshotProgress({ completed: true, ...result });
       qc.invalidateQueries({ queryKey: ["sync-outbox"] });
+      qc.invalidateQueries({ queryKey: ["sync-outbox-stats"] });
     },
     onError: (error) => {
       setSnapshotProgress((current) => ({
@@ -251,7 +253,10 @@ export default function SupabaseSyncCenter() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <CardTitle className="text-base">سجل أحداث المزامنة</CardTitle>
+            <div>
+              <CardTitle className="text-base">سجل أحداث المزامنة</CardTitle>
+              <p className="text-[11px] text-gray-400 mt-0.5">يعرض آخر 200 حدث للسرعة؛ الكروت بالأعلى محسوبة من السجلات التشغيلية الكاملة.</p>
+            </div>
             <RadioGroup value={statusFilter} onValueChange={setStatusFilter} className="flex gap-1 flex-wrap">
               {[
                 { v: "all", l: "الكل" },
