@@ -1,4 +1,5 @@
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { cycleRangeFor, previousComparableRange } from "@/lib/smart-commerce-analytics";
 
 export const BRANCHES = ["دواء شكري", "دواء الشامي"]; 
 
@@ -10,6 +11,14 @@ export function computeDateRange(periodType, customFrom, customTo) {
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
   switch (periodType) {
+    case "cycle": {
+      const range = cycleRangeFor();
+      return { dateFrom: range.from, dateTo: range.to };
+    }
+    case "previous_cycle": {
+      const range = previousComparableRange(cycleRangeFor(), 1);
+      return { dateFrom: range.from, dateTo: range.to };
+    }
     case "today":
       return { dateFrom: fmt(today), dateTo: fmt(today) };
     case "week": {
