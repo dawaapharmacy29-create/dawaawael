@@ -185,7 +185,7 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestor
   );
 }
 
-export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDuplicateAlert = false }) {
+export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDuplicateAlert = false, duplicateOnly = false }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const [detailItem, setDetailItem] = useState(null);
@@ -300,6 +300,48 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
     });
     return { totals, grand };
   }, [dailyBranchTotals]);
+
+  if (duplicateOnly) {
+    return (
+      <div className="space-y-4" dir="rtl">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-600" /> تنبيهات التكرار
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">مراجعة الشيفتات التي لها نفس الفرع والتاريخ ونوع الشيفت، بدون حذف أو استبعاد تلقائي.</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
+          <span className="text-sm font-bold text-amber-800">حالات تحتاج مراجعة</span>
+          <span className="text-2xl font-black text-amber-700">{duplicateShiftGroups.length.toLocaleString("ar-EG")}</span>
+        </div>
+        {duplicateShiftGroups.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center text-emerald-700 font-bold">لا توجد حالات تكرار</div>
+        ) : (
+          <div className="space-y-2">
+            {duplicateShiftGroups.map((records) => {
+              const first = records[0];
+              return (
+                <div key={`${first.branch}-${first.shift_date}-${first.shift_type}`} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                    <p className="text-sm font-bold text-gray-800">{first.shift_date} — {first.branch} — {first.shift_type}</p>
+                    <span className="text-xs rounded-full bg-amber-100 text-amber-700 px-2 py-1 font-bold">{records.length} سجلات</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {records.map((r) => (
+                      <div key={r.id} className="rounded-lg bg-gray-50 px-3 py-2 text-xs flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-700">{r.submitted_by || "غير محدد"}{r.status === "مراجعة" ? " — تحت المراجعة" : ""}</span>
+                        <span className="text-gray-500">مبيعات {fmt(r.total_sales)} ج · مصروفات {fmt(r.total_expenses)} ج · صافي {fmt(r.net_amount)} ج</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" dir="rtl">
