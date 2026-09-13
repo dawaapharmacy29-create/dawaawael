@@ -282,15 +282,25 @@ export default function ShiftDeliveryForm({ onSaved }) {
               <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر في قائمة التسليم.</p>
             </div>
           </div>
-          <div className="mt-4 space-y-1.5">
-            <Label className="text-sm text-gray-600">إجمالي مبيعات الشيفت (ج.م) <span className="text-red-500">*</span></Label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={form.total_sales}
-              onChange={(e) => setForm({ ...form, total_sales: e.target.value })}
-              className="text-lg font-semibold"
-            />
+          <div className="mt-5 space-y-3 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+            <div>
+              <h4 className="text-sm font-bold text-blue-900">تفصيل المبيعات حسب وسيلة التحصيل *</h4>
+              <p className="text-[11px] text-blue-700 mt-1">إنستا / فيزا / فودافون ليست مصروفات. إجمالي المبيعات يُحسب تلقائيًا من القيم التالية.</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {[
+                ["cash", "كاش"], ["visa", "فيزا"], ["insta", "إنستا"], ["vodafone", "فودافون كاش"], ["other", "أخرى"],
+              ].map(([key, label]) => (
+                <div key={key} className="space-y-1">
+                  <Label className="text-xs">{label}</Label>
+                  <Input type="number" min="0" value={payments[key]} onChange={(e) => setPayments((p) => ({ ...p, [key]: e.target.value }))} placeholder="0" className="h-9" />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between border-t border-blue-100 pt-2">
+              <span className="text-sm font-semibold text-gray-700">إجمالي المبيعات المحسوب</span>
+              <span className="text-xl font-black text-blue-700">{fmt(paymentTotal)} ج.م</span>
+            </div>
           </div>
         </div>
 
