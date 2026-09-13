@@ -14,7 +14,7 @@ import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
-import { cycleRangeFor, previousComparableRange } from "@/lib/smart-commerce-analytics";
+import { cycleRangeFor, previousComparableRange, cairoTodayKey, daysInclusive } from "@/lib/smart-commerce-analytics";
 import { useSearchParams } from "react-router-dom";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -84,6 +84,8 @@ export default function Dashboard() {
 
   const applyDateFilter = () => setPeriod(tempDate);
   const currentMonth = dateFilter.to.slice(0, 7);
+  const expectedCycleForSelection = cycleRangeFor(dateFilter.to);
+  const isManagementCycle = expectedCycleForSelection.from === dateFilter.from && expectedCycleForSelection.to === dateFilter.to;
 
   useEffect(() => { setEditingTarget(false); }, [branch]);
 
@@ -198,16 +200,26 @@ export default function Dashboard() {
   const activeShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status !== "مراجعة" && (branch === "all" || s.branch === branch));
   const reviewShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status === "مراجعة" && (branch === "all" || s.branch === branch));
   const totalSales = activeShiftDeliveries.reduce((s, row) => s + (Number(row.total_sales) || 0), 0);
-  const salesTargetAmount = branch === "all"
-    ? branchTargets.reduce((s, bt) => s + (bt.target?.target_amount || 0), 0)
-    : currentBranchTarget?.target_amount || 0;
+  const salesTargetAmount = isManagementCycle
+    ? (branch === "all"
+      ? branchTargets.reduce((s, bt) => s + (bt.target?.target_amount || 0), 0)
+      : currentBranchTarget?.target_amount || 0)
+    : 0;
   const selectedBranches = branch === "all" ? BRANCHES : [branch];
-  const purchaseTargetAmount = selectedBranches.reduce((sum, b) => {
+  const purchaseTargetAmount = isManagementCycle ? selectedBranches.reduce((sum, b) => {
     const monthly = purchaseTargets.find((t) => t.month === currentMonth && t.branch === b)?.target_amount;
     const fallback = budgets.find((x) => x.branch === b)?.budget_limit;
     return sum + (Number(monthly ?? fallback) || 0);
-  }, 0);
+  }, 0) : 0;
   const purchaseRatio = totalSales > 0 ? (totalInvoiceValue / totalSales) * 100 : NaN;
+  const today = cairoTodayKey();
+  const periodDays = daysInclusive(monthStart, monthEnd);
+  const elapsedTo = today < monthStart ? monthStart : (today > monthEnd ? monthEnd : today);
+  const elapsedDays = daysInclusive(monthStart, elapsedTo);
+  const projectedSales = elapsedDays > 0 ? (totalSales / elapsedDays) * periodDays : totalSales;
+  const projectedPurchases = elapsedDays > 0 ? (totalInvoiceValue / elapsedDays) * periodDays : totalInvoiceValue;
+  const salesProjectionPct = salesTargetAmount > 0 ? (projectedSales / salesTargetAmount) * 100 : null;
+  const purchaseProjectionPct = purchaseTargetAmount > 0 ? (projectedPurchases / purchaseTargetAmount) * 100 : null;
   const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
   const totalCashPurchases = branchMonthInvoices
     .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
@@ -276,7 +288,7 @@ export default function Dashboard() {
         totalCashPurchases={totalCashPurchases}
         totalExpenses={totalExpenses}
         invoiceCount={branchMonthInvoices.length}
-        canEditSalesTarget={branch !== "all"}
+        canEditSalesTarget={branch !== "all" && isManagementCycle}
         editingSalesTarget={editingTarget}
         salesTargetInput={targetInput}
         onSalesTargetInputChange={setTargetInput}
@@ -284,6 +296,30 @@ export default function Dashboard() {
         onSaveSalesTarget={() => saveTargetMutation.mutate(parseFloat(targetInput))}
         isSavingSalesTarget={saveTargetMutation.isPending}
       />
+
+      {isManagementCycle && (salesTargetAmount > 0 || purchaseTargetAmount > 0) && (
+        <Card className="p-4 border-sky-200 bg-sky-50">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="font-bold text-sky-900 text-sm">توقع نهاية الدورة 26→25</p>
+              <p className="text-xs text-sky-700 mt-1">الحساب مبني على متوسط الأداء الفعلي حتى اليوم داخل الدورة.</p>
+            </div>
+            <div className="flex gap-5 text-sm flex-wrap">
+              <div><span className="text-gray-500">المبيعات المتوقعة:</span> <b>{Math.round(projectedSales).toLocaleString("ar-EG")} ج</b>{salesProjectionPct !== null && <span className="text-xs text-gray-500"> ({salesProjectionPct.toFixed(1)}%)</span>}</div>
+              <div><span className="text-gray-500">المشتريات المتوقعة:</span> <b>{Math.round(projectedPurchases).toLocaleString("ar-EG")} ج</b>{purchaseProjectionPct !== null && <span className={`text-xs ${purchaseProjectionPct > 100 ? "text-red-600 font-bold" : "text-gray-500"}`}> ({purchaseProjectionPct.toFixed(1)}%)</span>}</div>
+            </div>
+          </div>
+          {purchaseProjectionPct > 100 && salesProjectionPct !== null && salesProjectionPct < 100 && (
+            <p className="mt-3 text-sm font-bold text-red-700">⚠️ سرعة المشتريات أعلى من سقفها المتوقع بينما المبيعات متوقعة أقل من التارجت؛ راجع أوامر الشراء القادمة.</p>
+          )}
+        </Card>
+      )}
+
+      {!isManagementCycle && (
+        <Card className="p-3 border-gray-200 bg-gray-50 text-xs text-gray-600">
+          الفترة الحالية مخصصة وليست دورة 26→25 كاملة؛ لذلك تم إخفاء نسب تحقيق التارجت وسقف المشتريات لتجنب مقارنة غير دقيقة.
+        </Card>
+      )}
 
       {/* Purchase Dashboard */}
       <PurchaseDashboard
