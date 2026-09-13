@@ -58,6 +58,22 @@ const NAV_SECTIONS = [
 
 const SIDEBAR_GROUPS_KEY = "dawaawael_sidebar_groups_v1";
 
+// Prefetch للكود فقط عند اقتراب المستخدم من الصفحة؛ لا يبدأ أي استعلام بيانات قبل فتح الصفحة نفسها.
+const ROUTE_PREFETCHERS = {
+  "/financial-reports": () => import("@/pages/FinancialReports"),
+  "/smart-commerce-analytics": () => import("@/pages/SmartCommerceAnalytics"),
+  "/data-reconciliation": () => import("@/pages/DataReconciliation"),
+  "/daily-close": () => import("@/pages/DailyClose"),
+  "/system-health": () => import("@/pages/SystemHealth"),
+  "/shift-delivery": () => import("@/pages/ShiftDelivery"),
+};
+
+const prefetchRoute = (path) => {
+  const pathOnly = path?.split("?")[0];
+  const loader = ROUTE_PREFETCHERS[pathOnly];
+  if (loader) loader().catch(() => {});
+};
+
 function loadGroupState() {
   const fallback = Object.fromEntries(NAV_SECTIONS.map((section) => [section.key, section.defaultOpen]));
   if (typeof window === "undefined") return fallback;
@@ -95,7 +111,11 @@ export default function AppLayout() {
 
   const toggleGroup = (key) => {
     setOpenGroups((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
+      const willOpen = !prev[key];
+      const next = { ...prev, [key]: willOpen };
+      if (willOpen && key === "reports") {
+        ["/financial-reports", "/smart-commerce-analytics", "/data-reconciliation", "/daily-close"].forEach(prefetchRoute);
+      }
       try {
         window.localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(next));
       } catch {
@@ -109,6 +129,9 @@ export default function AppLayout() {
     <Link
       key={item.path}
       to={item.path}
+      onMouseEnter={() => prefetchRoute(item.path)}
+      onFocus={() => prefetchRoute(item.path)}
+      onTouchStart={() => prefetchRoute(item.path)}
       onClick={() => isMobile && setOpen(false)}
       className={cn(
         "flex items-center gap-3 rounded-lg text-[15px] font-medium transition-colors",
