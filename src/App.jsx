@@ -42,6 +42,7 @@ const AdminExpensesShokry = lazy(() => import('./pages/AdminExpensesShokry'));
 const AdminExpensesShami = lazy(() => import('./pages/AdminExpensesShami'));
 const AdminExpensesReports = lazy(() => import('./pages/AdminExpensesReports'));
 const SmartCommerceAnalytics = lazy(() => import('./pages/SmartCommerceAnalytics'));
+const SystemHealth = lazy(() => import('./pages/SystemHealth')); 
 import { setNumbersHidden } from "@/lib/westernDigits";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
 
@@ -109,6 +110,7 @@ const AuthenticatedApp = () => {
         <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
+        <Route path="/system-health" element={<SystemHealth />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
