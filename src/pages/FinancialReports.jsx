@@ -121,7 +121,13 @@ export default function FinancialReports() {
   });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts-fr"], queryFn: () => base44.entities.SupplierDebt.list(), enabled: supplierDepthEnabled, staleTime: 300000 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers-list-fr"], queryFn: () => base44.entities.Supplier.list() });
-  const { data: branchTargets = [] } = useQuery({ queryKey: ["target-goals-fr"], queryFn: () => base44.entities.TargetGoal.list() });
+  const targetMonth = (dateTo || dateFrom || "").slice(0, 7);
+  const { data: branchTargets = [] } = useQuery({
+    queryKey: ["target-goals-fr", targetMonth],
+    queryFn: () => base44.entities.TargetGoal.filter({ month: targetMonth }, "branch"),
+    enabled: Boolean(targetMonth),
+    staleTime: 300000,
+  });
   const { data: adminExpenseItems = [] } = useQuery({
     queryKey: ["admin-expense-items-fr"],
     queryFn: () => base44.entities.AdminExpenseItem.list("sort_order"),
