@@ -17,6 +17,7 @@ import {
 } from "@/lib/purchaseCalculations";
 import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
+import { addDays } from "@/lib/supplierAging";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -87,6 +88,7 @@ const emptyForm = {
   branch: "",
   entered_by: "",
   invoice_date: new Date().toISOString().split("T")[0],
+  due_date: "",
   total_value: "",
   returned_value: "",
   payment_type: "",
@@ -125,6 +127,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
         branch: invoice.branch || "",
         entered_by: invoice.entered_by || "",
         invoice_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
+        due_date: invoice.due_date || "",
         total_value: invoice.total_value !== undefined ? invoice.total_value : "",
         returned_value: invoice.returned_value !== undefined ? invoice.returned_value : "",
         payment_type: invoice.payment_type || "",
@@ -202,6 +205,11 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     set("supplier_id", supplier?.id || "");
     if (supplier?.payment_type) {
       set("payment_type", supplier.payment_type);
+      if (supplier.payment_type === "آجل" && form.invoice_date) {
+        set("due_date", addDays(form.invoice_date, Number(supplier.payment_terms_days ?? 30)));
+      } else if (supplier.payment_type !== "آجل") {
+        set("due_date", "");
+      }
     }
     // تصنيف الفاتورة سيُحدد تلقائيًا عبر resolveInvoiceSupplierRules
   };
@@ -392,7 +400,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">تاريخ الفاتورة</Label>
-              <Input type="date" value={form.invoice_date} onChange={(e) => set("invoice_date", e.target.value)} className="h-8 text-sm" />
+              <Input type="date" value={form.invoice_date} onChange={(e) => { const value = e.target.value; setForm((prev) => ({ ...prev, invoice_date: value, due_date: prev.payment_type === "آجل" && selectedSupplier ? addDays(value, Number(selectedSupplier.payment_terms_days ?? 30)) : prev.due_date })); }} className="h-8 text-sm" />
             </div>
             {form.branch && (
               <div className="space-y-1">
