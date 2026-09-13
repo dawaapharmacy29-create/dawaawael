@@ -206,6 +206,17 @@ export default function Dashboard() {
   const totalExpenses = branchMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
   const activeShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status !== "مراجعة" && (branch === "all" || s.branch === branch));
   const reviewShiftDeliveries = shiftDeliveries.filter((s) => s.is_archived !== true && s.status === "مراجعة" && (branch === "all" || s.branch === branch));
+  const duplicateShiftGroups = (() => {
+    const groups = new Map();
+    shiftDeliveries
+      .filter((s) => s.is_archived !== true && (branch === "all" || s.branch === branch) && s.shift_date)
+      .forEach((s) => {
+        const key = `${s.branch || ""}|${s.shift_date}|${s.shift_type || ""}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(s);
+      });
+    return [...groups.values()].filter((rows) => rows.length > 1);
+  })();
   const totalSales = activeShiftDeliveries.reduce((s, row) => s + (Number(row.total_sales) || 0), 0);
   const salesTargetAmount = isManagementCycle
     ? (branch === "all"
@@ -396,8 +407,8 @@ export default function Dashboard() {
       )}
 
       {/* Data-quality alerts */}
-      {(pending > 0 || reviewShiftDeliveries.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {(pending > 0 || reviewShiftDeliveries.length > 0 || duplicateShiftGroups.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {pending > 0 && (
             <Card className="p-4 border-yellow-200 bg-yellow-50">
               <p className="text-yellow-800 font-semibold text-sm">⏳ يوجد {pending} فاتورة في انتظار المراجعة</p>
@@ -406,6 +417,11 @@ export default function Dashboard() {
           {reviewShiftDeliveries.length > 0 && (
             <Card className="p-4 border-red-200 bg-red-50">
               <p className="text-red-800 font-semibold text-sm">⚠️ يوجد {reviewShiftDeliveries.length} سجل شيفت تحت المراجعة ولم يدخل في أرقام المبيعات التنفيذية</p>
+            </Card>
+          )}
+          {duplicateShiftGroups.length > 0 && (
+            <Card className="p-4 border-orange-200 bg-orange-50">
+              <p className="text-orange-800 font-semibold text-sm">🔁 يوجد {duplicateShiftGroups.length} مجموعة شيفت مكررة داخل الفترة — راجع تبويب «تنبيهات التكرار»</p>
             </Card>
           )}
         </div>
