@@ -311,7 +311,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">اسم الموظف <span className="text-red-500">*</span></Label>
-              <Select value={form.employee_map_id} onValueChange={(v) => setForm({ ...form, employee_map_id: v, pin: "" })}>
+              <Select value={form.employee_map_id} disabled={!!initialDraft} onValueChange={(v) => setForm({ ...form, employee_map_id: v, pin: "" })}>
                 <SelectTrigger><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
                 <SelectContent>
                   {employeeNameMap
