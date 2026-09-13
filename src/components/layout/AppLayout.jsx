@@ -33,8 +33,8 @@ const navItems = [
   { path: "/purchase-reports", label: "تقارير المشتريات — قديم", icon: FileText, hidden: true, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
   { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
-  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, indent: true, adminOnly: true, section: "reports" },
-  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, indent: true, adminOnly: true, section: "reports" },
+  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, adminOnly: true, section: "operations" },
+  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, adminOnly: true, section: "operations" }
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
   { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "management" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
