@@ -10,20 +10,37 @@ import ShiftDeliveryReport from "@/components/shift/ShiftDeliveryReport";
 import ExpenseItemsTab from "@/components/shift/ExpenseItemsTab";
 import ShiftRecoveryQueue from "@/components/shift/ShiftRecoveryQueue";
 import { cn } from "@/lib/utils";
+import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
+
+function dateDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export default function ShiftDelivery() {
   const { isAdmin, isManager } = useUserRole();
   const canViewAll = isAdmin || isManager;
   const [activeTab, setActiveTab] = useState("new");
   const [selectedDraft, setSelectedDraft] = useState(null);
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  const currentCycle = cycleRangeFor(cairoTodayKey());
 
   const needsHistoryData = canViewAll && ["history", "duplicates", "stats", "report"].includes(activeTab);
+  const historyRange = activeTab === "duplicates"
+    ? { from: dateDaysAgo(120), to: cairoTodayKey() }
+    : showFullHistory && activeTab === "history"
+      ? null
+      : currentCycle;
+  const historyQuery = historyRange ? { shift_date: { $gte: historyRange.from, $lte: historyRange.to } } : null;
   const { data: deliveries = [] } = useQuery({
-    queryKey: ["shift-deliveries"],
+    queryKey: ["shift-deliveries", activeTab, historyRange?.from || "all", historyRange?.to || "all"],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
       while (true) {
-        const batch = await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
+        const batch = historyQuery
+          ? await base44.entities.ShiftDelivery.filter(historyQuery, "-shift_date", PAGE, page * PAGE)
+          : await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
         all = [...all, ...batch];
         if (batch.length < PAGE) break;
         page++;
@@ -36,7 +53,7 @@ export default function ShiftDelivery() {
 
   const { data: activeDrafts = [] } = useQuery({
     queryKey: ["shift-drafts-active"],
-    queryFn: async () => (await base44.entities.ShiftDraft.list("-last_saved_at", 500)).filter((d) => ["draft", "submitting"].includes(d.status)),
+    queryFn: () => base44.entities.ShiftDraft.filter({ status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500),
     enabled: canViewAll,
     staleTime: 15000,
     refetchOnWindowFocus: true,
@@ -90,7 +107,14 @@ export default function ShiftDelivery() {
       <div className="p-4 md:p-6 space-y-4">
         {activeTab === "new" && <ShiftDeliveryForm initialDraft={selectedDraft} onSaved={() => { setSelectedDraft(null); canViewAll && setActiveTab("history"); }} />}
         {activeTab === "history" && canViewAll && (
-          <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} />
+          <>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setShowFullHistory((v) => !v)} className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                {showFullHistory ? "العودة للدورة الحالية 26→25" : "تحميل كل سجل الشيفتات"}
+              </button>
+            </div>
+            <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} />
+          </>
         )}
         {activeTab === "duplicates" && canViewAll && (
           <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} duplicateOnly />
