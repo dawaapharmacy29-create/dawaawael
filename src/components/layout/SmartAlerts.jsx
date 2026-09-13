@@ -14,6 +14,7 @@ function daysDiff(dateStr) {
 
 export default function SmartAlerts() {
   const [open, setOpen] = useState(false);
+  const [primaryAlertsEnabled, setPrimaryAlertsEnabled] = useState(false);
   const [secondaryAlertsEnabled, setSecondaryAlertsEnabled] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem("dismissed_alerts") || "[]"); } catch { return []; }
@@ -23,12 +24,18 @@ export default function SmartAlerts() {
     // نفس المفتاح المستخدم في القائمة الجانبية لتجنب طلب الشبكة المكرر لنفس البيانات.
     queryKey: ["pending-invoices-count"],
     queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
-    staleTime: 60000,
+    enabled: primaryAlertsEnabled,
+    staleTime: 120000,
   });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setSecondaryAlertsEnabled(true), 1200);
-    return () => window.clearTimeout(timer);
+    // الأولوية للصفحة نفسها؛ التنبيهات لا تزاحم الاستعلامات الأساسية عند أول فتح.
+    const primaryTimer = window.setTimeout(() => setPrimaryAlertsEnabled(true), 900);
+    const secondaryTimer = window.setTimeout(() => setSecondaryAlertsEnabled(true), 2200);
+    return () => {
+      window.clearTimeout(primaryTimer);
+      window.clearTimeout(secondaryTimer);
+    };
   }, []);
 
   const returnCutoff = useMemo(() => new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), []);
