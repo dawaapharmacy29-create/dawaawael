@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle, CalendarClock } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Pencil, Trash2, Wallet, TrendingUp, AlertCircle, CalendarClock, Banknote } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LoanFormDialog from "./LoanFormDialog";
 import QuickAddEmployeeDialog from "./QuickAddEmployeeDialog";
@@ -32,6 +34,8 @@ export default function LoansTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
+  const [paymentLoan, setPaymentLoan] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "payment", payroll_month: "", notes: "" });
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: ["employee-loans"],
@@ -40,6 +44,11 @@ export default function LoansTab() {
   const { data: employees = [] } = useQuery({
     queryKey: ["active-team-members"],
     queryFn: async () => (await base44.entities.TeamMember.list()).filter((m) => m.is_active !== false),
+  });
+  const { data: loanTransactions = [] } = useQuery({
+    queryKey: ["employee-loan-transactions"],
+    queryFn: () => loadAllRows(base44.entities.EmployeeLoanTransaction, "-transaction_date"),
+    staleTime: 60000,
   });
 
   const createMut = useMutation({
@@ -52,8 +61,47 @@ export default function LoansTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-loans"] }),
   });
   const updateMut = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.EmployeeLoan.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      const current = loans.find((l) => l.id === id);
+      const hasTransactions = loanTransactions.some((t) => t.loan_id === id && t.status !== "reversed");
+      if (hasTransactions && current && Number(data.amount) !== Number(current.amount)) {
+        throw new Error("لا يمكن تغيير أصل السلفة بعد بدء تسجيل حركات عليها. استخدم حركة تسوية بدل تعديل المبلغ الأصلي.");
+      }
+      return base44.entities.EmployeeLoan.update(id, data);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-loans"] }),
+  });
+
+  const paymentMut = useMutation({
+    mutationFn: async ({ loan, form }) => {
+      const amount = Number(form.amount) || 0;
+      const currentPaid = Number(loan.paid_amount) || 0;
+      const remaining = Math.max(0, (Number(loan.amount) || 0) - currentPaid);
+      if (amount <= 0) throw new Error("قيمة السداد يجب أن تكون أكبر من صفر");
+      if (amount > remaining + 0.01 && form.transaction_type !== "adjustment_plus") throw new Error(`قيمة السداد أكبر من المتبقي (${remaining.toLocaleString("ar-EG")} ج)`);
+      await base44.entities.EmployeeLoanTransaction.create({
+        loan_id: loan.id,
+        employee_name: loan.employee_name,
+        branch: loan.branch,
+        transaction_date: form.transaction_date,
+        transaction_type: form.transaction_type,
+        amount,
+        payroll_month: form.payroll_month || "",
+        notes: form.notes || "",
+        status: "posted",
+      });
+      let nextPaid = currentPaid;
+      if (["payment", "installment", "adjustment_minus"].includes(form.transaction_type)) nextPaid += amount;
+      if (form.transaction_type === "reversal") nextPaid = Math.max(0, nextPaid - amount);
+      const nextStatus = nextPaid >= (Number(loan.amount) || 0) - 0.01 ? "مكتملة" : loan.status === "ملغاة" ? "ملغاة" : "نشطة";
+      await base44.entities.EmployeeLoan.update(loan.id, { paid_amount: nextPaid, status: nextStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-loans"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-loan-transactions"] });
+      setPaymentLoan(null);
+      setPaymentForm({ amount: "", transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "payment", payroll_month: "", notes: "" });
+    },
   });
   const deleteMut = useMutation({
     mutationFn: async (id) => {
