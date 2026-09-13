@@ -12,6 +12,7 @@ import { ChevronDown, ChevronUp, Wallet, Edit2, Loader2, Calendar, CalendarDays 
 import { useUserRole } from "@/lib/useUserRole";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
+import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 
 async function loadAllRows(entity, sort, maxRows = 20000) {
   const PAGE = 500;
@@ -53,7 +54,7 @@ export default function SupplierBalances() {
         if (batch.length < PAGE) break;
         page++;
       }
-      return all;
+      return all.filter(isInvoiceFinanciallyApproved);
     },
     staleTime: 120000,
     placeholderData: (prev) => prev,
