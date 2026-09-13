@@ -7,6 +7,7 @@ import {
 } from "@/lib/financial-report-utils";
 import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import FinancialKpiCards from "@/components/financial-reports/FinancialKpiCards";
 import FinancialAverageCards from "@/components/financial-reports/FinancialAverageCards";
 import FinancialTargetCard from "@/components/financial-reports/FinancialTargetCard";
@@ -74,12 +75,12 @@ export default function FinancialReports() {
   });
   const { data: invoices = [] } = useQuery({
     queryKey: ["purchase-invoices-fr", dateFrom, dateTo],
-    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, {
-      $or: [
-        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
-        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
-      ],
-    }, "-created_date"),
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: dateFrom,
+      to: dateTo,
+      sort: "-invoice_date",
+      maxRows: 20000,
+    }),
     enabled: periodEnabled,
     staleTime: 120000,
   });
