@@ -289,7 +289,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
+              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -298,7 +298,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">نوع الشيفت <span className="text-red-500">*</span></Label>
-              <Select value={form.shift_type} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, shift_type: v }); }}>
+              <Select value={form.shift_type} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, shift_type: v }); }}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>
                   {SHIFT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
