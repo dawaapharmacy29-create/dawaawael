@@ -74,6 +74,11 @@ export default function SystemHealth() {
     queryFn: () => base44.entities.SyncOutbox.filter({ status: "synced" }, "-synced_at", 1),
     staleTime: 120000,
   });
+  const { data: openDailyCloses = [], isLoading: dailyCloseLoading } = useQuery({
+    queryKey: ["system-health-daily-close-open"],
+    queryFn: () => loadAllFiltered(base44.entities.DailyClose, { status: { $in: ["needs_review", "reopened"] } }, "-business_date", 5000),
+    staleTime: 60000,
+  });
 
   const activeMembers = useMemo(() => members.filter((m) => m.is_active !== false), [members]);
   const duplicateMembers = useMemo(() => {
@@ -120,8 +125,8 @@ export default function SystemHealth() {
 
   const failedSync = failedSyncRows;
   const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
-  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading;
-  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length;
+  const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading;
+  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + pendingInvoices.length + failedSync.length + openDailyCloses.length;
 
   if (!isAdmin) {
     return <div dir="rtl" className="p-8 text-center text-gray-500">هذه الصفحة للمدير فقط.</div>;
@@ -147,6 +152,7 @@ export default function SystemHealth() {
         <HealthCard title="مجموعات شيفت مكررة" value={duplicateShiftGroups.length} subtitle="آخر 120 يوم" icon={AlertTriangle} bad={duplicateShiftGroups.length > 0} />
         <HealthCard title="فواتير تنتظر المراجعة" value={pendingInvoices.length} subtitle="لا تدخل في المسار النهائي قبل المراجعة" icon={Activity} warn={pendingInvoices.length > 0} />
         <HealthCard title="مزامنة متعثرة" value={failedSync.length} subtitle="كل سجلات Failed أو Pending retry غير المحلولة" icon={RefreshCw} bad={failedSync.length > 0} />
+        <HealthCard title="إقفالات تحتاج مراجعة" value={openDailyCloses.length} subtitle="إقفال محفوظ بحالة يحتاج مراجعة أو أعيد فتحه" icon={AlertTriangle} warn={openDailyCloses.length > 0} />
         <HealthCard title="آخر مزامنة ناجحة" value={lastSync ? 1 : 0} subtitle={lastSync ? new Date(lastSync).toLocaleString("ar-EG") : "لا توجد مزامنة ناجحة مسجلة"} icon={CheckCircle2} bad={!lastSync} />
       </div>
 
@@ -167,7 +173,8 @@ export default function SystemHealth() {
             {duplicateShiftGroups.map((group) => <div key={`shift-${group[0]?.branch}-${group[0]?.shift_date}-${group[0]?.shift_type}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>شيفت مكرر:</b> {group[0]?.branch} — {group[0]?.shift_date} — {group[0]?.shift_type} ({group.length} سجلات)</div>)}
             {reviewShifts.slice(0, 20).map((s) => <div key={`review-${s.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>تحت المراجعة:</b> {s.branch} — {s.shift_date} — {s.shift_type}</div>)}
             {failedSync.slice(0, 20).map((r) => <div key={`sync-${r.id}`} className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm"><b>مزامنة متعثرة:</b> {r.entity_name || "سجل"} — {r.status}</div>)}
-            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
+            {openDailyCloses.slice(0, 20).map((r) => <div key={`close-${r.id}`} className="rounded-lg border border-orange-100 bg-orange-50 p-3 text-sm"><b>إقفال يومي يحتاج مراجعة:</b> {r.branch} — {r.business_date} — {r.quality_issue_count || 0} نقطة</div>)}
+            {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
           </div>
         </div>
       </div>
