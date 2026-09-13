@@ -155,7 +155,7 @@ export default function FinancialReports() {
     totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
     currentDebts: computeTotalRemaining(approvedBalanceInvoices, balancePayments, debts, supplier),
-    supplierPayments: fPayments.reduce((s,p) => s + (p.amount || 0), 0),
+    supplierPayments: fPayments.reduce((s,p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0),
   }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, balancePayments, debts, supplier, suppliers]);
 
   const distinctDayCount = (arr, field) => {
