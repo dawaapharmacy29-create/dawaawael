@@ -141,6 +141,7 @@ export default function Dashboard() {
   useEffect(() => {
     let invoiceTimer;
     let expenseTimer;
+    let shiftTimer;
     const unsub1 = base44.entities.PurchaseInvoice.subscribe(() => {
       window.clearTimeout(invoiceTimer);
       invoiceTimer = window.setTimeout(() => {
@@ -152,11 +153,17 @@ export default function Dashboard() {
       window.clearTimeout(expenseTimer);
       expenseTimer = window.setTimeout(() => qc.invalidateQueries({ queryKey: ["expenses"] }), 600);
     });
+    const unsub3 = base44.entities.ShiftDelivery.subscribe(() => {
+      window.clearTimeout(shiftTimer);
+      shiftTimer = window.setTimeout(() => qc.invalidateQueries({ queryKey: ["dashboard-shift-deliveries"] }), 600);
+    });
     return () => {
       window.clearTimeout(invoiceTimer);
       window.clearTimeout(expenseTimer);
+      window.clearTimeout(shiftTimer);
       unsub1();
       unsub2();
+      unsub3();
     };
   }, [qc]);
 
