@@ -94,13 +94,19 @@ export default function SupabaseSyncCenter() {
       setRetryingId(eventId);
       return base44.functions.invoke("retrySyncOutbox", { mode: "retry_specific", event_id: eventId });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sync-outbox"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sync-outbox"] });
+      qc.invalidateQueries({ queryKey: ["sync-outbox-stats"] });
+    },
     onSettled: () => setRetryingId(null),
   });
 
   const retryBatch = useMutation({
     mutationFn: () => base44.functions.invoke("retrySyncOutbox", { mode: "retry_pending", limit: 50 }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sync-outbox"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sync-outbox"] });
+      qc.invalidateQueries({ queryKey: ["sync-outbox-stats"] });
+    },
   });
 
   const fullSnapshot = useMutation({
