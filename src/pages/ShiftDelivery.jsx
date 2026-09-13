@@ -15,6 +15,7 @@ export default function ShiftDelivery() {
   const canViewAll = isAdmin || isManager;
   const [activeTab, setActiveTab] = useState("new");
 
+  const needsHistoryData = canViewAll && activeTab !== "new" && activeTab !== "items";
   const { data: deliveries = [] } = useQuery({
     queryKey: ["shift-deliveries"],
     queryFn: async () => {
@@ -27,7 +28,8 @@ export default function ShiftDelivery() {
       }
       return all;
     },
-    staleTime: 30000,
+    enabled: needsHistoryData,
+    staleTime: 120000,
   });
 
   const activeDeliveries = deliveries.filter((d) => d.is_archived !== true);
