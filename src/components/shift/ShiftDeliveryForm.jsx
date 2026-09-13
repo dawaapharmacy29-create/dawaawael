@@ -349,19 +349,48 @@ export default function ShiftDeliveryForm({ onSaved }) {
           </div>
         </div>
 
-        {/* Summary */}
+        {/* Cash reconciliation + Summary */}
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+          <h3 className="text-sm font-bold text-emerald-900">مطابقة الكاش</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg bg-white p-3 border">
+              <p className="text-xs text-gray-500">الكاش المتوقع بعد المصروفات</p>
+              <p className="text-lg font-bold text-gray-800">{fmt(expectedCashHandover)} ج.م</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">الكاش الفعلي المسلم</Label>
+              <Input type="number" min="0" value={cashHandover} onChange={(e) => setCashHandover(e.target.value)} placeholder="0" className="h-10 bg-white" />
+            </div>
+            <div className={`rounded-lg p-3 border ${Math.abs(cashVariance) <= 1 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
+              <p className="text-xs text-gray-500">فرق الكاش</p>
+              <p className={`text-lg font-black ${Math.abs(cashVariance) <= 1 ? "text-emerald-700" : "text-red-700"}`}>{fmt(cashVariance)} ج.م</p>
+            </div>
+          </div>
+          {Math.abs(cashVariance) > 1 && <p className="text-xs text-red-700">يوجد فرق كاش؛ يجب كتابة سبب الفرق في الملاحظات قبل الحفظ.</p>}
+        </div>
+
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">إجمالي المصروفات</span>
-            <span className="text-lg font-bold text-gray-800">{fmt(totalExpenses)} ج.م</span>
+            <span className="text-sm text-gray-600">إجمالي المبيعات</span>
+            <span className="text-lg font-bold text-blue-700">{fmt(paymentTotal)} ج.م</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">إجمالي المصروفات الفعلية</span>
+            <span className="text-lg font-bold text-red-600">{fmt(totalExpenses)} ج.م</span>
           </div>
           <div className="flex justify-between items-center pt-2 border-t">
-            <span className="text-sm font-semibold text-gray-700">صافي التسليم</span>
+            <span className="text-sm font-semibold text-gray-700">صافي الشيفت</span>
             <span className="text-2xl font-bold text-indigo-600">{fmt(netAmount)} ج.م</span>
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+        <div className="space-y-1.5">
+          <Label className="text-sm text-gray-600">ملاحظات الشيفت</Label>
+          <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="سبب فرق الكاش أو أي ملاحظة مهمة..." />
+          {draftState && <p className="text-[11px] text-gray-500">{draftState}</p>}
+        </div>
+
+        {error && <p className="text-sm text-red-600 text-center font-medium">{error}</p>}
 
         <Button
           onClick={handleSave}
