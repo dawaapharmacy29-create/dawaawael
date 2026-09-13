@@ -62,7 +62,7 @@ export default function PaymentsLog() {
   });
   const filtered = useMemo(() => sortData(filteredRaw), [filteredRaw, sortData]);
 
-  const totalAmount = filtered.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalAmount = filtered.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0);
 
   return (
     <div dir="rtl" className="space-y-4">
