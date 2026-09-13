@@ -596,7 +596,13 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">طريقة الدفع *</Label>
-              <Select value={form.payment_type} onValueChange={(v) => set("payment_type", v)} required>
+              <Select value={form.payment_type} onValueChange={(v) => setForm((prev) => ({
+                ...prev,
+                payment_type: v,
+                due_date: v === "آجل"
+                  ? (prev.due_date || (prev.invoice_date && selectedSupplier ? addDays(prev.invoice_date, Number(selectedSupplier.payment_terms_days ?? 30)) : ""))
+                  : "",
+              }))} required>
                 <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="كاش">💵 كاش</SelectItem>
@@ -621,6 +627,22 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               </Select>
             </div>
           </div>
+
+          {form.payment_type === "آجل" && (
+            <div className="grid grid-cols-2 gap-2 bg-orange-50/60 border border-orange-100 rounded-md p-2">
+              <div className="space-y-1">
+                <Label className="text-xs">تاريخ استحقاق السداد</Label>
+                <Input type="date" value={form.due_date || ""} onChange={(e) => set("due_date", e.target.value)} className="h-8 text-sm bg-white" />
+              </div>
+              <div className="flex items-end pb-1">
+                <p className="text-[11px] text-orange-700 leading-5">
+                  {selectedSupplier
+                    ? `الافتراضي حسب المورد: ${Number(selectedSupplier.payment_terms_days ?? 30)} يوم من تاريخ الفاتورة. يمكن تعديل التاريخ لو الاتفاق مختلف.`
+                    : "اختر المورد ليتم حساب الاستحقاق تلقائيًا، أو أدخل التاريخ يدويًا."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* مبلغ الكاش للفواتير المختلطة */}
           {isMixed && (
