@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Database, Plug, Send, Archive } from "lucide-react";
 import SyncStats from "@/components/sync/SyncStats";
 import SyncOutboxTable from "@/components/sync/SyncOutboxTable";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 
 const SNAPSHOT_ENTITIES = [
   "Supplier",
@@ -40,16 +41,43 @@ export default function SupabaseSyncCenter() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["sync-outbox"],
     queryFn: () => base44.entities.SyncOutbox.list("-created_date", 200),
-    staleTime: 15000,
+    staleTime: 60000,
   });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const { data: failedRows = [] } = useQuery({
+    queryKey: ["sync-outbox-stats", "failed"],
+    queryFn: () => loadAllEntityFiltered(base44.entities.SyncOutbox, { status: "failed" }, "-created_date", 20000),
+    staleTime: 120000,
+  });
+  const { data: pendingRetryRows = [] } = useQuery({
+    queryKey: ["sync-outbox-stats", "pending_retry"],
+    queryFn: () => loadAllEntityFiltered(base44.entities.SyncOutbox, { status: "pending_retry" }, "-created_date", 20000),
+    staleTime: 120000,
+  });
+  const { data: syncedRows = [] } = useQuery({
+    queryKey: ["sync-outbox-stats", "synced"],
+    queryFn: () => loadAllEntityFiltered(base44.entities.SyncOutbox, { status: "synced" }, "-created_date", 20000),
+    staleTime: 300000,
+  });
+  const { data: todayRows = [] } = useQuery({
+    queryKey: ["sync-outbox-stats", "today", todayStr],
+    queryFn: () => loadAllEntityFiltered(base44.entities.SyncOutbox, {
+      created_date: { $gte: `${todayStr}T00:00:00`, $lte: `${todayStr}T23:59:59` },
+    }, "-created_date", 20000),
+    staleTime: 120000,
+  });
+  const { data: lastSuccessfulRows = [] } = useQuery({
+    queryKey: ["sync-outbox-stats", "last-success"],
+    queryFn: () => base44.entities.SyncOutbox.filter({ status: "synced" }, "-synced_at", 1),
+    staleTime: 120000,
+  });
   const stats = {
-    synced: records.filter((r) => r.status === "synced").length,
-    pendingRetry: records.filter((r) => r.status === "pending_retry").length,
-    failed: records.filter((r) => r.status === "failed").length,
-    today: records.filter((r) => (r.created_date || "").slice(0, 10) === todayStr).length,
-    lastSync: records.filter((r) => r.synced_at).map((r) => r.synced_at).sort().pop() || null,
+    synced: syncedRows.length,
+    pendingRetry: pendingRetryRows.length,
+    failed: failedRows.length,
+    today: todayRows.length,
+    lastSync: lastSuccessfulRows[0]?.synced_at || null,
   };
 
   const testConnection = useMutation({
