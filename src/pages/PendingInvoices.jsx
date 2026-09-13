@@ -11,6 +11,7 @@ import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
+import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -90,6 +91,10 @@ export default function PendingInvoices() {
     mutationFn: async ({ id, data }) => {
       const current = invoices.find((inv) => inv.id === id) || {};
       const next = { ...current, ...data };
+      await assertInvoiceDayOpen(current, "مراجعة أو تعديل الفاتورة");
+      if (getInvoiceEffectiveDate(next) !== getInvoiceEffectiveDate(current) || next.branch !== current.branch) {
+        await assertInvoiceDayOpen(next, "نقل الفاتورة إلى يوم أو فرع آخر");
+      }
       const identityChanged = ["system_invoice_number", "branch", "invoice_date"].some((field) => data?.[field] !== undefined && data[field] !== current[field]);
       const becomingFinancial = data?.status && !["انتظار المراجعة", "مرفوضة"].includes(data.status);
       if ((identityChanged || becomingFinancial) && next.branch && next.system_invoice_number) {
@@ -116,6 +121,7 @@ export default function PendingInvoices() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const inv = invoices.find((i) => i.id === id);
+      await assertInvoiceDayOpen(inv, "حذف الفاتورة");
       const res = await base44.functions.invoke("deletePurchaseInvoiceSafe", {
         id,
         reason: "حذف فاتورة من شاشة انتظار المراجعة",
@@ -136,6 +142,13 @@ export default function PendingInvoices() {
   const bulkSaveMutation = useMutation({
     mutationFn: async (selected) => {
       const groupedChecks = new Map();
+      const closeChecks = new Map();
+      selected.forEach((inv) => {
+        const date = getInvoiceEffectiveDate(inv) || "";
+        closeChecks.set(`${inv.branch || ""}|${date}`, { branch: inv.branch, date });
+      });
+      await Promise.all([...closeChecks.values()].map(({ branch: b, date }) => assertDailyCloseOpen(b, date, "اعتماد الفواتير")));
+
       selected.forEach((inv) => {
         const date = getInvoiceEffectiveDate(inv) || "";
         const key = `${inv.branch || ""}|${date}`;
