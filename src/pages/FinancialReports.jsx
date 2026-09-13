@@ -113,7 +113,9 @@ export default function FinancialReports() {
   const activeHandovers = useMemo(() => reviewableHandovers.filter(h => h.status !== "مراجعة"), [reviewableHandovers]);
   const fHandovers = useMemo(() => activeHandovers.filter(h => branch === "all" || h.branch === branch), [activeHandovers, branch]);
   const periodInvoices = useMemo(() => invoices.filter((i) => isInvoiceInRange(i, dateFrom, dateTo)), [invoices, dateFrom, dateTo]);
-  const fInvoices = useMemo(() => periodInvoices.filter((i) => isInvoiceFinanciallyApproved(i) && (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
+  const qualityInvoices = useMemo(() => periodInvoices.filter((i) => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
+  const fInvoices = useMemo(() => qualityInvoices.filter(isInvoiceFinanciallyApproved), [qualityInvoices]);
+  const approvedBalanceInvoices = useMemo(() => balanceInvoices.filter(isInvoiceFinanciallyApproved), [balanceInvoices]);
   const fPayments = useMemo(() => payments.filter(p => supplier === "all" || p.supplier_name === supplier), [payments, supplier]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
 
@@ -129,7 +131,7 @@ export default function FinancialReports() {
 
   const dataQuality = useMemo(() => {
     const duplicateInvoiceGroups = new Map();
-    fInvoices.forEach((inv) => {
+    qualityInvoices.forEach((inv) => {
       const key = getInvoiceCanonicalKey(inv);
       if (!key) return;
       if (!duplicateInvoiceGroups.has(key)) duplicateInvoiceGroups.set(key, []);
@@ -137,12 +139,14 @@ export default function FinancialReports() {
     });
     return {
       reviewShifts: reviewableHandovers.filter((h) => h.status === "مراجعة" && (branch === "all" || h.branch === branch)).length,
-      missingInvoiceDate: fInvoices.filter((i) => !i.invoice_date).length,
-      missingInvoiceBranch: fInvoices.filter((i) => !i.branch).length,
+      missingInvoiceDate: qualityInvoices.filter((i) => !i.invoice_date).length,
+      missingInvoiceBranch: qualityInvoices.filter((i) => !i.branch).length,
       uncategorizedInvoices: fInvoices.filter((i) => !i.purchase_category || i.purchase_category === "unclassified").length,
+      pendingInvoices: qualityInvoices.filter((i) => i.status === "انتظار المراجعة").length,
+      rejectedInvoices: qualityInvoices.filter((i) => i.status === "مرفوضة").length,
       duplicateInvoiceGroups: [...duplicateInvoiceGroups.values()].filter((rows) => rows.length > 1).length,
     };
-  }, [fInvoices, reviewableHandovers, branch]);
+  }, [qualityInvoices, fInvoices, reviewableHandovers, branch]);
   const qualityIssueCount = Object.values(dataQuality).reduce((s, n) => s + Number(n || 0), 0);
 
   const kpiData = useMemo(() => ({
@@ -150,9 +154,9 @@ export default function FinancialReports() {
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
     totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
-    currentDebts: computeTotalRemaining(balanceInvoices, balancePayments, debts, supplier),
+    currentDebts: computeTotalRemaining(approvedBalanceInvoices, balancePayments, debts, supplier),
     supplierPayments: fPayments.reduce((s,p) => s + (p.amount || 0), 0),
-  }), [fHandovers, fInvoices, fPayments, balanceInvoices, balancePayments, debts, supplier, suppliers]);
+  }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, balancePayments, debts, supplier, suppliers]);
 
   const distinctDayCount = (arr, field) => {
     const days = new Set(arr.map(r => (r[field] || "").slice(0, 10)).filter(Boolean));
@@ -191,7 +195,7 @@ export default function FinancialReports() {
   const chartData = useMemo(() => buildChartData(fHandovers, fInvoices, dateFrom, dateTo, suppliers), [fHandovers, fInvoices, dateFrom, dateTo, suppliers]);
 
   const branchComparison = useMemo(() => buildBranchComparison(fHandovers, fInvoices, suppliers), [fHandovers, fInvoices, suppliers]);
-  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts, balanceInvoices, balancePayments), [fInvoices, fPayments, fDebts, balanceInvoices, balancePayments]);
+  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts, approvedBalanceInvoices, balancePayments), [fInvoices, fPayments, fDebts, approvedBalanceInvoices, balancePayments]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -219,6 +223,8 @@ export default function FinancialReports() {
               {dataQuality.missingInvoiceDate > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير بدون تاريخ رسمي: {dataQuality.missingInvoiceDate}</span>}
               {dataQuality.missingInvoiceBranch > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير بدون فرع: {dataQuality.missingInvoiceBranch}</span>}
               {dataQuality.uncategorizedInvoices > 0 && <span className="rounded-full bg-white border px-2 py-1">فواتير غير مصنفة: {dataQuality.uncategorizedInvoices}</span>}
+              {dataQuality.pendingInvoices > 0 && <span className="rounded-full bg-white border px-2 py-1">انتظار مراجعة: {dataQuality.pendingInvoices}</span>}
+              {dataQuality.rejectedInvoices > 0 && <span className="rounded-full bg-white border px-2 py-1">مرفوضة: {dataQuality.rejectedInvoices}</span>}
             </div>
             <p className="text-xs">سجلات الشيفت بحالة «مراجعة» لا تدخل في أرقام المبيعات التنفيذية. باقي التنبيهات لا تُعدَّل تلقائيًا حتى تتم مراجعتها من مصدرها.</p>
           </div>
@@ -276,7 +282,7 @@ export default function FinancialReports() {
       <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       <FinancialBranchComparisonTable data={branchComparison} />
       <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />
-      <FinancialSupplierBalanceTrendChart invoices={balanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />
+      <FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} />
     </div>
   );
 }
