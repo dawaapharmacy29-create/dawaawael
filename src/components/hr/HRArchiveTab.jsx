@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ArchiveRestore, RotateCcw, Search } from "lucide-react";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const TYPE_LABEL = {
   EmployeeLoan: "سلفة",
@@ -21,15 +22,15 @@ export default function HRArchiveTab() {
 
   const { data: loans = [], isLoading: loansLoading } = useQuery({
     queryKey: ["employee-loans"],
-    queryFn: () => base44.entities.EmployeeLoan.list("-created_date", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.EmployeeLoan, "-created_date", 10000),
   });
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
     queryKey: ["employee-permissions"],
-    queryFn: () => base44.entities.EmployeePermission.list("-created_date", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.EmployeePermission, "-created_date", 10000),
   });
   const { data: leaves = [], isLoading: leavesLoading } = useQuery({
     queryKey: ["employee-leaves"],
-    queryFn: () => base44.entities.EmployeeLeave.list("-created_date", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.EmployeeLeave, "-created_date", 10000),
   });
 
   const archived = useMemo(() => {
