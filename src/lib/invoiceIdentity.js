@@ -23,3 +23,9 @@ export function isSameCanonicalInvoice(a, b) {
   const bKey = getInvoiceCanonicalKey(b);
   return Boolean(aKey && bKey && aKey === bKey);
 }
+
+export function isInvoiceInRange(invoice, from, to) {
+  const date = getInvoiceEffectiveDate(invoice);
+  if (!date) return false;
+  return (!from || date >= from) && (!to || date <= to);
+}
