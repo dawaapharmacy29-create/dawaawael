@@ -125,7 +125,9 @@ export default function ShiftDeliveryForm({ onSaved }) {
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
     if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
-    if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
+    if (paymentTotal <= 0) return setError("الرجاء إدخال تفصيل المبيعات حسب وسيلة الدفع");
+    if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
+    if (Math.abs(cashVariance) > 1 && !(form.notes || "").trim()) return setError(`يوجد فرق كاش ${cashVariance.toFixed(2)} ج — اكتب سبب الفرق في الملاحظات قبل الحفظ`);
 
     const validExpenses = expenses
       .filter((e) => e.category || parseFloat(e.amount) > 0)
@@ -137,11 +139,22 @@ export default function ShiftDeliveryForm({ onSaved }) {
 
     setSaving(true);
     try {
-      await assertDailyCloseOpen(form.branch, currentShiftBusinessDate(form.shift_type), "تسجيل تسليم شيفت جديد");
+      const businessDate = currentShiftBusinessDate(form.shift_type);
+      await assertDailyCloseOpen(form.branch, businessDate, "تسجيل تسليم شيفت جديد");
+      const existingShift = await base44.entities.ShiftDelivery.filter({ branch: form.branch, shift_date: businessDate, shift_type: form.shift_type }, "-created_date", 20);
+      const activeDuplicate = existingShift.find((s) => s.is_archived !== true);
+      if (activeDuplicate) {
+        setError(`تم إيقاف الحفظ: يوجد بالفعل شيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate}. راجع تنبيهات التكرار بدل إنشاء سجل جديد.`);
+        return;
+      }
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
       if (!selectedEmployee?.admin_staff_id) {
         setError("اسم الموظف غير مربوط بحساب الإدارة");
         return;
+      }
+
+      if (draftIdRef.current) {
+        await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "submitting", last_saved_at: new Date().toISOString() });
       }
 
       // الإنشاء نفسه يتم على السيرفر بعد التحقق؛ لا يوجد مسار إنشاء مباشر من الواجهة.
@@ -151,7 +164,17 @@ export default function ShiftDeliveryForm({ onSaved }) {
         delivery: {
           branch: form.branch,
           shift_type: form.shift_type,
-          total_sales: parseFloat(form.total_sales) || 0,
+          total_sales: paymentTotal,
+          cash_sales: parseFloat(payments.cash) || 0,
+          visa_sales: parseFloat(payments.visa) || 0,
+          insta_sales: parseFloat(payments.insta) || 0,
+          vodafone_sales: parseFloat(payments.vodafone) || 0,
+          other_sales: parseFloat(payments.other) || 0,
+          payment_breakdown_total: paymentTotal,
+          cash_handover: actualCashHandover,
+          cash_variance: cashVariance,
+          idempotency_key: submissionTokenRef.current,
+          workflow_status: Math.abs(cashVariance) > 1 ? "under_review" : "submitted",
           expenses: validExpenses,
           notes: form.notes,
         },
@@ -160,6 +183,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
       if (!saved.success) {
         setError(saved.error || "تعذر التحقق من الهوية أو حفظ التسليم");
         return;
+      }
+      if (draftIdRef.current) {
+        await base44.entities.ShiftDraft.update(draftIdRef.current, {
+          status: "submitted",
+          submitted_shift_id: saved.record?.id || saved.id || "",
+          last_saved_at: new Date().toISOString(),
+        });
       }
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
@@ -171,7 +201,13 @@ export default function ShiftDeliveryForm({ onSaved }) {
         total_sales: "",
         notes: "",
       });
+      setPayments({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+      setCashHandover("");
       setExpenses([{ description: "", amount: "", category: "" }]);
+      setDraftState("");
+      draftIdRef.current = null;
+      draftKeyRef.current = "";
+      submissionTokenRef.current = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shift-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       if (onSaved) onSaved();
     } catch (e) {
       setError(e.message || "حدث خطأ أثناء الحفظ");
