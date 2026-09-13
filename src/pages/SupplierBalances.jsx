@@ -138,7 +138,7 @@ export default function SupplierBalances() {
 
       // الدفعات العامة غير المخصصة على فاتورة تُخصم من الإجمالي مباشرة
       const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.amount || 0), 0));
+      const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
 
       const calculatedDebt = round2(oldDebt + newDebt - unallocatedPayments);
       const totalNet = round2(calculatedDebt + adjustment);
