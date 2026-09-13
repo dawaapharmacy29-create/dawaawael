@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Award, CalendarRange, Pencil } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const TODAY = new Date().toISOString().split("T")[0];
 
@@ -73,7 +74,7 @@ export default function MedicineDashboard() {
 
   const { data: allRecords = [] } = useQuery({
     queryKey: ["medicine-all-records"],
-    queryFn: () => base44.entities.MedicineSale.list("-created_date", 1000),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-created_date"),
     staleTime: 15000,
   });
 
