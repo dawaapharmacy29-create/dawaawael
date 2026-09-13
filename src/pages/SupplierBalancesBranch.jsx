@@ -42,27 +42,27 @@ export default function SupplierBalancesBranch() {
   const [savingAdjust, setSavingAdjust] = useState(false);
 
   const { data: allInvoices = [] } = useQuery({
-    queryKey: ["purchase-invoices"],
+    queryKey: ["supplier-credit-invoices", branch],
     queryFn: async () => {
       const PAGE = 500; let all = []; let page = 0;
       while (true) {
-        const batch = await base44.entities.PurchaseInvoice.list("-created_date", PAGE, page * PAGE);
+        const batch = await base44.entities.PurchaseInvoice.filter({ payment_type: "آجل", branch }, "-created_date", PAGE, page * PAGE);
         all = [...all, ...batch];
         if (batch.length < PAGE) break;
         page++;
       }
       return all;
     },
-    staleTime: 0,
+    staleTime: 120000,
     placeholderData: (prev) => prev,
   });
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 0 });
+  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 60000 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
-  // Filter invoices to this branch only
-  const invoices = useMemo(() => allInvoices.filter(i => i.branch === branch), [allInvoices, branch]);
+  // الفواتير وصلت من الخادم مفلترة بالفعل على آجل + الفرع الحالي.
+  const invoices = allInvoices;
 
   const addPayment = useMutation({
     mutationFn: async ({ invoice, amount, payment_date, notes }) => {
