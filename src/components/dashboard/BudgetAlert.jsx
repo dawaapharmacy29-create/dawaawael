@@ -4,16 +4,18 @@ import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
-export default function BudgetAlert({ invoices, expenses, budgets, suppliers = [] }) {
+export default function BudgetAlert({ invoices, budgets, purchaseTargets = [], managementMonth, suppliers = [] }) {
   const alerts = BRANCHES.map((branch) => {
+    const monthly = purchaseTargets.find((b) => b.branch === branch && b.month === managementMonth);
     const budget = budgets.find((b) => b.branch === branch);
-    if (!budget) return null;
+    const limit = Number(monthly?.target_amount ?? budget?.budget_limit ?? 0);
+    if (limit <= 0) return null;
     const spent = invoices
       .filter((i) => i.branch === branch)
       .reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
-    const pct = budget.budget_limit > 0 ? (spent / budget.budget_limit) * 100 : 0;
+    const pct = (spent / limit) * 100;
     if (pct < 80) return null;
-    return { branch, spent, limit: budget.budget_limit, pct: Math.round(pct) };
+    return { branch, spent, limit, pct: Math.round(pct) };
   }).filter(Boolean);
 
   if (alerts.length === 0) return null;
