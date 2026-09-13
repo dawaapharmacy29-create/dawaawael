@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckSquare, ClipboardList } from "lucide-react";
+import { Trash2, CheckSquare, ClipboardList, AlertTriangle, ArrowRightLeft, CircleDollarSign } from "lucide-react";
 import InvoiceTable from "@/components/invoices/InvoiceTable";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
 import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
@@ -10,7 +10,7 @@ import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
-import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
+import { normalizeInvoiceNumber, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -21,6 +21,8 @@ export default function PendingInvoices() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [singleDeleteId, setSingleDeleteId] = useState(null);
+  const [smartFilter, setSmartFilter] = useState("all");
+  const [bulkWarning, setBulkWarning] = useState("");
 
   const qc = useQueryClient();
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
@@ -31,7 +33,50 @@ export default function PendingInvoices() {
     staleTime: 60000,
   });
 
-  const pending = invoices;
+  const pendingRange = useMemo(() => {
+    const dates = invoices.map(getInvoiceEffectiveDate).filter(Boolean).sort();
+    return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null;
+  }, [invoices]);
+
+  const { data: rangeInvoices = [] } = useQuery({
+    queryKey: ["pending-review-range-invoices", pendingRange?.from || "none", pendingRange?.to || "none"],
+    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
+      $or: [
+        { invoice_date: { $gte: pendingRange.from, $lte: pendingRange.to } },
+        { created_date: { $gte: `${pendingRange.from}T00:00:00`, $lte: `${pendingRange.to}T23:59:59` } },
+      ],
+    }, "-created_date", 20000),
+    enabled: Boolean(pendingRange),
+    staleTime: 60000,
+  });
+
+  const duplicateKeys = useMemo(() => {
+    if (!pendingRange) return new Set();
+    const groups = new Map();
+    rangeInvoices.filter((i) => isInvoiceInRange(i, pendingRange.from, pendingRange.to)).forEach((inv) => {
+      const key = getInvoiceCanonicalKey(inv);
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(inv);
+    });
+    return new Set([...groups.entries()].filter(([, rows]) => rows.length > 1).map(([key]) => key));
+  }, [rangeInvoices, pendingRange]);
+
+  const stats = useMemo(() => {
+    const external = invoices.filter((i) => (i.transaction_type || "external_purchase") !== "internal_transfer");
+    const internal = invoices.filter((i) => i.transaction_type === "internal_transfer");
+    const zero = external.filter((i) => Number(i.total_value || 0) <= 0);
+    const duplicate = invoices.filter((i) => duplicateKeys.has(getInvoiceCanonicalKey(i)));
+    return { external, internal, zero, duplicate };
+  }, [invoices, duplicateKeys]);
+
+  const pending = useMemo(() => {
+    if (smartFilter === "external") return stats.external;
+    if (smartFilter === "internal") return stats.internal;
+    if (smartFilter === "zero") return stats.zero;
+    if (smartFilter === "duplicate") return stats.duplicate;
+    return invoices;
+  }, [invoices, stats, smartFilter]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
@@ -87,10 +132,19 @@ export default function PendingInvoices() {
   });
 
   const executeBulkSave = () => {
-    selectedIds.forEach((id) => {
-      const inv = pending.find((i) => i.id === id);
-      if (inv) updateMutation.mutate({ id, data: { ...inv, status: "يتم الحفظ" } });
+    const selected = invoices.filter((i) => selectedIds.includes(i.id));
+    const unsafe = selected.filter((inv) => {
+      const zeroExternal = (inv.transaction_type || "external_purchase") !== "internal_transfer" && Number(inv.total_value || 0) <= 0;
+      const suspectedDuplicate = duplicateKeys.has(getInvoiceCanonicalKey(inv));
+      return zeroExternal || suspectedDuplicate;
     });
+    if (unsafe.length > 0) {
+      setBulkWarning(`تم إيقاف الاعتماد الجماعي: ${unsafe.length} فاتورة من المحدد تحتاج مراجعة فردية لأنها بقيمة صفر أو مشتبه تكرار.`);
+      setConfirmSave(false);
+      return;
+    }
+    setBulkWarning("");
+    selected.forEach((inv) => updateMutation.mutate({ id: inv.id, data: { ...inv, status: "يتم الحفظ" } }));
     setSelectedIds([]);
   };
 
@@ -126,10 +180,29 @@ export default function PendingInvoices() {
           </div>
           <div>
             <h1 className="text-lg md:text-2xl font-bold text-gray-800">فواتير تنتظر المراجعة</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{pending.length} فاتورة في انتظار المراجعة</p>
+            <p className="text-gray-500 text-sm mt-0.5">{invoices.length} فاتورة في انتظار المراجعة · الظاهر الآن {pending.length}</p>
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {[
+          { key: "all", label: "الكل", count: invoices.length, icon: ClipboardList },
+          { key: "external", label: "شراء خارجي", count: stats.external.length, icon: CircleDollarSign },
+          { key: "internal", label: "تحويل داخلي", count: stats.internal.length, icon: ArrowRightLeft },
+          { key: "zero", label: "قيمة صفر", count: stats.zero.length, icon: AlertTriangle },
+          { key: "duplicate", label: "مشتبه تكرار", count: stats.duplicate.length, icon: AlertTriangle },
+        ].map((item) => (
+          <button key={item.key} onClick={() => { setSmartFilter(item.key); setSelectedIds([]); setBulkWarning(""); }} className={`rounded-xl border p-3 text-right transition-colors ${smartFilter === item.key ? "border-teal-500 bg-teal-50" : "bg-white hover:bg-gray-50"}`}>
+            <div className="flex items-center justify-between gap-2"><item.icon className="w-4 h-4 text-gray-500" /><span className="text-xl font-black">{item.count}</span></div>
+            <p className="text-xs text-gray-600 mt-1">{item.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {bulkWarning && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><span>{bulkWarning}</span></div>}
+
+      {stats.duplicate.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">«مشتبه تكرار» يعتمد على المفتاح الموحد: رقم الفاتورة بعد التطبيع + الفرع + التاريخ. لا يتم حذف أو دمج أي سجل تلقائيًا.</div>}
 
       {/* Bulk Actions Bar */}
       {selectedIds.length > 0 && (
