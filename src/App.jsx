@@ -75,9 +75,17 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
+    <Suspense fallback={
+      <div className="min-h-[45vh] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-gray-500">
+          <div className="w-6 h-6 border-3 border-gray-200 border-t-teal-600 rounded-full animate-spin" />
+          جاري فتح الصفحة...
+        </div>
+      </div>
+    }>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
         <Route path="/invoices" element={<PurchaseInvoices />} />
         <Route path="/purchase-reports" element={<PurchaseReports />} />
         <Route path="/suppliers" element={<Suppliers />} />
@@ -110,8 +118,9 @@ const AuthenticatedApp = () => {
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
       </Route>
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 
