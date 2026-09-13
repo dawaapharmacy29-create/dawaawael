@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
+import { useAuth } from "@/lib/AuthContext";
 import { logActivity } from "@/lib/activityLogger";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
@@ -41,6 +42,7 @@ const PERMISSIONS = [
 export default function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { checkUserAuth } = useAuth();
   const { isAdmin, user: currentUser } = useUserRole();
   const [inviteDialog, setInviteDialog] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "viewer" });
