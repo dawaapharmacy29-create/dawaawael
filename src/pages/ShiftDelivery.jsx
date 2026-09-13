@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
-import { PlusCircle, List, BarChart3, PieChart as PieIcon, Settings2 } from "lucide-react";
+import { PlusCircle, List, BarChart3, PieChart as PieIcon, Settings2, AlertTriangle } from "lucide-react";
 import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
 import ShiftDeliveryHistory from "@/components/shift/ShiftDeliveryHistory";
 import ShiftDeliveryStats from "@/components/shift/ShiftDeliveryStats";
@@ -31,11 +31,20 @@ export default function ShiftDelivery() {
   });
 
   const activeDeliveries = deliveries.filter((d) => d.is_archived !== true);
+  const duplicateCount = (() => {
+    const groups = new Map();
+    activeDeliveries.filter((d) => d.shift_date).forEach((d) => {
+      const key = `${d.branch || ""}|${d.shift_date || ""}|${d.shift_type || ""}`;
+      groups.set(key, (groups.get(key) || 0) + 1);
+    });
+    return Array.from(groups.values()).filter((count) => count > 1).length;
+  })();
 
   const tabs = canViewAll
     ? [
         { key: "new", label: "تسليم جديد", icon: PlusCircle },
         { key: "history", label: "التسليمات", icon: List },
+        { key: "duplicates", label: "تنبيهات التكرار", icon: AlertTriangle, count: duplicateCount },
         { key: "stats", label: "الإحصائيات والفروع", icon: BarChart3 },
         { key: "report", label: "تحليل المصروفات", icon: PieIcon },
         { key: "items", label: "بنود المصروفات", icon: Settings2 },
@@ -59,6 +68,7 @@ export default function ShiftDelivery() {
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
+            {tab.count > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">{tab.count.toLocaleString("ar-EG")}</span>}
           </button>
         ))}
       </div>
@@ -68,6 +78,9 @@ export default function ShiftDelivery() {
         {activeTab === "new" && <ShiftDeliveryForm onSaved={() => canViewAll && setActiveTab("history")} />}
         {activeTab === "history" && canViewAll && (
           <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} />
+        )}
+        {activeTab === "duplicates" && canViewAll && (
+          <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} duplicateOnly />
         )}
         {activeTab === "stats" && canViewAll && <ShiftDeliveryStats deliveries={activeDeliveries} />}
         {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={activeDeliveries} />}
