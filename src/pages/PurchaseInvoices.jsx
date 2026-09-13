@@ -17,6 +17,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { CATEGORY_LABELS, TRANSACTION_TYPE_LABELS, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
+import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -154,6 +155,7 @@ export default function PurchaseInvoices() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
+      await assertDailyCloseOpen(data.branch, getInvoiceEffectiveDate(data), "إضافة فاتورة جديدة");
       const res = await base44.functions.invoke("createPurchaseInvoiceSafe", { invoice: data });
       const result = res?.data || {};
       if (!result.success) throw new Error(result.error || "تعذر إنشاء الفاتورة");
@@ -172,6 +174,10 @@ export default function PurchaseInvoices() {
     mutationFn: async ({ id, data, batch_id, change_type, reason }) => {
       const oldInv = invoices.find((i) => i.id === id) || {};
       const nextIdentity = { ...oldInv, ...data };
+      await assertInvoiceDayOpen(oldInv, "تعديل الفاتورة");
+      if (getInvoiceEffectiveDate(nextIdentity) !== getInvoiceEffectiveDate(oldInv) || nextIdentity.branch !== oldInv.branch) {
+        await assertInvoiceDayOpen(nextIdentity, "نقل الفاتورة إلى يوم أو فرع آخر");
+      }
       const identityChanged = ["system_invoice_number", "branch", "invoice_date"].some((field) => data[field] !== undefined && data[field] !== oldInv[field]);
       if (identityChanged && nextIdentity.branch && nextIdentity.system_invoice_number) {
         const effectiveDate = getInvoiceEffectiveDate(nextIdentity) || "";
@@ -223,6 +229,7 @@ export default function PurchaseInvoices() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const inv = invoices.find((i) => i.id === id);
+      await assertInvoiceDayOpen(inv, "حذف الفاتورة");
       const res = await base44.functions.invoke("deletePurchaseInvoiceSafe", {
         id,
         reason: "حذف فاتورة من شاشة المشتريات",
