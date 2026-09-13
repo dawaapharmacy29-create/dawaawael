@@ -16,8 +16,10 @@ const statusColor = {
   "انتظار المراجعة": "bg-yellow-100 text-yellow-800",
   "يتم الحفظ": "bg-green-100 text-green-800",
   "تعلق تحت التصريف": "bg-blue-100 text-blue-800",
+  "معتمدة": "bg-emerald-100 text-emerald-800",
+  "مرفوضة": "bg-red-100 text-red-800",
 };
-const statusIcon = { "انتظار المراجعة": "⏳", "يتم الحفظ": "✅", "تعلق تحت التصريف": "🔄" };
+const statusIcon = { "انتظار المراجعة": "⏳", "يتم الحفظ": "✅", "تعلق تحت التصريف": "🔄", "معتمدة": "✅", "مرفوضة": "❌" };
 const paymentColor = { "كاش": "bg-emerald-100 text-emerald-800", "آجل": "bg-orange-100 text-orange-800", "مختلط": "bg-teal-100 text-teal-800", "انستا": "bg-pink-100 text-pink-800", "فودافون": "bg-red-100 text-red-800" };
 const branchColor = {
   "دواء شكري": "bg-blue-100 text-blue-800",
