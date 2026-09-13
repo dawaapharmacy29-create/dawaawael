@@ -12,6 +12,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
+import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -71,19 +72,27 @@ export default function PendingInvoices() {
     return new Set([...groups.entries()].filter(([, rows]) => rows.length > 1).map(([key]) => key));
   }, [rangeInvoices, pendingRange]);
 
+  const currentCycle = useMemo(() => cycleRangeFor(cairoTodayKey()), []);
   const stats = useMemo(() => {
     const external = invoices.filter((i) => (i.transaction_type || "external_purchase") !== "internal_transfer");
     const internal = invoices.filter((i) => i.transaction_type === "internal_transfer");
     const zero = external.filter((i) => Number(i.total_value || 0) <= 0);
     const duplicate = invoices.filter((i) => duplicateKeys.has(getInvoiceCanonicalKey(i)));
-    return { external, internal, zero, duplicate };
-  }, [invoices, duplicateKeys]);
+    const current = invoices.filter((i) => isInvoiceInRange(i, currentCycle.from, currentCycle.to));
+    const backlog = invoices.filter((i) => {
+      const date = getInvoiceEffectiveDate(i);
+      return date && date < currentCycle.from;
+    });
+    return { external, internal, zero, duplicate, current, backlog };
+  }, [invoices, duplicateKeys, currentCycle]);
 
   const pending = useMemo(() => {
     if (smartFilter === "external") return stats.external;
     if (smartFilter === "internal") return stats.internal;
     if (smartFilter === "zero") return stats.zero;
     if (smartFilter === "duplicate") return stats.duplicate;
+    if (smartFilter === "current") return stats.current;
+    if (smartFilter === "backlog") return stats.backlog;
     return invoices;
   }, [invoices, stats, smartFilter]);
 
@@ -235,13 +244,15 @@ export default function PendingInvoices() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
         {[
           { key: "all", label: "الكل", count: invoices.length, icon: ClipboardList },
           { key: "external", label: "شراء خارجي", count: stats.external.length, icon: CircleDollarSign },
           { key: "internal", label: "تحويل داخلي", count: stats.internal.length, icon: ArrowRightLeft },
           { key: "zero", label: "قيمة صفر", count: stats.zero.length, icon: AlertTriangle },
           { key: "duplicate", label: "مشتبه تكرار", count: stats.duplicate.length, icon: AlertTriangle },
+          { key: "current", label: "الدورة الحالية", count: stats.current.length, icon: ClipboardList },
+          { key: "backlog", label: "قديم متراكم", count: stats.backlog.length, icon: AlertTriangle },
         ].map((item) => (
           <button key={item.key} onClick={() => { setSmartFilter(item.key); setSelectedIds([]); setBulkWarning(""); }} className={`rounded-xl border p-3 text-right transition-colors ${smartFilter === item.key ? "border-teal-500 bg-teal-50" : "bg-white hover:bg-gray-50"}`}>
             <div className="flex items-center justify-between gap-2"><item.icon className="w-4 h-4 text-gray-500" /><span className="text-xl font-black">{item.count}</span></div>
