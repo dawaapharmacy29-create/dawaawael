@@ -76,6 +76,18 @@ export default function PurchaseInvoices() {
   const [activeMonthOffset, setActiveMonthOffset] = useState(0); // 0 = الشهر الحالي، -1 = السابق، null = لا يوجد
   const queryClient = useQueryClient();
 
+  const invalidatePurchaseDerivedCaches = () => {
+    [
+      ["purchase-reports-invoices"],
+      ["purchase-reports-categorization-month"],
+      ["purchase-invoices-monthly-chart"],
+      ["reports-invoices"],
+      ["reports-branch-invoices"],
+      ["smart-analytics-purchases"],
+      ["supplier-credit-invoices"],
+    ].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+  };
+
   // حساب أزرار الشهور: الشهر الحالي + الشهرين السابقين
   const monthButtons = Array.from({ length: 3 }, (_, i) => {
     const d = new Date();
