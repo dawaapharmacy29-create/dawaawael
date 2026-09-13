@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MedicineDashboard from "@/components/medicine/MedicineDashboard";
 import MedicineSalesTab from "@/components/medicine/MedicineSalesTab";
@@ -17,7 +18,7 @@ function BranchBalanceTable() {
   });
   const { data: allRecords = [] } = useQuery({
     queryKey: ["medicine-all-records"],
-    queryFn: () => base44.entities.MedicineSale.list("-created_date", 1000),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-created_date"),
     staleTime: 15000,
   });
 
