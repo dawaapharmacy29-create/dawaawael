@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -22,6 +23,14 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
   // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
   const moveToPrevDay = useMutation({
     mutationFn: async (it) => {
+      await assertDailyCloseOpen(it.branch, it.shift_date, "ترحيل تاريخ احتساب الشيفت");
+      const baseDate = it.calculation_date || it.shift_date;
+      if (baseDate) {
+        const d = new Date(`${baseDate}T00:00:00`);
+        d.setDate(d.getDate() - 1);
+        const prevDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        await assertDailyCloseOpen(it.branch, prevDate, "ترحيل الشيفت إلى اليوم السابق");
+      }
       const res = await base44.functions.invoke("updateShiftDeliveryAdmin", {
         id: it.id,
         action: "previous_calculation_day",
@@ -32,6 +41,7 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
       onClose();
     },
   });
