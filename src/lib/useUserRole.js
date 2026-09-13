@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 
 export function useUserRole() {
-  const { data: user } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: () => base44.auth.me(),
-  });
+  // المستخدم تم تحميله بالفعل مرة واحدة داخل AuthContext عند بدء التطبيق.
+  // إعادة استخدامه هنا تمنع طلب auth.me إضافي في كل الصفحات والمكونات التي تستعمل الصلاحيات.
+  const { user } = useAuth();
 
   const role = user?.role || "viewer";
   const isAdmin = role === "admin";
