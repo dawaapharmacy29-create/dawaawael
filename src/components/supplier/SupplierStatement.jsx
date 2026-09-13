@@ -19,11 +19,11 @@ export default function SupplierStatement({ branch, onClose }) {
   const [selectedSupplier, setSelectedSupplier] = useState("");
 
   const { data: suppliers = [] } = useQuery({
-    queryKey: ["active-suppliers"],
-    queryFn: () => base44.entities.Supplier.filter({ is_active: true }, "name"),
+    queryKey: ["suppliers"],
+    queryFn: () => base44.entities.Supplier.list("name"),
     staleTime: 300000,
   });
-  const supplierNames = useMemo(() => suppliers.map((s) => s.name).filter(Boolean).sort(), [suppliers]);
+  const supplierNames = useMemo(() => suppliers.filter((s) => s.is_active !== false).map((s) => s.name).filter(Boolean).sort(), [suppliers]);
 
   const statementEnabled = Boolean(selectedSupplier && dateFrom && dateTo);
   const { data: filteredRows = [] } = useQuery({
