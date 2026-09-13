@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Save, Loader2, CalendarClock } from "lucide-react";
+import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
@@ -74,6 +75,11 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
 
     setSaving(true);
     try {
+      await assertDailyCloseOpen(item.branch, item.shift_date, "تعديل تسليم الشيفت");
+      const targetDate = form.calculation_date || item.shift_date;
+      if (targetDate && targetDate !== item.shift_date) {
+        await assertDailyCloseOpen(item.branch, targetDate, "تغيير تاريخ احتساب الشيفت");
+      }
       const updateRes = await base44.functions.invoke("updateShiftDeliveryAdmin", {
         id: item.id,
         action: "update",
@@ -88,6 +94,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
       const result = updateRes?.data || {};
       if (!result.success) throw new Error(result.error || "تعذر تعديل تسليم الشيفت");
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
       onClose();
     } catch (e) {
       setError(e.message || "حدث خطأ أثناء الحفظ");
