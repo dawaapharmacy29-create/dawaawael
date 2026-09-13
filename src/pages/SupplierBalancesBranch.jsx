@@ -39,12 +39,12 @@ export default function SupplierBalancesBranch() {
   const [branch, setBranch] = useState(getBranchFromUrl);
   const [expanded, setExpanded] = useState(null);
   const [payDialog, setPayDialog] = useState(null);
-  const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [payForm, setPayForm] = useState({ amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
   const [debtDialog, setDebtDialog] = useState(null);
   const [debtForm, setDebtForm] = useState({ initial_debt: "", notes: "" });
   const [savingDebt, setSavingDebt] = useState(false);
   const [generalPayDialog, setGeneralPayDialog] = useState(false);
-  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [generalPayForm, setGeneralPayForm] = useState({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
   const [statementOpen, setStatementOpen] = useState(false);
   const [monthStartDialog, setMonthStartDialog] = useState(null);
   const [monthStartForm, setMonthStartForm] = useState({ month_start_date: "", notes: "" });
@@ -77,17 +77,28 @@ export default function SupplierBalancesBranch() {
   const invoices = allInvoices.filter(isInvoiceFinanciallyApproved);
 
   const addPayment = useMutation({
-    mutationFn: async ({ invoice, amount, payment_date, notes }) => {
-      const newPaid = round2((invoice.paid_value || 0) + parseFloat(amount));
+    mutationFn: async ({ invoice, amount, payment_date, payment_method, reference_number, notes }) => {
+      const paymentAmount = round2(parseFloat(amount));
+      const invoiceRemaining = round2(Math.max(0, (invoice.total_value || 0) - (invoice.returned_value || 0) - (invoice.paid_value || 0)));
+      if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
+      if (paymentAmount > invoiceRemaining + 0.01) throw new Error(`قيمة الدفعة أكبر من المتبقي على الفاتورة (${invoiceRemaining.toLocaleString("ar-EG")} ج)`);
+      const newPaid = round2((invoice.paid_value || 0) + paymentAmount);
       await base44.entities.SupplierPayment.create({
         supplier_name: invoice.supplier_name,
         invoice_id: invoice.id,
         invoice_number: invoice.system_invoice_number,
-        amount: parseFloat(amount),
+        amount: paymentAmount,
         payment_date,
+        payment_method: payment_method || "كاش",
+        reference_number: reference_number || "",
+        transaction_type: "payment",
+        status: "posted",
+        allocation_type: "invoice",
+        allocations: [{ invoice_id: invoice.id, invoice_number: invoice.system_invoice_number, amount: paymentAmount }],
         notes,
         branch,
       });
+      // paid_value يظل Projection متوافقًا مع الشاشات القديمة؛ سجل SupplierPayment هو دفتر الحركة التفصيلي الجديد.
       await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
     },
     onSuccess: () => {
@@ -95,7 +106,7 @@ export default function SupplierBalancesBranch() {
       qc.invalidateQueries({ queryKey: ["supplier-credit-invoices"] });
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
       setPayDialog(null);
-      setPayForm({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setPayForm({ amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
     },
   });
 
@@ -203,12 +214,12 @@ export default function SupplierBalancesBranch() {
   const totalNet = supplierGroups.reduce((s, g) => s + g.totalNet, 0);
 
   const openPayDialog = (invoice) => {
-    setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+    setPayForm({ amount: invoice.remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
     setPayDialog({ invoice });
   };
 
   const openDebtPayDialog = (supplierName, remaining) => {
-    setPayForm({ amount: remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], notes: "سداد مديونية قديمة" });
+    setPayForm({ amount: remaining?.toString() || "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "سداد مديونية قديمة" });
     setPayDialog({ debtPayment: true, supplier_name: supplierName, remaining });
   };
 
@@ -235,24 +246,28 @@ export default function SupplierBalancesBranch() {
   };
 
   const addDebtPayment = useMutation({
-    mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes, branch });
+    mutationFn: async ({ supplier_name, amount, payment_date, payment_method, reference_number, notes }) => {
+      const paymentAmount = round2(parseFloat(amount));
+      if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes, branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
       setPayDialog(null);
-      setPayForm({ amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setPayForm({ amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
     },
   });
 
   const addGeneralPayment = useMutation({
-    mutationFn: async ({ supplier_name, amount, payment_date, notes }) => {
-      await base44.entities.SupplierPayment.create({ supplier_name, amount: round2(parseFloat(amount)), payment_date, notes: notes || "دفعة عامة", branch });
+    mutationFn: async ({ supplier_name, amount, payment_date, payment_method, reference_number, notes }) => {
+      const paymentAmount = round2(parseFloat(amount));
+      if (!paymentAmount || paymentAmount <= 0) throw new Error("قيمة الدفعة يجب أن تكون أكبر من صفر");
+      await base44.entities.SupplierPayment.create({ supplier_name, amount: paymentAmount, payment_date, payment_method: payment_method || "كاش", reference_number: reference_number || "", transaction_type: "payment", status: "posted", allocation_type: "general", notes: notes || "دفعة عامة", branch });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["supplier-payments"] });
       setGeneralPayDialog(false);
-      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setGeneralPayForm({ supplier_name: "", amount: "", payment_date: new Date().toISOString().split("T")[0], payment_method: "كاش", reference_number: "", notes: "" });
     },
   });
 
