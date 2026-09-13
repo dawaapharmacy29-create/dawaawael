@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Bell, X, FileText, RotateCcw, Receipt, ChevronDown, ChevronUp } from "lucide-react";
@@ -13,6 +13,7 @@ function daysDiff(dateStr) {
 
 export default function SmartAlerts() {
   const [open, setOpen] = useState(false);
+  const [secondaryAlertsEnabled, setSecondaryAlertsEnabled] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem("dismissed_alerts") || "[]"); } catch { return []; }
   });
@@ -24,15 +25,22 @@ export default function SmartAlerts() {
     staleTime: 60000,
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSecondaryAlertsEnabled(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const { data: returns = [] } = useQuery({
     queryKey: ["alerts-returns"],
     queryFn: () => base44.entities.Return.list("-created_date", 200),
+    enabled: secondaryAlertsEnabled,
     staleTime: 120000,
   });
 
   const { data: expenses = [] } = useQuery({
     queryKey: ["alerts-expenses"],
     queryFn: () => base44.entities.Expense.list("-created_date", 50),
+    enabled: secondaryAlertsEnabled,
     staleTime: 120000,
   });
 
