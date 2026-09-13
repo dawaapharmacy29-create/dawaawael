@@ -197,6 +197,8 @@ export default function PurchaseReports() {
         await Promise.all(chunk.map(([id, cat]) => base44.entities.PurchaseInvoice.update(id, { purchase_category: cat, purchase_category_source: "manual" })));
       }
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-reports-categorization-month"] });
       setPendingCategories({});
       setCategorizeOpen(false);
     } finally {
