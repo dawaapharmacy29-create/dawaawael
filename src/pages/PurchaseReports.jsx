@@ -48,11 +48,13 @@ function monthLabel() {
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
-async function loadAllPurchaseInvoices(maxRows = 10000) {
+async function loadAllPurchaseInvoices(maxRows = 10000, query = null) {
   const pageSize = 500;
   const rows = [];
   for (let page = 0; rows.length < maxRows; page += 1) {
-    const batch = await base44.entities.PurchaseInvoice.list("-invoice_date", pageSize, page * pageSize);
+    const batch = query
+      ? await base44.entities.PurchaseInvoice.filter(query, "-invoice_date", pageSize, page * pageSize)
+      : await base44.entities.PurchaseInvoice.list("-invoice_date", pageSize, page * pageSize);
     rows.push(...batch);
     if (batch.length < pageSize) break;
   }
@@ -73,9 +75,14 @@ export default function PurchaseReports() {
   const [savingCategories, setSavingCategories] = useState(false);
 
   const { data: invoices = [], isLoading } = useQuery({
-    queryKey: ["purchase-invoices"],
-    queryFn: () => loadAllPurchaseInvoices(),
-    staleTime: 60000,
+    queryKey: ["purchase-reports-invoices", dateFrom, dateTo],
+    queryFn: () => loadAllPurchaseInvoices(10000, {
+      $or: [
+        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
+        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
+      ],
+    }),
+    staleTime: 120000,
   });
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -161,15 +168,18 @@ export default function PurchaseReports() {
     return { cats, uncategorized };
   }, [filtered, suppliers]);
 
-  // فواتير الشهر الحالي اللي محتاجة تصنيف (لأداة المراجعة الجماعية)
-  const thisMonthInvoices = useMemo(() => {
-    const start = monthStartStr();
-    const end = monthEndStr();
-    return invoices.filter((inv) => {
-      const d = inv.invoice_date || inv.created_date?.split("T")[0];
-      return d && d >= start && d <= end;
-    });
-  }, [invoices]);
+  // بيانات الشهر الكامل لا تُحمّل إلا عند فتح أداة التصنيف الجماعي.
+  const { data: thisMonthInvoices = [] } = useQuery({
+    queryKey: ["purchase-reports-categorization-month", monthStartStr(), monthEndStr()],
+    queryFn: () => loadAllPurchaseInvoices(10000, {
+      $or: [
+        { invoice_date: { $gte: monthStartStr(), $lte: monthEndStr() } },
+        { created_date: { $gte: `${monthStartStr()}T00:00:00`, $lte: `${monthEndStr()}T23:59:59` } },
+      ],
+    }),
+    enabled: categorizeOpen,
+    staleTime: 120000,
+  });
   const categorizeList = useMemo(
     () => (categorizeFilter === "uncategorized" ? thisMonthInvoices.filter((i) => !i.purchase_category || i.purchase_category === "unclassified") : thisMonthInvoices),
     [thisMonthInvoices, categorizeFilter]
