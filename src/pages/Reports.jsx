@@ -13,7 +13,8 @@ import TopSuppliers from "@/components/reports/TopSuppliers";
 import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
 import { useUserRole } from "@/lib/useUserRole";
 import { Lock, Settings2, Save } from "lucide-react";
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { getInvoiceEffectiveDate, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -108,14 +109,14 @@ export default function Reports() {
     setSaving(false);
   };
 
-  const filteredInvoices = useMemo(() => invoices.filter(i => inRange(i.invoice_date || i.created_date, activeFrom, activeTo)), [invoices, activeFrom, activeTo]);
+  const filteredInvoices = useMemo(() => invoices.filter((i) => isInvoiceInRange(i, activeFrom, activeTo) && isInvoiceFinanciallyApproved(i)), [invoices, activeFrom, activeTo]);
   const filteredExpenses = useMemo(() => expenses.filter(e => inRange(e.date, activeFrom, activeTo)), [expenses, activeFrom, activeTo]);
 
   // Monthly data
   const monthlyData = useMemo(() => {
     const map = {};
     filteredInvoices.forEach((i) => {
-      const k = getMonthKey(i.invoice_date || i.created_date);
+      const k = getMonthKey(getInvoiceEffectiveDate(i));
       if (!k) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}`, invoices: 0, expenses: 0 }; }
       map[k].invoices += getInvoiceNetAmount(i, suppliers);
@@ -142,7 +143,7 @@ export default function Reports() {
   const branchMonthlyData = useMemo(() => {
     const map = {};
     filteredInvoices.forEach((i) => {
-      const k = getMonthKey(i.invoice_date || i.created_date);
+      const k = getMonthKey(getInvoiceEffectiveDate(i));
       const bKey = i.branch;
       if (!k || !bKey) return;
       if (!map[k]) { const [y, m] = k.split("-"); map[k] = { month: `${MONTHS_AR[parseInt(m)-1]} ${y}` }; BRANCHES.forEach(b => { map[k][b] = 0; }); }
@@ -257,13 +258,13 @@ export default function Reports() {
       )}
 
       {/* Monthly Branch Report */}
-      <MonthlyBranchReport invoices={invoices} expenses={expenses} suppliers={suppliers} />
+      <MonthlyBranchReport invoices={filteredInvoices} expenses={expenses} suppliers={suppliers} />
 
       {/* Aging Report */}
-      <AgingReport invoices={invoices} />
+      <AgingReport invoices={filteredInvoices} />
 
       {/* All Suppliers Table */}
-      <TopSuppliers invoices={invoices} suppliers={suppliers} dateFrom={activeFrom} dateTo={activeTo} />
+      <TopSuppliers invoices={filteredInvoices} suppliers={suppliers} dateFrom={activeFrom} dateTo={activeTo} />
 
       {/* Monthly per Branch */}
       {branchMonthlyData.length > 0 && (
