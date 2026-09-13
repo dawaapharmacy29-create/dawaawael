@@ -158,21 +158,52 @@ export default function DataReconciliation() {
       if (key <= today) dates.push(key);
     }
     const branches = branch === "all" ? BRANCHES : [branch];
+    const dayKey = (b, date) => `${b}|${date}`;
+    const dailyMap = new Map();
+    const ensureDay = (b, date) => {
+      const key = dayKey(b, date);
+      if (!dailyMap.has(key)) dailyMap.set(key, { sales: 0, purchases: 0, shiftCount: 0, reviewShifts: 0, pendingInvoices: 0, pendingPurchaseValue: 0, externalExpenses: 0, shiftExpenses: 0, duplicateShifts: 0, anomalies: 0, inferredDates: 0 });
+      return dailyMap.get(key);
+    };
+
+    activeShifts.forEach((s) => {
+      const row = ensureDay(s.branch, s.shift_date);
+      row.sales += Number(s.total_sales) || 0;
+      row.shiftExpenses += realShiftExpenses(s);
+      row.shiftCount += 1;
+    });
+    reviewShifts.forEach((s) => { ensureDay(s.branch, s.shift_date).reviewShifts += 1; });
+    approvedInvoices.forEach((i) => {
+      const date = getInvoiceEffectiveDate(i);
+      if (!date) return;
+      ensureDay(i.branch, date).purchases += getInvoiceNetAmount(i, suppliers);
+    });
+    pendingInvoices.forEach((i) => {
+      const date = getInvoiceEffectiveDate(i);
+      if (!date) return;
+      const row = ensureDay(i.branch, date);
+      row.pendingInvoices += 1;
+      row.pendingPurchaseValue += getInvoiceNetAmount(i, suppliers);
+    });
+    scopedExpenses.forEach((e) => {
+      const date = e.date || e.created_date?.slice(0, 10);
+      if (!date) return;
+      ensureDay(e.branch, date).externalExpenses += Number(e.amount) || 0;
+    });
+    duplicateShiftGroups.forEach((g) => {
+      const first = g[0];
+      if (first?.branch && first?.shift_date) ensureDay(first.branch, first.shift_date).duplicateShifts += 1;
+    });
+    shiftAnomalies.forEach((s) => { if (s.branch && s.shift_date) ensureDay(s.branch, s.shift_date).anomalies += 1; });
+    missingOfficialDate.forEach((i) => {
+      const date = getInvoiceEffectiveDate(i);
+      if (i.branch && date) ensureDay(i.branch, date).inferredDates += 1;
+    });
+
     const dailyRows = [];
     dates.forEach((date) => branches.forEach((b) => {
-      const ds = activeShifts.filter((s) => s.branch === b && s.shift_date === date);
-      const dr = reviewShifts.filter((s) => s.branch === b && s.shift_date === date);
-      const di = approvedInvoices.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date);
-      const dpi = pendingInvoices.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date);
-      const de = scopedExpenses.filter((e) => e.branch === b && (e.date || e.created_date?.slice(0, 10)) === date);
-      const sales = ds.reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
-      const purchases = di.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
-      const externalExpenses = de.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      const shiftExpenses = ds.reduce((sum, s) => sum + realShiftExpenses(s), 0);
-      const duplicateShifts = duplicateShiftGroups.filter((g) => g[0]?.branch === b && g[0]?.shift_date === date).length;
-      const anomalies = shiftAnomalies.filter((s) => s.branch === b && s.shift_date === date).length;
-      const inferredDates = missingOfficialDate.filter((i) => i.branch === b && getInvoiceEffectiveDate(i) === date).length;
-      dailyRows.push({ date, branch: b, sales, purchases, ratio: sales > 0 ? purchases / sales * 100 : null, shiftCount: ds.length, reviewShifts: dr.length, pendingInvoices: dpi.length, pendingPurchaseValue: dpi.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0), externalExpenses, shiftExpenses, duplicateShifts, anomalies, inferredDates });
+      const row = dailyMap.get(dayKey(b, date)) || { sales: 0, purchases: 0, shiftCount: 0, reviewShifts: 0, pendingInvoices: 0, pendingPurchaseValue: 0, externalExpenses: 0, shiftExpenses: 0, duplicateShifts: 0, anomalies: 0, inferredDates: 0 };
+      dailyRows.push({ date, branch: b, ...row, ratio: row.sales > 0 ? row.purchases / row.sales * 100 : null });
     }));
 
     const sales = activeShifts.reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
