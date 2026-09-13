@@ -1,9 +1,6 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity, LockKeyhole } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
-import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
 import SmartAlerts from "@/components/layout/SmartAlerts";
@@ -26,15 +23,16 @@ const navItems = [
   { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers" },
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
-  { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, section: "reports" },
+  // الواجهة المعتمدة للتقارير: أربع صفحات فقط. الصفحات القديمة تظل موجودة كمسارات احتياطية بدون إظهارها في القائمة.
   { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports" },
   { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports" },
   { path: "/data-reconciliation", label: "مطابقة البيانات اليومية", icon: ShieldCheck, section: "reports" },
   { path: "/daily-close", label: "الإقفال اليومي", icon: LockKeyhole, section: "reports" },
-  { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية", icon: Wallet, adminOnly: true, section: "reports" },
-  { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
-  { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
-  { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي", icon: BarChart2, indent: true, section: "reports" },
+  { path: "/reports", label: "التقارير (إجمالي) — قديم", icon: BarChart2, hidden: true, section: "reports" },
+  { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية — قديم", icon: Wallet, adminOnly: true, hidden: true, section: "reports" },
+  { path: "/purchase-reports", label: "تقارير المشتريات — قديم", icon: FileText, hidden: true, section: "reports" },
+  { path: "/reports-branch", label: "تقارير دواء شكري — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
+  { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
   { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, indent: true, adminOnly: true, section: "reports" },
   { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, indent: true, adminOnly: true, section: "reports" },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
@@ -89,13 +87,6 @@ export default function AppLayout() {
     [isAdmin, isManager]
   );
 
-  const { data: pendingInvoices = [] } = useQuery({
-    queryKey: ["pending-invoices-count"],
-    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
-    staleTime: 60000,
-  });
-  const pendingCount = pendingInvoices.length;
-
   const isItemActive = (item) => {
     const pathOnly = item.path.split("?")[0];
     const itemSearch = item.path.includes("?") ? `?${item.path.split("?")[1]}` : "";
@@ -147,9 +138,7 @@ export default function AppLayout() {
     >
       <item.icon className={cn(item.indent ? "w-3.5 h-3.5" : "w-[18px] h-[18px]", item.gold && "text-yellow-500", item.pink && "text-pink-500", item.dark && "text-white", item.teal && "text-white", item.cyan && "text-white", item.violet && "text-white", item.emerald && "text-white", item.purple && "text-white")} />
       <span className="flex-1">{item.label}</span>
-      {item.badge && pendingCount > 0 && (
-        <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
-      )}
+      {item.badge && <span className="w-2 h-2 rounded-full bg-yellow-400" title="توجد صفحة مخصصة للمراجعة" />}
     </Link>
   );
 
