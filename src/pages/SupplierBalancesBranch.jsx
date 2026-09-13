@@ -576,8 +576,12 @@ export default function SupplierBalancesBranch() {
                   </>
                 )}
               </div>
-              <div className="space-y-1"><Label>مبلغ الدفعة</Label><Input type="number" value={payForm.amount} onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
-              <div className="space-y-1"><Label>تاريخ السداد</Label><Input type="date" value={payForm.payment_date} onChange={(e) => setPayForm((f) => ({ ...f, payment_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>مبلغ الدفعة</Label><Input type="number" min="0" value={payForm.amount} onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1"><Label>تاريخ السداد</Label><Input type="date" value={payForm.payment_date} onChange={(e) => setPayForm((f) => ({ ...f, payment_date: e.target.value }))} /></div>
+                <div className="space-y-1"><Label>وسيلة الدفع</Label><select className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm" value={payForm.payment_method} onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))}>{["كاش","تحويل بنكي","انستا","فودافون","شيك","أخرى"].map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
+              </div>
+              <div className="space-y-1"><Label>رقم المرجع / التحويل / الشيك</Label><Input value={payForm.reference_number} onChange={(e) => setPayForm((f) => ({ ...f, reference_number: e.target.value }))} placeholder="اختياري للكاش — مهم للتحويلات" /></div>
               <div className="space-y-1"><Label>ملاحظات (اختياري)</Label><Textarea value={payForm.notes} onChange={(e) => setPayForm((f) => ({ ...f, notes: e.target.value }))} rows={2} /></div>
             </div>
           )}
@@ -608,8 +612,12 @@ export default function SupplierBalancesBranch() {
                 {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               </select>
             </div>
-            <div className="space-y-1"><Label>المبلغ المسدد (جنيه)</Label><Input type="number" value={generalPayForm.amount} onChange={e => setGeneralPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
-            <div className="space-y-1"><Label>تاريخ السداد</Label><Input type="date" value={generalPayForm.payment_date} onChange={e => setGeneralPayForm(f => ({ ...f, payment_date: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>المبلغ المسدد (جنيه)</Label><Input type="number" min="0" value={generalPayForm.amount} onChange={e => setGeneralPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1"><Label>تاريخ السداد</Label><Input type="date" value={generalPayForm.payment_date} onChange={e => setGeneralPayForm(f => ({ ...f, payment_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>وسيلة الدفع</Label><select className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm" value={generalPayForm.payment_method} onChange={e => setGeneralPayForm(f => ({ ...f, payment_method: e.target.value }))}>{["كاش","تحويل بنكي","انستا","فودافون","شيك","أخرى"].map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
+            </div>
+            <div className="space-y-1"><Label>رقم المرجع / التحويل / الشيك</Label><Input value={generalPayForm.reference_number} onChange={e => setGeneralPayForm(f => ({ ...f, reference_number: e.target.value }))} placeholder="اختياري للكاش — مهم للتحويلات" /></div>
             <div className="space-y-1"><Label>ملاحظات (اختياري)</Label><Textarea value={generalPayForm.notes} onChange={e => setGeneralPayForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter className="gap-2">
