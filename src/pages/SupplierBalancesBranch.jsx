@@ -183,7 +183,7 @@ export default function SupplierBalancesBranch() {
 
       // الدفعات العامة (غير المخصصة على فاتورة محددة) تُخصم من الإجمالي مباشرة دون تغيير بيانات الفواتير
       const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && (!p.branch || p.branch === branch));
-      const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.amount || 0), 0));
+      const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
 
       // المديونية المحسوبة من السجلات + فرق التسوية اليدوي = الرصيد النهائي
       const calculatedDebt = round2(oldDebt + newDebt - unallocatedPayments);
