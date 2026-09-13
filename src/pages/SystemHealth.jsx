@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Activity, AlertTriangle, CheckCircle2, Database, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 
@@ -14,11 +12,22 @@ function dateDaysAgo(days) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+async function loadAllFiltered(entity, query, sort, maxRows = 10000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.filter(query, sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 function HealthCard({ title, value, subtitle, icon: Icon, bad = false, warn = false }) {
   const cls = bad ? "border-red-200 bg-red-50" : warn ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50";
   const iconCls = bad ? "text-red-600" : warn ? "text-amber-600" : "text-emerald-600";
   return (
-    <Card className={`p-4 border ${cls}`}>
+    <div className={`rounded-xl p-4 border ${cls}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-gray-600">{title}</p>
@@ -27,7 +36,7 @@ function HealthCard({ title, value, subtitle, icon: Icon, bad = false, warn = fa
         </div>
         <Icon className={`w-5 h-5 ${iconCls}`} />
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -47,12 +56,12 @@ export default function SystemHealth() {
   });
   const { data: shifts = [], isLoading: shiftsLoading } = useQuery({
     queryKey: ["system-health-shifts", recentFrom],
-    queryFn: () => base44.entities.ShiftDelivery.filter({ shift_date: { $gte: recentFrom } }, "-shift_date", 3000),
+    queryFn: () => loadAllFiltered(base44.entities.ShiftDelivery, { shift_date: { $gte: recentFrom } }, "-shift_date"),
     staleTime: 120000,
   });
   const { data: pendingInvoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ["pending-invoices-count"],
-    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }, "-created_date", 1000),
+    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
     staleTime: 60000,
   });
   const { data: syncRows = [], isLoading: syncLoading } = useQuery({
@@ -120,9 +129,9 @@ export default function SystemHealth() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-teal-600" /> صحة النظام والبيانات</h1>
           <p className="text-sm text-gray-500 mt-1">مراقبة الهوية، التكرارات، سجلات المراجعة والمزامنة قبل أن تؤثر على التقارير.</p>
         </div>
-        <Badge className={issueCount > 0 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}>
+        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${issueCount > 0 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}`}>
           {loading ? "جاري الفحص..." : issueCount > 0 ? `${issueCount.toLocaleString("ar-EG")} نقطة تحتاج مراجعة` : "النظام سليم"}
-        </Badge>
+        </span>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -145,17 +154,17 @@ export default function SystemHealth() {
             {unlinkedIdentities.map((m) => <div key={`unlinked-${m.id}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm"><b>غير مرتبط بالإدارة:</b> {m.canonical_name} — {m.branch || "بدون فرع"}</div>)}
             {duplicateMembers.length === 0 && membersWithoutIdentity.length === 0 && unlinkedIdentities.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات هوية ظاهرة.</p>}
           </div>
-        </Card>
+        </div>
 
         <Card className="p-4">
           <h2 className="font-bold text-gray-800 mb-3">مشكلات التشغيل المؤثرة على التقارير</h2>
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {duplicateShiftGroups.map((group) => <div key={`shift-${group[0]?.branch}-${group[0]?.shift_date}-${group[0]?.shift_type}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>شيفت مكرر:</b> {group[0]?.branch} — {group[0]?.shift_date} — {group[0]?.shift_type} ({group.length} سجلات)</div>)}
             {reviewShifts.slice(0, 20).map((s) => <div key={`review-${s.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>تحت المراجعة:</b> {s.branch} — {s.shift_date} — {s.shift_type}</div>)}
-            {failedSync.slice(0, 20).map((r) => <div key={`sync-${r.id}`} className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm"><b>مزامنة متعثرة:</b> {r.entity_type || r.entity || "سجل"} — {r.status}</div>)}
+            {failedSync.slice(0, 20).map((r) => <div key={`sync-${r.id}`} className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm"><b>مزامنة متعثرة:</b> {r.entity_name || "سجل"} — {r.status}</div>)}
             {duplicateShiftGroups.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
