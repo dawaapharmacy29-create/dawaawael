@@ -66,7 +66,7 @@ export default function SupplierInvoiceStatement() {
   const totalPurchases = filtered?.reduce((s, i) => s + (i.total_value || 0), 0) || 0;
   const totalReturned = filtered?.reduce((s, i) => s + (i.returned_value || 0), 0) || 0;
   const totalNet = totalPurchases - totalReturned;
-  const totalPaid = periodPayments.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPaid = periodPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0);
   const totalRemaining = filtered?.reduce((s, i) => s + Math.max(0, (i.total_value || 0) - (i.returned_value || 0) - (i.paid_value || 0)), 0) || 0;
 
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
