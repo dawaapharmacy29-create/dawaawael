@@ -30,9 +30,9 @@ export default function InventoryCount() {
   const [countingStarted, setCountingStarted] = useState(false);
 
   const { data: products = [] } = useQuery({
-    queryKey: ["inventory-products"],
-    queryFn: () => base44.entities.InventoryProduct.list(),
-    staleTime: 60000,
+    queryKey: ["inventory-products", branch],
+    queryFn: () => base44.entities.InventoryProduct.filter({ branch, is_active: true }, "name"),
+    staleTime: 120000,
   });
 
   const { data: tasks = [] } = useQuery({
@@ -50,7 +50,7 @@ export default function InventoryCount() {
     tasks.filter(t => t.status === "مجدول" && isNotExpired(t))
       .sort((a, b) => a.task_date.localeCompare(b.task_date))[0] ||
     tasks.find(t => t.task_date === TODAY);
-  const branchProducts = products.filter(p => p.branch === branch && p.is_active !== false);
+  const branchProducts = products;
 
   return (
     <div className="p-4 md:p-6" dir="rtl">
