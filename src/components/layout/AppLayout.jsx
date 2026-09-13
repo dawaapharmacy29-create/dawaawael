@@ -3,6 +3,7 @@ import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, 
 import { Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
 import SmartAlerts from "@/components/layout/SmartAlerts";
@@ -88,7 +89,7 @@ export default function AppLayout() {
 
   const { data: pendingInvoices = [] } = useQuery({
     queryKey: ["pending-invoices-count"],
-    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }),
+    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
     staleTime: 60000,
   });
   const pendingCount = pendingInvoices.length;
