@@ -17,6 +17,7 @@ import ExpensesReport from "@/components/expenses/ExpensesReport";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
+import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 
 const EXPENSE_SORT_COLUMNS = [
   { field: "description", label: "الوصف", type: "text" },
@@ -98,17 +99,29 @@ export default function Expenses() {
   }, []);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Expense.create(data),
+    mutationFn: async (data) => {
+      await assertDailyCloseOpen(data.branch, data.date, "إضافة مصروف");
+      return base44.entities.Expense.create(data);
+    },
     onSuccess: (_, data) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-close-expenses"] });
       setDialogOpen(false);
       logActivity({ action_type: "create", entity_type: "expense", entity_label: data.description, details: `إضافة مصروف: ${data.description} - ${data.amount} ج` });
     },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      const current = expenses.find((e) => e.id === id) || {};
+      await assertDailyCloseOpen(current.branch, current.date || current.created_date?.slice(0, 10), "تعديل المصروف");
+      if (data.branch !== current.branch || data.date !== current.date) {
+        await assertDailyCloseOpen(data.branch, data.date, "نقل المصروف إلى يوم أو فرع آخر");
+      }
+      return base44.entities.Expense.update(id, data);
+    },
     onSuccess: (_, { data }) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-close-expenses"] });
       setDialogOpen(false);
       setEditing(null);
       logActivity({ action_type: "update", entity_type: "expense", entity_label: data.description, details: `تعديل مصروف: ${data.description}` });
@@ -117,6 +130,7 @@ export default function Expenses() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const expense = expenses.find((e) => e.id === id);
+      await assertDailyCloseOpen(expense?.branch, expense?.date || expense?.created_date?.slice(0, 10), "حذف المصروف");
       const res = await base44.functions.invoke("deleteExpenseSafe", {
         id,
         entity_type: "Expense",
@@ -129,6 +143,7 @@ export default function Expenses() {
     },
     onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-close-expenses"] });
       logActivity({ action_type: "delete", entity_type: "expense", entity_id: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
   });
