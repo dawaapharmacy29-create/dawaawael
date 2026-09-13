@@ -60,12 +60,13 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       total_sales: initialDraft.total_sales || "",
       notes: initialDraft.notes || "",
     });
+    const savedBreakdown = Number(initialDraft.cash_sales || 0) + Number(initialDraft.visa_sales || 0) + Number(initialDraft.insta_sales || 0) + Number(initialDraft.vodafone_sales || 0) + Number(initialDraft.other_sales || 0);
     setPayments({
       cash: initialDraft.cash_sales || "",
       visa: initialDraft.visa_sales || "",
       insta: initialDraft.insta_sales || "",
       vodafone: initialDraft.vodafone_sales || "",
-      other: initialDraft.other_sales || "",
+      other: initialDraft.other_sales || (savedBreakdown <= 0 && Number(initialDraft.total_sales || 0) > 0 ? initialDraft.total_sales : ""),
     });
     setCashHandover(initialDraft.cash_handover ?? "");
     setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses : [{ description: "", amount: "", category: "" }]);
@@ -221,6 +222,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         if (draftIdRef.current) {
           retryCountRef.current += 1;
           await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() });
+          qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
         }
         setError(message);
         return;
@@ -234,6 +236,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       }
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
+      qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
       setForm({
         branch: "",
         shift_type: "",
@@ -256,7 +259,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       const message = e.message || "حدث خطأ أثناء الحفظ";
       if (draftIdRef.current) {
         retryCountRef.current += 1;
-        try { await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() }); } catch {}
+        try { await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() }); qc.invalidateQueries({ queryKey: ["shift-drafts-active"] }); } catch {}
       }
       setError(message);
     } finally {
