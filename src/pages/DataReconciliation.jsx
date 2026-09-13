@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { normalizeInvoiceNumber, getInvoiceOfficialDate, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
@@ -53,13 +54,13 @@ export default function DataReconciliation() {
   });
   const { data: invoicesRaw = [], isLoading: loadingInvoices, refetch: refetchInvoices } = useQuery({
     queryKey: ["reconciliation-invoices", from, to, branch],
-    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
-      ...serverBranchFilter,
-      $or: [
-        { invoice_date: { $gte: from, $lte: to } },
-        { created_date: { $gte: `${from}T00:00:00`, $lte: `${to}T23:59:59` } },
-      ],
-    }, "invoice_date", 30000),
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from,
+      to,
+      extraFilter: serverBranchFilter,
+      sort: "invoice_date",
+      maxRows: 30000,
+    }),
     staleTime: 120000,
   });
   const { data: expenses = [], isLoading: loadingExpenses, refetch: refetchExpenses } = useQuery({
