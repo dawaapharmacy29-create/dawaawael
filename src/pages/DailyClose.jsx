@@ -268,7 +268,7 @@ export default function DailyClose() {
       {currentClose?.status === "closed" && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm"><b>اليوم مقفول.</b> تم الإقفال بواسطة {currentClose.closed_by || "—"} في {currentClose.closed_at ? new Date(currentClose.closed_at).toLocaleString("ar-EG") : "—"}. لا يتم تغيير البيانات تلقائيًا بواسطة سجل الإقفال.</div>}
 
       <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" onClick={() => saveReview.mutate()} disabled={!enabled || saveReview.isPending}>{audit.ready ? "حفظ المراجعة — جاهز" : "حفظ نتيجة المراجعة"}</Button>
+        <Button variant="outline" onClick={() => saveReview.mutate()} disabled={!enabled || saveReview.isPending || currentClose?.status === "closed"}>{currentClose?.status === "closed" ? "اليوم مقفول — أعد فتحه أولًا" : audit.ready ? "حفظ المراجعة — جاهز" : "حفظ نتيجة المراجعة"}</Button>
         {currentClose?.status !== "closed" && <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => closeDay.mutate()} disabled={!enabled || !audit.ready || closeDay.isPending}><LockKeyhole className="w-4 h-4 ml-1" />إقفال اليوم</Button>}
         {currentClose?.status === "closed" && <Button variant="outline" className="text-amber-700 border-amber-300" onClick={() => reopenDay.mutate()} disabled={reopenDay.isPending}><RotateCcw className="w-4 h-4 ml-1" />إعادة فتح للمراجعة</Button>}
       </div>
