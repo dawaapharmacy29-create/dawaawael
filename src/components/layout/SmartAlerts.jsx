@@ -18,21 +18,22 @@ export default function SmartAlerts() {
   });
 
   const { data: pendingInvoices = [] } = useQuery({
-    queryKey: ["alerts-pending-invoices"],
+    // نفس المفتاح المستخدم في القائمة الجانبية لتجنب طلب الشبكة المكرر لنفس البيانات.
+    queryKey: ["pending-invoices-count"],
     queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }),
-    staleTime: 30000,
+    staleTime: 60000,
   });
 
   const { data: returns = [] } = useQuery({
     queryKey: ["alerts-returns"],
     queryFn: () => base44.entities.Return.list("-created_date", 200),
-    staleTime: 30000,
+    staleTime: 120000,
   });
 
   const { data: expenses = [] } = useQuery({
     queryKey: ["alerts-expenses"],
     queryFn: () => base44.entities.Expense.list("-created_date", 50),
-    staleTime: 30000,
+    staleTime: 120000,
   });
 
   const alerts = useMemo(() => {
