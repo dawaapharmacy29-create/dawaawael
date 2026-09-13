@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
-  BRANCHES, computeDateRange, inDateRange, buildChartData, buildBranchComparison,
+  BRANCHES, computeDateRange, buildChartData, buildBranchComparison,
   buildSupplierAnalysis, computeTotalRemaining,
 } from "@/lib/financial-report-utils";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
@@ -112,13 +112,13 @@ export default function FinancialReports() {
 
   const duplicateHandoverGroups = useMemo(() => {
     const groups = new Map();
-    reviewableHandovers.forEach((record) => {
+    reviewableHandovers.filter((record) => branch === "all" || record.branch === branch).forEach((record) => {
       const key = `${record.branch || ""}|${record.shift_date || ""}|${record.shift_type || ""}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(record);
     });
     return Array.from(groups.values()).filter((records) => records.length > 1);
-  }, [reviewableHandovers]);
+  }, [reviewableHandovers, branch]);
 
   const kpiData = useMemo(() => ({
     totalSales: fHandovers.reduce((s,h) => s + (h.total_sales || 0), 0),
