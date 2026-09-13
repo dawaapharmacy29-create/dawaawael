@@ -29,6 +29,7 @@ const navItems = [
   { path: "/reports", label: "التقارير (إجمالي)", icon: BarChart2, section: "reports" },
   { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports" },
   { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports" },
+  { path: "/data-reconciliation", label: "مطابقة البيانات اليومية", icon: ShieldCheck, section: "reports" },
   { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية", icon: Wallet, adminOnly: true, section: "reports" },
   { path: "/purchase-reports", label: "تقارير المشتريات اليومي", icon: FileText, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري", icon: BarChart2, indent: true, section: "reports" },
