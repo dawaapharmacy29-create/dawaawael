@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, X } from "lucide-react";
+import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { isInvoiceInRange } from "@/lib/invoiceIdentity";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -60,7 +62,7 @@ export default function SupplierStatement({ branch, onClose }) {
     staleTime: 120000,
   });
 
-  const filtered = statementEnabled ? filteredRows : null;
+  const filtered = statementEnabled ? filteredRows.filter((i) => isInvoiceInRange(i, dateFrom, dateTo) && isInvoiceFinanciallyApproved(i)) : null;
   const periodPayments = useMemo(
     () => paymentRows.filter((p) => !p.branch || p.branch === branch),
     [paymentRows, branch]
