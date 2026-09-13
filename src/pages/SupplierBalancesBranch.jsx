@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CreditCard, ChevronDown, ChevronUp, Wallet, PlusCircle, Edit2, Loader2, FileText, Calendar, CalendarDays, Scale } from "lucide-react";
 import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
+import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -62,7 +63,7 @@ export default function SupplierBalancesBranch() {
         if (batch.length < PAGE) break;
         page++;
       }
-      return all;
+      return all.filter(isInvoiceFinanciallyApproved);
     },
     staleTime: 120000,
     placeholderData: (prev) => prev,
@@ -73,7 +74,7 @@ export default function SupplierBalancesBranch() {
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
   // الفواتير وصلت من الخادم مفلترة بالفعل على آجل + الفرع الحالي.
-  const invoices = allInvoices;
+  const invoices = allInvoices.filter(isInvoiceFinanciallyApproved);
 
   const addPayment = useMutation({
     mutationFn: async ({ invoice, amount, payment_date, notes }) => {
