@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, LockKeyhole, AlertTriangle, RefreshCw, RotateCcw } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { cairoTodayKey } from "@/lib/smart-commerce-analytics";
@@ -58,13 +59,13 @@ export default function DailyClose() {
 
   const { data: invoiceCandidates = [], isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
     queryKey: ["daily-close-invoices", businessDate, branch],
-    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
-      branch,
-      $or: [
-        { invoice_date: businessDate },
-        { created_date: { $gte: `${businessDate}T00:00:00`, $lte: `${businessDate}T23:59:59` } },
-      ],
-    }, "-created_date", 10000),
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: businessDate,
+      to: businessDate,
+      extraFilter: { branch },
+      sort: "-invoice_date",
+      maxRows: 10000,
+    }),
     enabled,
     staleTime: 30000,
   });
