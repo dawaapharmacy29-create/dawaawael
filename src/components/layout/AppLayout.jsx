@@ -1,6 +1,6 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
@@ -211,7 +211,16 @@ export default function AppLayout() {
           <SmartAlerts />
         </div>
         <div className="flex-1">
-          <Outlet />
+          <Suspense fallback={
+            <div className="min-h-[45vh] flex items-center justify-center">
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <div className="w-6 h-6 border-3 border-gray-200 border-t-teal-600 rounded-full animate-spin" />
+                جاري فتح الصفحة...
+              </div>
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>
