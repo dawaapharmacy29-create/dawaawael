@@ -13,6 +13,17 @@ import { useUserRole } from "@/lib/useUserRole";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
 
+async function loadAllRows(entity, sort, maxRows = 20000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.list(sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 const SBAL_SORT_COLUMNS = [
   { field: "name", label: "اسم المورد", type: "text" },
   { field: "totalNet", label: "الإجمالي", type: "number" },
@@ -48,7 +59,7 @@ export default function SupplierBalances() {
     placeholderData: (prev) => prev,
   });
 
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 60000 });
+  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => loadAllRows(base44.entities.SupplierPayment, "-payment_date"), staleTime: 120000 });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
 
