@@ -1,6 +1,4 @@
 import { useState, useRef } from "react";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileDown, Building2, Layers, Loader2 } from "lucide-react";
@@ -77,6 +75,12 @@ export default function FinancialReportExport({ handovers, invoices, suppliers =
   const handleExport = async () => {
     setExporting(true);
     try {
+      // مكتبات PDF/التصوير ثقيلة؛ لا تُحمّل إلا عند ضغط المستخدم على «تصدير».
+      const [{ jsPDF }, html2canvasModule] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
+      const html2canvas = html2canvasModule.default;
       const pages = buildPages();
       const doc = new jsPDF("p", "mm", "a4");
       const pageWidth = doc.internal.pageSize.getWidth();
