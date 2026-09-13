@@ -11,8 +11,17 @@ export default function LowStockAlert() {
 
   const { data: products = [] } = useQuery({
     queryKey: ["inventory-products-low-stock"],
-    queryFn: () => base44.entities.InventoryProduct.list(),
-    staleTime: 60000,
+    queryFn: async () => {
+      const PAGE = 500;
+      const rows = [];
+      for (let offset = 0; rows.length < 10000; offset += PAGE) {
+        const batch = await base44.entities.InventoryProduct.filter({ reorder_point: { $gt: 0 } }, "product_name", PAGE, offset);
+        rows.push(...batch);
+        if (batch.length < PAGE) break;
+      }
+      return rows;
+    },
+    staleTime: 120000,
   });
 
   // Only products where reorder_point is set (>0) and stock is at or below it
