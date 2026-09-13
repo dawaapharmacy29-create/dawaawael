@@ -15,6 +15,17 @@ import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
+async function loadAllRows(entity, sort, maxRows = 20000) {
+  const PAGE = 500;
+  const rows = [];
+  for (let offset = 0; rows.length < maxRows; offset += PAGE) {
+    const batch = await entity.list(sort, PAGE, offset);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.slice(0, maxRows);
+}
+
 function getBranchFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const b = params.get("branch");
@@ -56,7 +67,7 @@ export default function SupplierBalancesBranch() {
     staleTime: 120000,
     placeholderData: (prev) => prev,
   });
-  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => base44.entities.SupplierPayment.list("-payment_date", 2000), staleTime: 60000 });
+  const { data: payments = [] } = useQuery({ queryKey: ["supplier-payments"], queryFn: () => loadAllRows(base44.entities.SupplierPayment, "-payment_date"), staleTime: 120000 });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
   const { data: debts = [] } = useQuery({ queryKey: ["supplier-debts"], queryFn: () => base44.entities.SupplierDebt.list() });
   const { data: monthStarts = [] } = useQuery({ queryKey: ["supplier-month-starts"], queryFn: () => base44.entities.SupplierMonthStart.list() });
