@@ -18,6 +18,8 @@ export const INVOICE_STATUS_ORDER = {
   "تعلق تحت التصنف": 2,
   "تعلق تحت التصريف": 2,
   "يتم الحفظ": 3,
+  "معتمدة": 4,
+  "مرفوضة": 5,
 };
 export const PAYMENT_STATUS_ORDER = { "كاش": 1, "انستا": 2, "فودافون": 3, "مختلط": 4, "آجل": 5 };
 export const CATEGORY_ORDER = { medicines: 1, supplies_accessories: 2, unclassified: 3 };
