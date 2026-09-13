@@ -1,16 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { secrets } from "base44:runtime";
 import { sendToSupabase, isConfigured } from '../../shared/dawaaSync.ts';
 
 const MANAGEMENT_SYNC_ENDPOINT = 'https://jkjqeqkshllustwlzzbf.supabase.co/functions/v1/dawaawael-customer-order-sync';
+
+function getSecret(name: string): string {
+  return Deno.env.get(name) || '';
+}
 
 async function syncCustomerOrderToManagement({ record_id, event_type, payload, source_created_at, source_updated_at }) {
   if (!["create", "update"].includes(String(event_type))) {
     return { success: true, skipped: true, reason: 'event_type_not_mirrored' };
   }
 
-  const endpoint = secrets.get("DAWAA_PHARMACY_SYNC_ENDPOINT") || MANAGEMENT_SYNC_ENDPOINT;
-  const secret = secrets.get("DAWAA_PHARMACY_SYNC_SECRET") || "";
+  const endpoint = getSecret("DAWAA_PHARMACY_SYNC_ENDPOINT") || MANAGEMENT_SYNC_ENDPOINT;
+  const secret = getSecret("DAWAA_PHARMACY_SYNC_SECRET");
   if (!secret) {
     return { success: false, status: 0, error: 'DAWAA_PHARMACY_SYNC_SECRET missing' };
   }
@@ -88,8 +91,8 @@ export default async function(req: Request): Promise<Response> {
       });
     }
 
-    const endpoint = secrets.get("DAWAA_SYNC_ENDPOINT") || "";
-    const secret = secrets.get("DAWAA_SYNC_SECRET") || "";
+    const endpoint = getSecret("DAWAA_SYNC_ENDPOINT");
+    const secret = getSecret("DAWAA_SYNC_SECRET");
     const now = new Date().toISOString();
     const attemptNo = Number(outbox.attempts || 0) + 1;
 
