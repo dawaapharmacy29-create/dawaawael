@@ -13,6 +13,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 
 const MBAL_SORT_COLUMNS = [
   { field: "branch", label: "الفرع", type: "text" },
@@ -58,7 +59,7 @@ export default function MedicineBalanceTab() {
   // نجلب كل السجلات ونفلتر محلياً على record_type === "balance"
   const { data: rawRecords = [], isLoading } = useQuery({
     queryKey: ["medicine-balance-records"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-week_start"),
     staleTime: 15000,
   });
   const allRecords = rawRecords.filter((r) => r.record_type === "balance" && r.is_archived !== true);
