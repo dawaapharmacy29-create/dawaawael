@@ -80,16 +80,19 @@ export default function PendingInvoices() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      if (data?.branch && data?.system_invoice_number) {
-        const current = invoices.find((inv) => inv.id === id);
-        const effectiveDate = data.invoice_date || getInvoiceEffectiveDate(current) || "";
-        const canonicalNumber = normalizeInvoiceNumber(data.system_invoice_number);
+      const current = invoices.find((inv) => inv.id === id) || {};
+      const next = { ...current, ...data };
+      const identityChanged = ["system_invoice_number", "branch", "invoice_date"].some((field) => data?.[field] !== undefined && data[field] !== current[field]);
+      const becomingFinancial = data?.status && !["انتظار المراجعة", "مرفوضة"].includes(data.status);
+      if ((identityChanged || becomingFinancial) && next.branch && next.system_invoice_number) {
+        const effectiveDate = getInvoiceEffectiveDate(next) || "";
+        const canonicalNumber = normalizeInvoiceNumber(next.system_invoice_number);
         const candidates = effectiveDate
-          ? await base44.entities.PurchaseInvoice.filter({ branch: data.branch, invoice_date: effectiveDate }, "-created_date", 1000)
-          : await base44.entities.PurchaseInvoice.filter({ branch: data.branch }, "-created_date", 1000);
+          ? await base44.entities.PurchaseInvoice.filter({ branch: next.branch, invoice_date: effectiveDate }, "-created_date", 1000)
+          : await base44.entities.PurchaseInvoice.filter({ branch: next.branch }, "-created_date", 1000);
         const duplicate = candidates.some((inv) => inv.id !== id && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber && getInvoiceEffectiveDate(inv) === effectiveDate);
         if (duplicate) {
-          throw new Error(`الفاتورة "${data.system_invoice_number}" موجودة بالفعل في ${data.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
+          throw new Error(`لا يمكن اعتماد الفاتورة قبل حل التكرار: "${next.system_invoice_number}" موجودة بالفعل في ${next.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
         }
       }
       return base44.entities.PurchaseInvoice.update(id, data);
@@ -101,6 +104,8 @@ export default function PendingInvoices() {
       qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
       qc.invalidateQueries({ queryKey: ["reports-invoices"] });
       qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
+      qc.invalidateQueries({ queryKey: ["pending-review-range-invoices"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-invoices"] });
       setDialogOpen(false);
       setEditingInvoice(null);
       logActivity({ action_type: "update", entity_type: "invoice", entity_id: _.id, entity_label: data.system_invoice_number, details: `تعديل فاتورة` });
@@ -126,6 +131,8 @@ export default function PendingInvoices() {
       qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
       qc.invalidateQueries({ queryKey: ["reports-invoices"] });
       qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
+      qc.invalidateQueries({ queryKey: ["pending-review-range-invoices"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-invoices"] });
       setSelectedIds((prev) => prev.filter((s) => s !== id));
       logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
