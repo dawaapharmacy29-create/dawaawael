@@ -8,6 +8,7 @@ import {
   ShoppingCart, Target, TrendingDown, TrendingUp, WalletCards,
 } from "lucide-react";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import {
   ANALYTICS_BRANCHES, cairoTodayKey, cycleRangeFor, calendarMonthRange,
   previousComparableRange, clampRangeToToday, summarizePeriod, growth, average,
@@ -102,12 +103,12 @@ export default function SmartCommerceAnalytics() {
   });
   const { data: invoices = [], isLoading: purchaseLoading } = useQuery({
     queryKey: ["smart-analytics-purchases", analyticsDataRange.from, analyticsDataRange.to, branch],
-    queryFn: () => loadAllEntityRows(base44.entities.PurchaseInvoice, "-invoice_date", 10000, {
-      ...branchQuery,
-      $or: [
-        { invoice_date: { $gte: analyticsDataRange.from, $lte: analyticsDataRange.to } },
-        { created_date: { $gte: `${analyticsDataRange.from}T00:00:00`, $lte: `${analyticsDataRange.to}T23:59:59` } },
-      ],
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: analyticsDataRange.from,
+      to: analyticsDataRange.to,
+      extraFilter: branchQuery,
+      sort: "-invoice_date",
+      maxRows: 10000,
     }),
     staleTime: 120000,
   });
