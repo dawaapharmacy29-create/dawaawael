@@ -10,6 +10,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 import * as XLSX from "xlsx";
 
 const AUDIT_SORT_COLUMNS = [
@@ -103,7 +104,8 @@ export default function SecurityAuditPage() {
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["security-audit-logs"],
-    queryFn: () => base44.entities.ActivityLog.list("-created_date", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.ActivityLog, "-created_date", 20000),
+    staleTime: 120000,
   });
 
   const filtered = useMemo(() => {
