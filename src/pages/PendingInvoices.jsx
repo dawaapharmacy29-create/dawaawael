@@ -27,6 +27,14 @@ export default function PendingInvoices() {
   const qc = useQueryClient();
   const { canSaveInvoice, canDeleteInvoice } = useUserRole();
 
+  const invalidateInvoiceCaches = () => {
+    [
+      ["pending-invoices"], ["purchase-invoices"], ["pending-invoices-count"],
+      ["purchase-reports-invoices"], ["reports-invoices"], ["smart-analytics-purchases"],
+      ["pending-review-range-invoices"], ["daily-close-invoices"], ["supplier-credit-invoices"],
+    ].forEach((queryKey) => qc.invalidateQueries({ queryKey }));
+  };
+
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["pending-invoices"],
     queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
@@ -98,14 +106,7 @@ export default function PendingInvoices() {
       return base44.entities.PurchaseInvoice.update(id, data);
     },
     onSuccess: (_, { data }) => {
-      qc.invalidateQueries({ queryKey: ["pending-invoices"] });
-      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
-      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
-      qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
-      qc.invalidateQueries({ queryKey: ["reports-invoices"] });
-      qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
-      qc.invalidateQueries({ queryKey: ["pending-review-range-invoices"] });
-      qc.invalidateQueries({ queryKey: ["daily-close-invoices"] });
+      invalidateInvoiceCaches();
       setDialogOpen(false);
       setEditingInvoice(null);
       logActivity({ action_type: "update", entity_type: "invoice", entity_id: _.id, entity_label: data.system_invoice_number, details: `تعديل فاتورة` });
@@ -126,33 +127,62 @@ export default function PendingInvoices() {
     },
     onSuccess: (id) => {
       qc.setQueryData(["pending-invoices"], (old = []) => old.filter((inv) => inv.id !== id));
-      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
-      qc.invalidateQueries({ queryKey: ["pending-invoices-count"] });
-      qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
-      qc.invalidateQueries({ queryKey: ["reports-invoices"] });
-      qc.invalidateQueries({ queryKey: ["smart-analytics-purchases"] });
-      qc.invalidateQueries({ queryKey: ["pending-review-range-invoices"] });
-      qc.invalidateQueries({ queryKey: ["daily-close-invoices"] });
+      invalidateInvoiceCaches();
       setSelectedIds((prev) => prev.filter((s) => s !== id));
       logActivity({ action_type: "delete", entity_type: "invoice", entity_id: id, entity_label: id, details: `حذف آمن بعد حفظ Snapshot كامل` });
     },
   });
 
+  const bulkSaveMutation = useMutation({
+    mutationFn: async (selected) => {
+      const groupedChecks = new Map();
+      selected.forEach((inv) => {
+        const date = getInvoiceEffectiveDate(inv) || "";
+        const key = `${inv.branch || ""}|${date}`;
+        if (!groupedChecks.has(key)) groupedChecks.set(key, { branch: inv.branch, date });
+      });
+
+      const serverGroups = new Map();
+      await Promise.all([...groupedChecks.entries()].map(async ([key, meta]) => {
+        const rows = meta.date
+          ? await base44.entities.PurchaseInvoice.filter({ branch: meta.branch, invoice_date: meta.date }, "-created_date", 1000)
+          : await base44.entities.PurchaseInvoice.filter({ branch: meta.branch }, "-created_date", 1000);
+        serverGroups.set(key, rows);
+      }));
+
+      const unsafe = selected.filter((inv) => {
+        const date = getInvoiceEffectiveDate(inv) || "";
+        const group = serverGroups.get(`${inv.branch || ""}|${date}`) || [];
+        const canonical = normalizeInvoiceNumber(inv.system_invoice_number);
+        const duplicate = group.some((other) => other.id !== inv.id && normalizeInvoiceNumber(other.system_invoice_number) === canonical && getInvoiceEffectiveDate(other) === date);
+        const zeroExternal = (inv.transaction_type || "external_purchase") !== "internal_transfer" && Number(inv.total_value || 0) <= 0;
+        return duplicate || zeroExternal;
+      });
+      if (unsafe.length) throw new Error(`${unsafe.length} فاتورة تحتاج مراجعة فردية لأنها بقيمة صفر أو مشتبه تكرار.`);
+
+      for (let i = 0; i < selected.length; i += 5) {
+        const chunk = selected.slice(i, i + 5);
+        await Promise.all(chunk.map((inv) => base44.entities.PurchaseInvoice.update(inv.id, { status: "يتم الحفظ" })));
+      }
+      await logActivity({ action_type: "bulk_status_change", entity_type: "invoice", entity_label: `${selected.length} فاتورة`, details: `اعتماد جماعي آمن: تحويل ${selected.length} فاتورة من انتظار المراجعة إلى يتم الحفظ بعد فحص التكرار والقيم الصفرية.` });
+      return selected.length;
+    },
+    onSuccess: () => {
+      setBulkWarning("");
+      setSelectedIds([]);
+      setConfirmSave(false);
+      invalidateInvoiceCaches();
+    },
+    onError: (error) => {
+      setBulkWarning(`تم إيقاف الاعتماد الجماعي: ${error?.message || "توجد فواتير تحتاج مراجعة فردية."}`);
+      setConfirmSave(false);
+    },
+  });
+
   const executeBulkSave = () => {
     const selected = invoices.filter((i) => selectedIds.includes(i.id));
-    const unsafe = selected.filter((inv) => {
-      const zeroExternal = (inv.transaction_type || "external_purchase") !== "internal_transfer" && Number(inv.total_value || 0) <= 0;
-      const suspectedDuplicate = duplicateKeys.has(getInvoiceCanonicalKey(inv));
-      return zeroExternal || suspectedDuplicate;
-    });
-    if (unsafe.length > 0) {
-      setBulkWarning(`تم إيقاف الاعتماد الجماعي: ${unsafe.length} فاتورة من المحدد تحتاج مراجعة فردية لأنها بقيمة صفر أو مشتبه تكرار.`);
-      setConfirmSave(false);
-      return;
-    }
-    setBulkWarning("");
-    selected.forEach((inv) => updateMutation.mutate({ id: inv.id, data: { ...inv, status: "يتم الحفظ" } }));
-    setSelectedIds([]);
+    if (!selected.length) return;
+    bulkSaveMutation.mutate(selected);
   };
 
   const executeBulkDelete = () => {
@@ -273,7 +303,7 @@ export default function PendingInvoices() {
         title="تأكيد التحويل"
         description={`هل أنت متأكد من تحويل ${selectedIds.length} فاتورة إلى "يتم الحفظ"؟`}
         onConfirm={executeBulkSave}
-        confirmLabel="تحويل"
+        confirmLabel={bulkSaveMutation.isPending ? "جاري الاعتماد..." : "تحويل"}
         confirmClass="bg-green-600 hover:bg-green-700"
       />
     </div>
