@@ -83,6 +83,7 @@ export default function Dashboard() {
   };
 
   const applyDateFilter = () => setPeriod(tempDate);
+  const currentMonth = dateFilter.to.slice(0, 7);
 
   useEffect(() => { setEditingTarget(false); }, [branch]);
 
@@ -158,7 +159,6 @@ export default function Dashboard() {
   }, [qc]);
 
   // التارجت يُنسب لشهر نهاية دورة 26→25 المختارة، مثل 26-08 → 25-09 = 2026-09.
-  const currentMonth = dateFilter.to.slice(0, 7);
   const { data: targetGoals = [] } = useQuery({
     queryKey: ["target-goals"],
     queryFn: () => base44.entities.TargetGoal.list(),
