@@ -14,6 +14,7 @@ import MonthlyBranchReport from "@/components/reports/MonthlyBranchReport";
 import { useUserRole } from "@/lib/useUserRole";
 import { Lock, Settings2, Save } from "lucide-react";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -85,13 +86,13 @@ export default function ReportsBranch() {
   });
   const { data: expenses = [] } = useQuery({
     queryKey: ["reports-branch-expenses", branch, activeFrom, activeTo],
-    queryFn: () => base44.entities.Expense.filter({
+    queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
       branch,
       $or: [
         { date: { $gte: activeFrom, $lte: activeTo } },
         { created_date: { $gte: `${activeFrom}T00:00:00`, $lte: `${activeTo}T23:59:59` } },
       ],
-    }, "-created_date", 5000),
+    }, "-created_date"),
     staleTime: 120000,
   });
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
