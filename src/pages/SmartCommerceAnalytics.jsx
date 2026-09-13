@@ -90,8 +90,9 @@ export default function SmartCommerceAnalytics() {
     from: prevRanges[prevRanges.length - 1]?.from || currentRange.from,
     to: currentRange.to,
   }), [prevRanges, currentRange]);
+  const managementMonth = (fullRange.to || fullRange.from || "").slice(0, 7);
 
-  const branchQuery = branch === "all" ? {} : { branch };
+  const branchQuery = branch === "all" ? {} : { branch }; 
 
   const { data: handovers = [], isLoading: salesLoading } = useQuery({
     queryKey: ["smart-analytics-handovers", analyticsDataRange.from, analyticsDataRange.to, branch],
@@ -118,9 +119,9 @@ export default function SmartCommerceAnalytics() {
     staleTime: 60000,
   });
   const { data: targets = [] } = useQuery({
-    queryKey: ["smart-analytics-targets"],
-    queryFn: () => base44.entities.TargetGoal.list(),
-    staleTime: 60000,
+    queryKey: ["smart-analytics-targets", managementMonth],
+    queryFn: () => base44.entities.TargetGoal.filter({ month: managementMonth }, "branch"),
+    staleTime: 300000,
   });
   const { data: purchaseBudgets = [] } = useQuery({
     queryKey: ["smart-analytics-purchase-budgets"],
@@ -128,9 +129,9 @@ export default function SmartCommerceAnalytics() {
     staleTime: 60000,
   });
   const { data: purchaseTargetHistory = [] } = useQuery({
-    queryKey: ["smart-analytics-purchase-target-history"],
-    queryFn: () => base44.entities.PurchaseTargetHistory.list("-month"),
-    staleTime: 60000,
+    queryKey: ["smart-analytics-purchase-target-history", managementMonth],
+    queryFn: () => base44.entities.PurchaseTargetHistory.filter({ month: managementMonth }, "branch"),
+    staleTime: 300000,
   });
 
   const current = useMemo(() => summarizePeriod({ handovers, invoices, suppliers, ...currentRange, branch }), [handovers, invoices, suppliers, currentRange, branch]);
@@ -152,7 +153,6 @@ export default function SmartCommerceAnalytics() {
   const selectedSalesTarget = branch === "all"
     ? ANALYTICS_BRANCHES.reduce((sum, b) => sum + targetForRange(targets, b, fullRange), 0)
     : targetForRange(targets, branch, fullRange);
-  const managementMonth = (fullRange.to || fullRange.from || "").slice(0, 7);
   const purchaseBudgetFor = (b) => purchaseTargetHistory.find((x) => x.branch === b && x.month === managementMonth)?.target_amount
     || purchaseBudgets.find((x) => x.branch === b)?.budget_limit
     || 0;
