@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +24,7 @@ export default function NewListCycleDialog({ open, onOpenChange }) {
 
   const { data: sales = [] } = useQuery({
     queryKey: ["medicine-sales"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-week_start"),
     staleTime: 15000,
   });
 
