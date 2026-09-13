@@ -67,17 +67,27 @@ export default function FinancialReports() {
   );
 
   const periodEnabled = Boolean(dateFrom && dateTo);
+  const periodBranchFilter = branch === "all" ? {} : { branch };
+  const periodInvoiceFilter = {
+    ...periodBranchFilter,
+    ...(supplier === "all" ? {} : { supplier_name: supplier }),
+  };
+  const periodPaymentFilter = {
+    payment_date: { $gte: dateFrom, $lte: dateTo },
+    ...(supplier === "all" ? {} : { supplier_name: supplier }),
+  };
   const { data: handovers = [] } = useQuery({
-    queryKey: ["shift-deliveries-fr", dateFrom, dateTo],
-    queryFn: () => loadAllFiltered(base44.entities.ShiftDelivery, { shift_date: { $gte: dateFrom, $lte: dateTo } }, "-shift_date"),
+    queryKey: ["shift-deliveries-fr", dateFrom, dateTo, branch],
+    queryFn: () => loadAllFiltered(base44.entities.ShiftDelivery, { ...periodBranchFilter, shift_date: { $gte: dateFrom, $lte: dateTo } }, "-shift_date"),
     enabled: periodEnabled,
     staleTime: 120000,
   });
   const { data: invoices = [] } = useQuery({
-    queryKey: ["purchase-invoices-fr", dateFrom, dateTo],
+    queryKey: ["purchase-invoices-fr", dateFrom, dateTo, branch, supplier],
     queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
       from: dateFrom,
       to: dateTo,
+      extraFilter: periodInvoiceFilter,
       sort: "-invoice_date",
       maxRows: 20000,
     }),
@@ -85,8 +95,8 @@ export default function FinancialReports() {
     staleTime: 120000,
   });
   const { data: payments = [] } = useQuery({
-    queryKey: ["supplier-payments-fr", dateFrom, dateTo],
-    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, { payment_date: { $gte: dateFrom, $lte: dateTo } }, "-payment_date"),
+    queryKey: ["supplier-payments-fr", dateFrom, dateTo, supplier],
+    queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, periodPaymentFilter, "-payment_date"),
     enabled: periodEnabled,
     staleTime: 120000,
   });
