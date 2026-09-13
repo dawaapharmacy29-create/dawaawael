@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { getRecordedAt } from "@/lib/shiftUtils";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -13,6 +13,7 @@ import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyClose
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
+const PAYMENT_EXPENSE_NAMES = new Set(["انستا", "فيزا", "فودافون كاش", "فودافون", "Visa", "Insta"]);
 
 export default function ShiftDeliveryForm({ onSaved }) {
   const qc = useQueryClient();
@@ -27,7 +28,7 @@ export default function ShiftDeliveryForm({ onSaved }) {
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
     staleTime: 60000,
   });
-  const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false);
+  const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false && !PAYMENT_EXPENSE_NAMES.has((i.name || "").trim()));
 
   const [form, setForm] = useState({
     branch: "",
@@ -37,9 +38,15 @@ export default function ShiftDeliveryForm({ onSaved }) {
     total_sales: "",
     notes: "",
   });
+  const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+  const [cashHandover, setCashHandover] = useState("");
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [draftState, setDraftState] = useState("");
+  const draftIdRef = useRef(null);
+  const draftKeyRef = useRef("");
+  const submissionTokenRef = useRef(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shift-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   // تاريخ ووقت التسجيل يظهر تلقائيًا ولا يمكن للمستخدم تعديله
   const [now, setNow] = useState(new Date());
@@ -48,11 +55,57 @@ export default function ShiftDeliveryForm({ onSaved }) {
     return () => clearInterval(t);
   }, []);
 
+  const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
   const totalExpenses = useMemo(
     () => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0),
     [expenses]
   );
-  const netAmount = (parseFloat(form.total_sales) || 0) - totalExpenses;
+  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - totalExpenses);
+  const actualCashHandover = parseFloat(cashHandover) || 0;
+  const cashVariance = actualCashHandover - expectedCashHandover;
+  const netAmount = paymentTotal - totalExpenses;
+
+  useEffect(() => {
+    if (!form.branch || !form.shift_type || !form.employee_map_id) return;
+    const businessDate = currentShiftBusinessDate(form.shift_type);
+    const draftKey = `${form.branch}|${businessDate}|${form.shift_type}|${form.employee_map_id}`;
+    if (draftKeyRef.current !== draftKey) {
+      draftKeyRef.current = draftKey;
+      draftIdRef.current = null;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        setDraftState("جاري حفظ المسودة...");
+        const payload = {
+          draft_key: draftKey,
+          branch: form.branch,
+          business_date: businessDate,
+          shift_type: form.shift_type,
+          employee_map_id: form.employee_map_id,
+          employee_name: employeeNameMap.find((m) => m.id === form.employee_map_id)?.canonical_name || "",
+          total_sales: paymentTotal,
+          expenses: expenses.map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "" })),
+          notes: form.notes || "",
+          status: "draft",
+          last_saved_at: new Date().toISOString(),
+          submission_token: submissionTokenRef.current,
+        };
+        if (!draftIdRef.current) {
+          const existing = await base44.entities.ShiftDraft.filter({ draft_key: draftKey, status: "draft" }, "-updated_date", 1);
+          if (existing[0]) draftIdRef.current = existing[0].id;
+        }
+        if (draftIdRef.current) await base44.entities.ShiftDraft.update(draftIdRef.current, payload);
+        else {
+          const created = await base44.entities.ShiftDraft.create(payload);
+          draftIdRef.current = created.id;
+        }
+        setDraftState("تم حفظ المسودة تلقائيًا");
+      } catch {
+        setDraftState("تعذر حفظ المسودة — البيانات ما زالت موجودة على الشاشة");
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap]);
 
   const updateExpense = (idx, field, value) => {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
