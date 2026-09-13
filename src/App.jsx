@@ -44,6 +44,7 @@ const AdminExpensesReports = lazy(() => import('./pages/AdminExpensesReports'));
 const SmartCommerceAnalytics = lazy(() => import('./pages/SmartCommerceAnalytics'));
 const SystemHealth = lazy(() => import('./pages/SystemHealth')); 
 const DataReconciliation = lazy(() => import('./pages/DataReconciliation'));
+const DailyClose = lazy(() => import('./pages/DailyClose'));
 import { setNumbersHidden } from "@/lib/westernDigits";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
 
@@ -113,6 +114,7 @@ const AuthenticatedApp = () => {
         <Route path="/employee-hr" element={<EmployeeHR />} />
         <Route path="/system-health" element={<SystemHealth />} />
         <Route path="/data-reconciliation" element={<DataReconciliation />} />
+        <Route path="/daily-close" element={<DailyClose />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
