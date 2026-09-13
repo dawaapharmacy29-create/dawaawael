@@ -16,6 +16,7 @@ import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { CATEGORY_LABELS, TRANSACTION_TYPE_LABELS, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
+import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -170,6 +171,17 @@ export default function PurchaseInvoices() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, batch_id, change_type, reason }) => {
       const oldInv = invoices.find((i) => i.id === id) || {};
+      const nextIdentity = { ...oldInv, ...data };
+      const identityChanged = ["system_invoice_number", "branch", "invoice_date"].some((field) => data[field] !== undefined && data[field] !== oldInv[field]);
+      if (identityChanged && nextIdentity.branch && nextIdentity.system_invoice_number) {
+        const effectiveDate = getInvoiceEffectiveDate(nextIdentity) || "";
+        const canonicalNumber = normalizeInvoiceNumber(nextIdentity.system_invoice_number);
+        const candidates = effectiveDate
+          ? await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch, invoice_date: effectiveDate }, "-created_date", 1000)
+          : await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch }, "-created_date", 1000);
+        const duplicate = candidates.some((inv) => inv.id !== id && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber && getInvoiceEffectiveDate(inv) === effectiveDate);
+        if (duplicate) throw new Error(`لا يمكن حفظ التعديل: الفاتورة "${nextIdentity.system_invoice_number}" موجودة بالفعل في ${nextIdentity.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
+      }
       await base44.entities.PurchaseInvoice.update(id, data);
       const trackedFields = ["total_value", "paid_value", "returned_value", "supplier_name", "branch", "payment_type", "purchase_category", "net_purchase_mode", "exclusion_reason", "status"];
       const changes = trackedFields.filter(f => data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(oldInv[f]));
