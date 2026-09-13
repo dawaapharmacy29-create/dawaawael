@@ -202,8 +202,8 @@ export default function FinancialReports() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">التقارير المالية</h1>
         <FinancialReportExport
-          handovers={activeHandovers}
-          invoices={periodInvoices}
+          handovers={fHandovers}
+          invoices={fInvoices}
           suppliers={suppliers}
           dateFrom={dateFrom}
           dateTo={dateTo}
