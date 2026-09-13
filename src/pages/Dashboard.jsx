@@ -11,7 +11,7 @@ import BudgetAlert from "@/components/dashboard/BudgetAlert";
 import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
 import BranchSelector from "@/components/dashboard/BranchSelector";
-import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cycleRangeFor, previousComparableRange, cairoTodayKey, daysInclusive } from "@/lib/smart-commerce-analytics";
@@ -199,7 +199,8 @@ export default function Dashboard() {
     const d = e.date || e.created_date?.split("T")[0];
     return d && d >= monthStart && d <= monthEnd;
   });
-  const branchMonthInvoices = branch === "all" ? monthInvoices : monthInvoices.filter((i) => i.branch === branch);
+  const branchMonthInvoicesAllStatuses = branch === "all" ? monthInvoices : monthInvoices.filter((i) => i.branch === branch);
+  const branchMonthInvoices = branchMonthInvoicesAllStatuses.filter(isInvoiceFinanciallyApproved);
   const branchMonthExpenses = branch === "all" ? monthExpenses : monthExpenses.filter((e) => e.branch === branch);
 
   const totalInvoiceValue = branchMonthInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
@@ -238,7 +239,7 @@ export default function Dashboard() {
   const projectedPurchases = elapsedDays > 0 ? (totalInvoiceValue / elapsedDays) * periodDays : totalInvoiceValue;
   const salesProjectionPct = salesTargetAmount > 0 ? (projectedSales / salesTargetAmount) * 100 : null;
   const purchaseProjectionPct = purchaseTargetAmount > 0 ? (projectedPurchases / purchaseTargetAmount) * 100 : null;
-  const pending = invoices.filter((i) => i.status === "انتظار المراجعة" && (branch === "all" || i.branch === branch)).length;
+  const pending = branchMonthInvoicesAllStatuses.filter((i) => i.status === "انتظار المراجعة").length;
   const totalCashPurchases = branchMonthInvoices
     .filter((i) => !isInvoiceExcluded(i, suppliers).excluded)
     .reduce((s, i) => s + getInvoiceCashAmount(i), 0);
@@ -372,7 +373,7 @@ export default function Dashboard() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {BRANCHES.map((branch) => {
-            const branchInvoices = monthInvoices.filter((i) => i.branch === branch);
+            const branchInvoices = monthInvoices.filter((i) => i.branch === branch && isInvoiceFinanciallyApproved(i));
             const branchNetInvoices = branchInvoices.filter((i) => !isInvoiceExcluded(i, suppliers).excluded);
             const branchTotal = branchNetInvoices.reduce((s, i) => s + getInvoiceNetAmount(i, suppliers), 0);
             const branchPaid = branchInvoices.reduce((s, i) => s + (i.paid_value || 0), 0);
