@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
 const VALID_BRANCHES = new Set(['دواء شكري', 'دواء الشامي']);
 const VALID_PAYMENT_TYPES = new Set(['كاش', 'آجل', 'انستا', 'فودافون', 'مختلط']);
-const VALID_STATUSES = new Set(['انتظار المراجعة', 'يتم الحفظ', 'تعلق تحت التصريف']);
+const VALID_STATUSES = new Set(['انتظار المراجعة', 'يتم الحفظ', 'تعلق تحت التصريف', 'معتمدة', 'مرفوضة']);
 const VALID_CATEGORIES = new Set(['medicines', 'supplies_accessories', 'unclassified']);
 const VALID_TRANSACTION_TYPES = new Set(['external_purchase', 'internal_transfer']);
 const VALID_NET_MODES = new Set(['inherit', 'include', 'exclude']);
