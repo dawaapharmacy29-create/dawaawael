@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { GitCompareArrows } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { fetchAllParallel } from "@/lib/paginatedFetch";
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
@@ -22,28 +23,32 @@ function dayLabel(dateKey) {
   return `${d}/${m}`;
 }
 
-export default function MonthlySalesPurchasesChart({ invoices, suppliers = [] }) {
-  const { data: deliveries = [], isLoading } = useQuery({
-    queryKey: ["shift-deliveries-monthly-chart"],
-    queryFn: async () => {
-      const PAGE = 500;
-      let all = [];
-      let page = 0;
-      while (true) {
-        const batch = await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
-        all = [...all, ...batch];
-        if (batch.length < PAGE) break;
-        page++;
-      }
-      return all;
-    },
-    staleTime: 60000,
+export default function MonthlySalesPurchasesChart({ suppliers = [] }) {
+  const start = monthStartStr();
+  const end = todayStr();
+
+  const { data: deliveries = [], isLoading: deliveriesLoading } = useQuery({
+    queryKey: ["shift-deliveries-monthly-chart", start, end],
+    queryFn: () => base44.entities.ShiftDelivery.filter({ shift_date: { $gte: start, $lte: end } }, "-shift_date", 1000),
+    staleTime: 120000,
   });
 
-  const chartData = useMemo(() => {
-    const start = monthStartStr();
-    const end = todayStr();
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ["purchase-invoices-monthly-chart", start, end],
+    queryFn: () => fetchAllParallel(base44.entities.PurchaseInvoice, {
+      pageSize: 1000,
+      query: {
+        $or: [
+          { invoice_date: { $gte: start, $lte: end } },
+          { created_date: { $gte: `${start}T00:00:00`, $lte: `${end}T23:59:59` } },
+        ],
+      },
+    }),
+    staleTime: 120000,
+  });
+  const isLoading = deliveriesLoading || invoicesLoading;
 
+  const chartData = useMemo(() => {
     const salesByDay = {};
     deliveries.forEach((d) => {
       if (d.is_archived === true || !d.shift_date || d.shift_date < start || d.shift_date > end) return;
@@ -70,7 +75,7 @@ export default function MonthlySalesPurchasesChart({ invoices, suppliers = [] })
       cursor.setDate(cursor.getDate() + 1);
     }
     return days;
-  }, [deliveries, invoices, suppliers]);
+  }, [deliveries, invoices, suppliers, start, end]);
 
   return (
     <Card className="p-4">
