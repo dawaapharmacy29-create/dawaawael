@@ -208,6 +208,7 @@ export default function LoansTab() {
                         <TableCell><Badge className={statusColor[l.status] || "bg-gray-100"}>{l.status}</Badge></TableCell>
                         <TableCell>
                           <div className="flex gap-0.5">
+                            {remaining > 0 && l.status !== "ملغاة" && <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" title="تسجيل سداد أو قسط" onClick={() => { setPaymentLoan(l); setPaymentForm({ amount: Math.min(remaining, l.monthly_deduction || remaining).toString(), transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "installment", payroll_month: new Date().toISOString().slice(0, 7), notes: "" }); }}><Banknote className="w-3.5 h-3.5" /></Button>}
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" onClick={() => { setEditing(l); setDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => deleteMut.mutate(l.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
@@ -236,6 +237,7 @@ export default function LoansTab() {
                       <span>{l.date}</span>
                     </div>
                     <div className="flex gap-1 mt-2">
+                      {remaining > 0 && l.status !== "ملغاة" && <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-700" onClick={() => { setPaymentLoan(l); setPaymentForm({ amount: Math.min(remaining, l.monthly_deduction || remaining).toString(), transaction_date: new Date().toISOString().slice(0, 10), transaction_type: "installment", payroll_month: new Date().toISOString().slice(0, 7), notes: "" }); }}><Banknote className="w-3 h-3" /> تسجيل سداد</Button>}
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditing(l); setDialogOpen(true); }}><Pencil className="w-3 h-3" /> تعديل</Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs text-red-500" onClick={() => deleteMut.mutate(l.id)}><Trash2 className="w-3 h-3" /> حذف</Button>
                     </div>
@@ -246,6 +248,29 @@ export default function LoansTab() {
           </>
         )}
       </Card>
+
+      <Dialog open={!!paymentLoan} onOpenChange={(open) => !open && setPaymentLoan(null)}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader><DialogTitle>تسجيل حركة على السلفة</DialogTitle></DialogHeader>
+          {paymentLoan && <div className="space-y-3">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <p><b>{paymentLoan.employee_name}</b> — {paymentLoan.branch}</p>
+              <p className="text-gray-500 mt-1">المتبقي الحالي: <b className="text-orange-700">{Math.max(0, (paymentLoan.amount || 0) - (paymentLoan.paid_amount || 0)).toLocaleString("ar-EG")} ج</b></p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1"><Label className="text-xs">نوع الحركة</Label><select className="h-9 w-full rounded-md border px-2 text-sm" value={paymentForm.transaction_type} onChange={(e) => setPaymentForm((f) => ({ ...f, transaction_type: e.target.value }))}><option value="installment">قسط من المرتب</option><option value="payment">سداد مباشر</option><option value="adjustment_minus">تسوية تخفض الرصيد</option><option value="reversal">عكس سداد سابق</option></select></div>
+              <div className="space-y-1"><Label className="text-xs">المبلغ</Label><Input type="number" min="0" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1"><Label className="text-xs">تاريخ الحركة</Label><Input type="date" value={paymentForm.transaction_date} onChange={(e) => setPaymentForm((f) => ({ ...f, transaction_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label className="text-xs">شهر المرتب</Label><Input type="month" value={paymentForm.payroll_month} onChange={(e) => setPaymentForm((f) => ({ ...f, payroll_month: e.target.value }))} disabled={paymentForm.transaction_type !== "installment"} /></div>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">ملاحظات</Label><Input value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} placeholder="سبب التسوية أو تفاصيل السداد" /></div>
+            {paymentMut.error && <p className="text-xs text-red-600">{paymentMut.error.message}</p>}
+          </div>}
+          <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setPaymentLoan(null)}>إلغاء</Button><Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!paymentForm.amount || paymentMut.isPending} onClick={() => paymentMut.mutate({ loan: paymentLoan, form: paymentForm })}>{paymentMut.isPending ? "جاري الحفظ..." : "تسجيل الحركة"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <LoanFormDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={handleSubmit} initial={editing} employees={employees} />
     </div>
