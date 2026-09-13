@@ -335,11 +335,11 @@ export default function Dashboard() {
       <LowStockAlert />
 
       {/* Budget Alerts */}
-      <BudgetAlert invoices={branchMonthInvoices} expenses={branchMonthExpenses} budgets={budgets} suppliers={suppliers} />
+      <BudgetAlert invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} managementMonth={currentMonth} suppliers={suppliers} />
 
       {/* Branch Budget */}
       <div>
-        <BranchBudgetCard invoices={branchMonthInvoices} budgets={budgets} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
+        <BranchBudgetCard invoices={branchMonthInvoices} budgets={budgets} purchaseTargets={purchaseTargets} targetGoals={targetGoals} managementMonth={currentMonth} suppliers={suppliers} startDate={monthStart} endDate={monthEnd} />
       </div>
 
       {/* Branches Summary - only when all branches selected */}
