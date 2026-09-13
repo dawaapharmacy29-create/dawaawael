@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { loadAllEntityRows } from "@/lib/entityPagination";
 import { Card } from "@/components/ui/card";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -16,7 +17,7 @@ export default function BranchItemWeeklySales() {
 
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["medicine-sales"],
-    queryFn: () => base44.entities.MedicineSale.list("-week_start", 500),
+    queryFn: () => loadAllEntityRows(base44.entities.MedicineSale, "-week_start"),
     staleTime: 15000,
   });
 
