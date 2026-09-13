@@ -73,7 +73,10 @@ export default function UserManagement() {
         details: `تغيير دور ${userEmail} من ${oldRole} إلى ${role}`,
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      await checkUserAuth();
+    },
   });
 
   const updatePerm = useMutation({
@@ -91,7 +94,10 @@ export default function UserManagement() {
         details: `تغيير صلاحية ${perm} لـ ${userEmail}: ${oldValue} → ${value}`,
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      await checkUserAuth();
+    },
   });
 
   const updateBranchAccess = useMutation({
@@ -109,9 +115,9 @@ export default function UserManagement() {
         details: `تغيير نطاق فروع ${userEmail}: ${(branches || []).join("، ") || "بدون تقييد"}`,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["users"] });
-      qc.invalidateQueries({ queryKey: ["current-user"] });
+      await checkUserAuth();
     },
   });
 
