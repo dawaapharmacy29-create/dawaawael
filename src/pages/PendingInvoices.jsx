@@ -9,6 +9,7 @@ import InvoiceFormDialog from "@/components/invoices/InvoiceFormDialog";
 import ConfirmDialog from "@/components/invoices/ConfirmDialog";
 import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -25,7 +26,7 @@ export default function PendingInvoices() {
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["pending-invoices"],
-    queryFn: () => base44.entities.PurchaseInvoice.filter({ status: "انتظار المراجعة" }, "-created_date", 1000),
+    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
     staleTime: 60000,
   });
 
