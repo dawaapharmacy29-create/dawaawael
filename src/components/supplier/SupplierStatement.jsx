@@ -94,13 +94,16 @@ export default function SupplierStatement({ branch, onClose }) {
         branch: payment.branch || branch,
         notes: `عكس دفعة بتاريخ ${payment.payment_date}${payment.notes ? ` — ${payment.notes}` : ""}`,
       });
-      if (payment.invoice_id) {
-        const invoiceRows = await base44.entities.PurchaseInvoice.filter({ id: payment.invoice_id }, "-created_date", 1);
+      const reversalAllocations = Array.isArray(payment.allocations) && payment.allocations.length > 0
+        ? payment.allocations
+        : payment.invoice_id ? [{ invoice_id: payment.invoice_id, amount: Number(payment.amount) || 0 }] : [];
+      for (const allocation of reversalAllocations) {
+        if (!allocation.invoice_id) continue;
+        const invoiceRows = await base44.entities.PurchaseInvoice.filter({ id: allocation.invoice_id }, "-created_date", 1);
         const invoice = invoiceRows[0];
-        if (invoice) {
-          const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(payment.amount) || 0));
-          await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
-        }
+        if (!invoice) continue;
+        const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(allocation.amount) || 0));
+        await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
       }
     },
     onSuccess: () => {
