@@ -130,7 +130,8 @@ export default function FinancialReports() {
   const qualityInvoices = useMemo(() => periodInvoices.filter((i) => (branch === "all" || i.branch === branch) && (supplier === "all" || i.supplier_name === supplier)), [periodInvoices, branch, supplier]);
   const fInvoices = useMemo(() => qualityInvoices.filter(isInvoiceFinanciallyApproved), [qualityInvoices]);
   const approvedBalanceInvoices = useMemo(() => balanceInvoices.filter(isInvoiceFinanciallyApproved), [balanceInvoices]);
-  const fPayments = useMemo(() => payments.filter(p => supplier === "all" || p.supplier_name === supplier), [payments, supplier]);
+  const approvedBalancePayments = useMemo(() => balancePayments.filter((p) => branch === "all" || !p.branch || p.branch === branch), [balancePayments, branch]);
+  const fPayments = useMemo(() => payments.filter((p) => (supplier === "all" || p.supplier_name === supplier) && (branch === "all" || !p.branch || p.branch === branch)), [payments, supplier, branch]);
   const fDebts = useMemo(() => debts.filter(d => supplier === "all" || d.supplier_name === supplier), [debts, supplier]);
 
   const duplicateHandoverGroups = useMemo(() => {
@@ -168,9 +169,9 @@ export default function FinancialReports() {
     netSales: fHandovers.reduce((s,h) => s + (h.net_amount || 0) + paymentMethodTotal(h.expenses), 0),
     totalPurchases: fInvoices.reduce((s,i) => s + getInvoiceNetAmount(i, suppliers), 0),
     totalPayments: fInvoices.reduce((s,i) => s + (i.paid_value || 0), 0),
-    currentDebts: supplierDepthEnabled ? computeTotalRemaining(approvedBalanceInvoices, balancePayments, debts, supplier) : null,
+    currentDebts: supplierDepthEnabled ? computeTotalRemaining(approvedBalanceInvoices, approvedBalancePayments, debts, supplier) : null,
     supplierPayments: fPayments.reduce((s,p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0),
-  }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, balancePayments, debts, supplier, suppliers, supplierDepthEnabled]);
+  }), [fHandovers, fInvoices, fPayments, approvedBalanceInvoices, approvedBalancePayments, debts, supplier, suppliers, supplierDepthEnabled]);
 
   const distinctDayCount = (arr, field) => {
     const days = new Set(arr.map(r => (r[field] || "").slice(0, 10)).filter(Boolean));
@@ -209,7 +210,7 @@ export default function FinancialReports() {
   const chartData = useMemo(() => buildChartData(fHandovers, fInvoices, dateFrom, dateTo, suppliers), [fHandovers, fInvoices, dateFrom, dateTo, suppliers]);
 
   const branchComparison = useMemo(() => buildBranchComparison(fHandovers, fInvoices, suppliers), [fHandovers, fInvoices, suppliers]);
-  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts, approvedBalanceInvoices, balancePayments), [fInvoices, fPayments, fDebts, approvedBalanceInvoices, balancePayments]);
+  const supplierAnalysis = useMemo(() => buildSupplierAnalysis(fInvoices, fPayments, fDebts, approvedBalanceInvoices, approvedBalancePayments), [fInvoices, fPayments, fDebts, approvedBalanceInvoices, approvedBalancePayments]);
 
   return (
     <div dir="rtl" className="p-4 md:p-6 space-y-6">
@@ -298,14 +299,14 @@ export default function FinancialReports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch">
         <div className="lg:col-span-3"><FinancialAverageCards data={avgData} branchAvgSales={branchAvgSales} /></div>
-        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={activeHandovers} targets={branchTargets} dateFrom={dateFrom} dateTo={dateTo} /></div>
+        <div className="flex flex-col justify-end"><FinancialTargetCard handovers={fHandovers} targets={branchTargets} dateFrom={dateFrom} dateTo={dateTo} /></div>
       </div>
       <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل الرسم المالي...</div>}>
         <FinancialSalesVsPurchasesChart data={chartData} isDaily={isDaily} />
       </Suspense>
       <FinancialBranchComparisonTable data={branchComparison} />
       {supplierDepthEnabled && <FinancialSupplierAnalysisTable data={supplierAnalysis} invoices={fInvoices} payments={fPayments} />}
-      {supplierDepthEnabled && <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل تطور رصيد الموردين...</div>}><FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={balancePayments} debts={debts} supplier={supplier} /></Suspense>}
+      {supplierDepthEnabled && <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل تطور رصيد الموردين...</div>}><FinancialSupplierBalanceTrendChart invoices={approvedBalanceInvoices} payments={approvedBalancePayments} debts={debts} supplier={supplier} /></Suspense>}
     </div>
   );
 }
