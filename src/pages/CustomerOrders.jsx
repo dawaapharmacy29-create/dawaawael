@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
@@ -56,10 +56,28 @@ function exportOrdersToExcel(orders) {
   XLSX.writeFile(wb, `طلبات_العملاء_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-async function loadAllCustomerOrders() {
+async function loadAllCustomerOrders(maxRows = 10000) {
   const all = [];
-  for (let offset = 0; offset < 5000; offset += 500) {
+  for (let offset = 0; offset < maxRows; offset += 500) {
     const batch = await base44.entities.CustomerOrder.list("-created_date", 500, offset);
+    const rows = Array.isArray(batch) ? batch : [];
+    all.push(...rows);
+    if (rows.length < 500) break;
+  }
+  return all;
+}
+
+async function loadCustomerOrdersForCycle(cycle) {
+  const all = [];
+  const query = {
+    $or: [
+      { request_date: { $gte: cycle.start, $lte: cycle.end } },
+      { requested_at: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
+      { created_date: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
+    ],
+  };
+  for (let offset = 0; offset < 10000; offset += 500) {
+    const batch = await base44.entities.CustomerOrder.filter(query, "-created_date", 500, offset);
     const rows = Array.isArray(batch) ? batch : [];
     all.push(...rows);
     if (rows.length < 500) break;
@@ -91,13 +109,31 @@ export default function CustomerOrders() {
   const [showEfficiency, setShowEfficiency] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["customer-orders"],
-    queryFn: loadAllCustomerOrders,
-    staleTime: 15000,
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
+  const { data: currentOrders = [], isLoading: currentLoading } = useQuery({
+    queryKey: ["customer-orders", "cycle", currentCycle.start, currentCycle.end],
+    queryFn: () => loadCustomerOrdersForCycle(currentCycle),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
+
+  const { data: archiveSourceOrders = [], isLoading: archiveLoading } = useQuery({
+    queryKey: ["customer-orders", "archive"],
+    queryFn: () => loadAllCustomerOrders(),
+    enabled: activeQueue === "archived",
+    staleTime: 120000,
+    refetchOnWindowFocus: false,
+  });
+  const orders = activeQueue === "archived" ? archiveSourceOrders : currentOrders;
+  const isLoading = activeQueue === "archived" ? archiveLoading : currentLoading;
+
+  useEffect(() => {
+    let timer;
+    const unsub = base44.entities.CustomerOrder.subscribe(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => qc.invalidateQueries({ queryKey: ["customer-orders"] }), 800);
+    });
+    return () => { clearTimeout(timer); unsub(); };
+  }, [qc]);
 
   const { data: employeeNameMap = [] } = useQuery({
     queryKey: ["employee-name-map"],
@@ -160,12 +196,12 @@ export default function CustomerOrders() {
     },
     onMutate: async ({ order, status }) => {
       await qc.cancelQueries({ queryKey: ["customer-orders"] });
-      const previous = qc.getQueryData(["customer-orders"]);
-      qc.setQueryData(["customer-orders"], (current = []) => current.map((item) => item.id === order.id ? { ...item, status } : item));
+      const previous = qc.getQueriesData({ queryKey: ["customer-orders"] });
+      qc.setQueriesData({ queryKey: ["customer-orders"] }, (current = []) => current.map((item) => item.id === order.id ? { ...item, status } : item));
       return { previous };
     },
     onError: (_error, _variables, context) => {
-      if (context?.previous) qc.setQueryData(["customer-orders"], context.previous);
+      (context?.previous || []).forEach(([key, value]) => qc.setQueryData(key, value));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["customer-orders"] }),
   });
@@ -197,9 +233,10 @@ export default function CustomerOrders() {
 
   // Branch access is backward-compatible: users without an explicit branch_access
   // keep their current visibility; once configured, only allowed branches are shown.
-  const accessibleOrders = orders.filter((o) => canAccessBranch(o.branch));
-  const currentCycleOrders = accessibleOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
-  const archivedOrders = accessibleOrders.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
+  const accessibleCurrentOrders = currentOrders.filter((o) => canAccessBranch(o.branch));
+  const currentCycleOrders = accessibleCurrentOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
+  const accessibleArchiveSource = archiveSourceOrders.filter((o) => canAccessBranch(o.branch));
+  const archivedOrders = accessibleArchiveSource.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
   const activeSourceOrders = activeQueue === "archived" ? archivedOrders : currentCycleOrders;
   const branchOrders = filterBranch === "all" ? activeSourceOrders : activeSourceOrders.filter((o) => o.branch === filterBranch);
   const operationalAccessibleOrders = currentCycleOrders;
