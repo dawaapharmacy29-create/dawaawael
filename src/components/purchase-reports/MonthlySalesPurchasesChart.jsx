@@ -4,8 +4,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card } from "@/components/ui/card";
 import { GitCompareArrows } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { getInvoiceNetAmount } from "@/lib/purchaseCalculations";
+import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
+import { getInvoiceEffectiveDate, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
+import { loadAllEntityFiltered } from "@/lib/entityPagination";
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
@@ -29,7 +31,7 @@ export default function MonthlySalesPurchasesChart({ suppliers = [] }) {
 
   const { data: deliveries = [], isLoading: deliveriesLoading } = useQuery({
     queryKey: ["shift-deliveries-monthly-chart", start, end],
-    queryFn: () => base44.entities.ShiftDelivery.filter({ shift_date: { $gte: start, $lte: end } }, "-shift_date", 1000),
+    queryFn: () => loadAllEntityFiltered(base44.entities.ShiftDelivery, { shift_date: { $gte: start, $lte: end } }, "-shift_date", 10000),
     staleTime: 120000,
   });
 
@@ -51,14 +53,14 @@ export default function MonthlySalesPurchasesChart({ suppliers = [] }) {
   const chartData = useMemo(() => {
     const salesByDay = {};
     deliveries.forEach((d) => {
-      if (d.is_archived === true || !d.shift_date || d.shift_date < start || d.shift_date > end) return;
+      if (d.is_archived === true || d.status === "مراجعة" || !d.shift_date || d.shift_date < start || d.shift_date > end) return;
       salesByDay[d.shift_date] = (salesByDay[d.shift_date] || 0) + (d.total_sales || 0);
     });
 
     const purchasesByDay = {};
     invoices.forEach((i) => {
-      const dateKey = i.invoice_date || i.created_date?.split("T")[0];
-      if (!dateKey || dateKey < start || dateKey > end) return;
+      if (!isInvoiceFinanciallyApproved(i) || !isInvoiceInRange(i, start, end)) return;
+      const dateKey = getInvoiceEffectiveDate(i);
       purchasesByDay[dateKey] = (purchasesByDay[dateKey] || 0) + getInvoiceNetAmount(i, suppliers);
     });
 
