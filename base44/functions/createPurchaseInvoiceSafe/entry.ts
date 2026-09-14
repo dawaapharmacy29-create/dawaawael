@@ -22,6 +22,14 @@ function normalizeInvoiceNumber(value: unknown) {
     .replace(/[.،,*-]+$/g, '');
 }
 
+async function assertDayOpen(base44: any, branch: string, date: string) {
+  if (!branch || !date) return;
+  const rows = await base44.asServiceRole.entities.DailyClose.filter({ branch, business_date: date }, '-updated_date', 5);
+  if (rows.some((row: any) => row?.status === 'closed')) {
+    throw new Error(`اليوم ${date} لفرع ${branch} مقفول نهائيًا. يجب إعادة فتح الإقفال قبل إضافة الفاتورة.`);
+  }
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -77,7 +85,10 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const now = new Date();
-    const invoiceDate = clean(invoice.invoice_date) || now.toISOString().slice(0, 10);
+    const invoiceDate = clean(invoice.invoice_date) || new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(now);
+    await assertDayOpen(base44, branch, invoiceDate);
     const sameDayInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({
       branch,
       invoice_date: invoiceDate,
