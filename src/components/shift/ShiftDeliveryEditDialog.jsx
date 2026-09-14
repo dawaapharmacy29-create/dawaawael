@@ -42,15 +42,16 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
   const [cashHandover, setCashHandover] = useState(item.cash_handover ?? "");
   const [expenses, setExpenses] = useState(
     initialFinancial.realExpenses.length > 0
-      ? initialFinancial.realExpenses.map((e) => ({ description: e.description || "", amount: e.amount || "", category: e.category || "" }))
-      : [{ description: "", amount: "", category: "" }]
+      ? initialFinancial.realExpenses.map((e) => ({ description: e.description || "", amount: e.amount || "", category: e.category || "", payment_source: e.payment_source || "cash" }))
+      : [{ description: "", amount: "", category: "", payment_source: "cash" }]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, v) => sum + (parseFloat(v) || 0), 0), [payments]);
   const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
-  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - totalExpenses);
+  const cashExpenses = useMemo(() => expenses.filter((e) => (e.payment_source || "cash") === "cash").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
+  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - cashExpenses);
   const actualCashHandover = parseFloat(cashHandover) || 0;
   const cashVariance = actualCashHandover - expectedCashHandover;
   const netAmount = paymentTotal - totalExpenses;
@@ -59,7 +60,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
   };
 
-  const addExpense = () => setExpenses((prev) => [...prev, { description: "", amount: "", category: "" }]);
+  const addExpense = () => setExpenses((prev) => [...prev, { description: "", amount: "", category: "", payment_source: "cash" }]);
 
   const removeExpense = (idx) => setExpenses((prev) => prev.filter((_, i) => i !== idx));
 
@@ -85,6 +86,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
         description: e.description || "",
         amount: parseFloat(e.amount) || 0,
         category: e.category || "أخرى",
+        payment_source: e.payment_source || "cash",
       }));
 
     setSaving(true);
@@ -220,12 +222,23 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
                       className="flex-1 w-1/2"
                     />
                   </div>
-                  <Input
-                    placeholder="تسجيل ملاحظة"
-                    value={exp.description}
-                    onChange={(e) => updateExpense(idx, "description", e.target.value)}
-                    className="flex-1"
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
+                    <Input
+                      placeholder="تسجيل ملاحظة"
+                      value={exp.description}
+                      onChange={(e) => updateExpense(idx, "description", e.target.value)}
+                    />
+                    <Select value={exp.payment_source || "cash"} onValueChange={(v) => updateExpense(idx, "payment_source", v)}>
+                      <SelectTrigger><SelectValue placeholder="مصدر دفع المصروف" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">من الكاش</SelectItem>
+                        <SelectItem value="insta">من إنستا</SelectItem>
+                        <SelectItem value="vodafone">من فودافون</SelectItem>
+                        <SelectItem value="bank">من البنك</SelectItem>
+                        <SelectItem value="other">مصدر آخر</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               ))}
             </div>
