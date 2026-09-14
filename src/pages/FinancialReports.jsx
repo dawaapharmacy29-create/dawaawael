@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useMemo } from "react";
+import { lazy, Suspense, useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
@@ -60,6 +60,7 @@ export default function FinancialReports() {
   const [branch, setBranch] = useState("all");
   const [supplier, setSupplier] = useState("all");
   const [loadSupplierDepth, setLoadSupplierDepth] = useState(false);
+  const [secondaryEnabled, setSecondaryEnabled] = useState(false);
 
   const { dateFrom, dateTo } = useMemo(
     () => computeDateRange(periodType, customFrom, customTo),
@@ -67,6 +68,11 @@ export default function FinancialReports() {
   );
 
   const periodEnabled = Boolean(dateFrom && dateTo);
+  useEffect(() => {
+    setSecondaryEnabled(false);
+    const timer = setTimeout(() => setSecondaryEnabled(true), 700);
+    return () => clearTimeout(timer);
+  }, [dateFrom, dateTo, branch, supplier]);
   const periodBranchFilter = branch === "all" ? {} : { branch };
   const periodInvoiceFilter = {
     ...periodBranchFilter,
@@ -97,7 +103,7 @@ export default function FinancialReports() {
   const { data: payments = [] } = useQuery({
     queryKey: ["supplier-payments-fr", dateFrom, dateTo, supplier],
     queryFn: () => loadAllFiltered(base44.entities.SupplierPayment, periodPaymentFilter, "-payment_date"),
-    enabled: periodEnabled,
+    enabled: periodEnabled && secondaryEnabled,
     staleTime: 120000,
   });
   const supplierDepthEnabled = loadSupplierDepth || supplier !== "all";
@@ -132,11 +138,13 @@ export default function FinancialReports() {
     queryKey: ["admin-expense-items-fr"],
     queryFn: () => base44.entities.AdminExpenseItem.list("sort_order"),
     select: (data) => data.filter((i) => i.is_active !== false),
+    enabled: secondaryEnabled,
+    staleTime: 300000,
   });
   const { data: adminExpenseRecords = [] } = useQuery({
     queryKey: ["admin-expense-records-fr", dateFrom?.slice(0, 7), dateTo?.slice(0, 7)],
     queryFn: () => base44.entities.AdminExpenseRecord.filter({ month: { $gte: dateFrom.slice(0, 7), $lte: dateTo.slice(0, 7) } }, "month"),
-    enabled: periodEnabled,
+    enabled: periodEnabled && secondaryEnabled,
     staleTime: 300000,
   });
 
