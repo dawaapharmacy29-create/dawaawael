@@ -1,19 +1,19 @@
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { Clock, ShoppingBag, ClipboardList, Receipt, ShieldCheck } from "lucide-react";
+import { Clock, ShoppingBag, ClipboardList, FileText, FlaskConical, ShieldCheck } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import FinancialDashboard from "./FinancialDashboard";
+import LimitedFinancialDashboard from "./LimitedFinancialDashboard";
 
 function OperationalDashboard() {
-  const { user, financialAccessLevel, canUseFinancialOperations } = useUserRole();
+  const { user, financialAccessLevel } = useUserRole();
   const name = user?.full_name || user?.name || "";
   const cards = [
-    { to: "/shift-delivery", label: "تسليم الشيفت", desc: "تسجيل ومراجعة تسليمات الشيفت", icon: Clock },
-    { to: "/customer-orders", label: "طلبات العملاء", desc: "متابعة طلبات العملاء والحركة اليومية", icon: ShoppingBag },
-    ...(canUseFinancialOperations ? [
-      { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة الفواتير التشغيلية حسب صلاحيتك", icon: ClipboardList },
-      { to: "/expenses", label: "المصروفات", desc: "تسجيل ومتابعة المصروفات المسموح بها", icon: Receipt },
-    ] : []),
+    { to: "/shift-delivery", label: "تسليم الشيفت", desc: "تسجيل الشيفت ومراجعة تسليمات فرعك في الدورة الحالية", icon: Clock },
+    { to: "/invoices", label: "فواتير الشراء", desc: "تسجيل ومتابعة الفواتير التشغيلية", icon: FileText },
+    { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة واعتماد الفواتير التشغيلية", icon: ClipboardList },
+    { to: "/customer-orders", label: "طلبات العملاء", desc: "تسجيل ومتابعة طلبات العملاء", icon: ShoppingBag },
+    { to: "/pharmacy-orders", label: "طلبات الصيدليات", desc: "تسجيل ومتابعة طلبات الصيدليات", icon: FlaskConical },
   ];
 
   return (
@@ -36,7 +36,8 @@ function OperationalDashboard() {
 }
 
 export default function Dashboard() {
-  const { canViewFinancialDashboard, canViewAllBranchesFinancials, branchAccess } = useUserRole();
-  const canRenderFinancial = canViewFinancialDashboard && (canViewAllBranchesFinancials || branchAccess.length > 0);
-  return canRenderFinancial ? <FinancialDashboard /> : <OperationalDashboard />;
+  const { financialAccessLevel } = useUserRole();
+  if (financialAccessLevel === "full") return <FinancialDashboard />;
+  if (financialAccessLevel === "limited") return <LimitedFinancialDashboard />;
+  return <OperationalDashboard />;
 }
