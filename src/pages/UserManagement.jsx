@@ -16,6 +16,7 @@ import { logActivity } from "@/lib/activityLogger";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
 import { USER_ROLE_ORDER } from "@/lib/sortUtils";
+import { FINANCIAL_ACCESS, FINANCIAL_ACCESS_LABELS, getFinancialAccessLevel } from "@/lib/financialAccess";
 
 const USER_SORT_COLUMNS = [
   { field: "full_name", label: "الاسم", type: "text" },
@@ -220,6 +221,23 @@ export default function UserManagement() {
                 {/* Permissions row - only show for non-admin */}
                 {role !== "admin" && (
                   <div className="mt-3 pt-3 border-t space-y-3">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                      <p className="text-xs font-bold text-indigo-900 mb-2">مستوى الوصول المالي</p>
+                      <Select
+                        value={getFinancialAccessLevel(user)}
+                        disabled={user.id === currentUser?.id}
+                        onValueChange={(v) => updatePerm.mutate({ id: user.id, perm: "financial_access_level", value: v, oldValue: getFinancialAccessLevel(user), userEmail: user.email })}
+                      >
+                        <SelectTrigger className="w-full md:w-64 h-9 text-xs bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={FINANCIAL_ACCESS.NONE}>{FINANCIAL_ACCESS_LABELS.none}</SelectItem>
+                          <SelectItem value={FINANCIAL_ACCESS.OPERATIONS}>{FINANCIAL_ACCESS_LABELS.operations}</SelectItem>
+                          <SelectItem value={FINANCIAL_ACCESS.BRANCH}>{FINANCIAL_ACCESS_LABELS.branch_financial}</SelectItem>
+                          <SelectItem value={FINANCIAL_ACCESS.FULL}>{FINANCIAL_ACCESS_LABELS.full}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-indigo-700 mt-2">«مالي حسب الفرع» يحتاج تحديد نطاق الفروع أدناه. «تشغيل مالي محدود» يسمح بالشغل اليومي بدون إجماليات أو ذمم أو تارجتات.</p>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {PERMISSIONS.map((p) => {
                         const val = !!user[p.key];
