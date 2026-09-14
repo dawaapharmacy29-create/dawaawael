@@ -95,6 +95,13 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const shiftDetectionBucket = Math.floor(now.getTime() / (5 * 60 * 1000));
   useEffect(() => {
     if (initialDraft?.id || manualShiftOverride) return;
+    const entryStarted = Boolean(
+      form.employee_map_id ||
+      Object.values(payments).some((v) => Number(v || 0) > 0) ||
+      expenses.some((e) => Number(e.amount || 0) > 0 || e.category || e.description)
+    );
+    // بعد بدء إدخال بيانات الشيفت نثبت النوع حتى لا يتغير تلقائيًا أثناء التقفيل.
+    if (entryStarted) return;
     let cancelled = false;
     const detect = async () => {
       setShiftDetecting(true);
