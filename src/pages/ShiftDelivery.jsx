@@ -5,7 +5,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { PlusCircle, List, BarChart3, PieChart as PieIcon, Settings2, AlertTriangle, RotateCcw } from "lucide-react";
 import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
 import ShiftDeliveryHistory from "@/components/shift/ShiftDeliveryHistory";
-import ShiftDeliveryStats from "@/components/shift/ShiftDeliveryStats";
+import ShiftOperationsAnalytics from "@/components/shift/ShiftOperationsAnalytics";
 import ShiftDeliveryReport from "@/components/shift/ShiftDeliveryReport";
 import ExpenseItemsTab from "@/components/shift/ExpenseItemsTab";
 import ShiftRecoveryQueue from "@/components/shift/ShiftRecoveryQueue";
@@ -75,8 +75,8 @@ export default function ShiftDelivery() {
         { key: "history", label: "التسليمات", icon: List },
         { key: "duplicates", label: "تنبيهات التكرار", icon: AlertTriangle, count: duplicateCount },
         { key: "recovery", label: "استعادة الشيفتات", icon: RotateCcw, count: activeDrafts.length },
-        { key: "stats", label: "الإحصائيات والفروع", icon: BarChart3 },
-        { key: "report", label: "تحليل المصروفات", icon: PieIcon },
+        { key: "stats", label: "لوحة الشيفتات المتقدمة", icon: BarChart3 },
+        { key: "report", label: "تفاصيل المصروفات والتصدير", icon: PieIcon },
         { key: "items", label: "بنود المصروفات", icon: Settings2 },
       ]
     : [{ key: "new", label: "تسليم جديد", icon: PlusCircle }];
@@ -122,7 +122,7 @@ export default function ShiftDelivery() {
         {activeTab === "recovery" && canViewAll && (
           <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />
         )}
-        {activeTab === "stats" && canViewAll && <ShiftDeliveryStats deliveries={activeDeliveries} />}
+        {activeTab === "stats" && canViewAll && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
         {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={activeDeliveries} />}
         {activeTab === "items" && canViewAll && <ExpenseItemsTab />}
       </div>
