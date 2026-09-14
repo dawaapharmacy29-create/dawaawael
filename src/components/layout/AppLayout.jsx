@@ -20,15 +20,15 @@ const navItems = [
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true, section: "requests" },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
   { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers" },
-  { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers" },
-  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
-  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
-  { path: "/supplier-intelligence", label: "تحليل الموردين والتفاوض", icon: TrendingUp, section: "suppliers" },
+  { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers", financialOnly: true },
+  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers", financialOnly: true },
+  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers", financialOnly: true },
+  { path: "/supplier-intelligence", label: "تحليل الموردين والتفاوض", icon: TrendingUp, section: "suppliers", financialOnly: true },
   // الواجهة المعتمدة للتقارير: أربع صفحات فقط. الصفحات القديمة تظل موجودة كمسارات احتياطية بدون إظهارها في القائمة.
-  { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports" },
-  { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports" },
-  { path: "/data-reconciliation", label: "مطابقة البيانات اليومية", icon: ShieldCheck, section: "reports" },
-  { path: "/daily-close", label: "الإقفال اليومي", icon: LockKeyhole, section: "reports" },
+  { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports", financialOnly: true },
+  { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports", financialOnly: true },
+  { path: "/data-reconciliation", label: "مطابقة البيانات اليومية", icon: ShieldCheck, section: "reports", financialOnly: true },
+  { path: "/daily-close", label: "الإقفال اليومي", icon: LockKeyhole, section: "reports", financialOnly: true },
   { path: "/reports", label: "التقارير (إجمالي) — قديم", icon: BarChart2, hidden: true, section: "reports" },
   { path: "/admin-expenses-reports", label: "تقارير المصروفات الإدارية — قديم", icon: Wallet, adminOnly: true, hidden: true, section: "reports" },
   { path: "/purchase-reports", label: "تقارير المشتريات — قديم", icon: FileText, hidden: true, section: "reports" },
@@ -91,8 +91,8 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
-  const { isAdmin, isManager } = useUserRole();
-  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager));
+  const { isAdmin, isManager, canViewFinancialReports } = useUserRole();
+  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager) && (!item.financialOnly || canViewFinancialReports));
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
@@ -102,7 +102,7 @@ export default function AppLayout() {
         items: visibleNavItems.filter((item) => item.section === section.key),
       }))
       .filter((section) => section.items.length > 0),
-    [isAdmin, isManager]
+    [isAdmin, isManager, canViewFinancialReports]
   );
 
   const isItemActive = (item) => {
