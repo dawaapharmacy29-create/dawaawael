@@ -19,42 +19,58 @@ function dateDaysAgo(days) {
 }
 
 export default function ShiftDelivery() {
-  const { isAdmin, isManager } = useUserRole();
-  const canViewAll = isAdmin || isManager;
+  const { isAdmin, isManager, branchAccess, financialAccessLevel } = useUserRole();
+  const fullFinancial = financialAccessLevel === "full";
+  const canReviewOperationally = isAdmin || isManager;
+  const scopedBranches = fullFinancial ? ["دواء شكري", "دواء الشامي"] : branchAccess;
+  const hasHistoryScope = scopedBranches.length > 0;
   const [activeTab, setActiveTab] = useState("new");
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const currentCycle = cycleRangeFor(cairoTodayKey());
 
-  const needsHistoryData = canViewAll && ["history", "duplicates", "stats", "report"].includes(activeTab);
+  const needsHistoryData = ["history", "duplicates", "stats", "report"].includes(activeTab) && hasHistoryScope;
   const historyRange = activeTab === "duplicates"
     ? { from: dateDaysAgo(120), to: cairoTodayKey() }
-    : showFullHistory && activeTab === "history"
+    : fullFinancial && showFullHistory && activeTab === "history"
       ? null
       : currentCycle;
-  const historyQuery = historyRange ? { shift_date: { $gte: historyRange.from, $lte: historyRange.to } } : null;
   const { data: deliveries = [] } = useQuery({
-    queryKey: ["shift-deliveries", activeTab, historyRange?.from || "all", historyRange?.to || "all"],
+    queryKey: ["shift-deliveries", activeTab, historyRange?.from || "all", historyRange?.to || "all", scopedBranches.join("|")],
     queryFn: async () => {
-      const PAGE = 500; let all = []; let page = 0;
-      while (true) {
-        const batch = historyQuery
-          ? await base44.entities.ShiftDelivery.filter(historyQuery, "-shift_date", PAGE, page * PAGE)
-          : await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
-        all = [...all, ...batch];
-        if (batch.length < PAGE) break;
-        page++;
-      }
-      return all;
+      const PAGE = 500;
+      const loadBranch = async (branch) => {
+        let rows = []; let page = 0;
+        while (true) {
+          const query = {
+            ...(historyRange ? { shift_date: { $gte: historyRange.from, $lte: historyRange.to } } : {}),
+            ...(branch ? { branch } : {}),
+          };
+          const batch = Object.keys(query).length
+            ? await base44.entities.ShiftDelivery.filter(query, "-shift_date", PAGE, page * PAGE)
+            : await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
+          rows = [...rows, ...batch];
+          if (batch.length < PAGE) break;
+          page++;
+        }
+        return rows;
+      };
+      if (fullFinancial) return loadBranch(null);
+      const groups = await Promise.all(scopedBranches.map(loadBranch));
+      return groups.flat();
     },
     enabled: needsHistoryData,
     staleTime: 120000,
   });
 
   const { data: activeDrafts = [] } = useQuery({
-    queryKey: ["shift-drafts-active"],
-    queryFn: () => base44.entities.ShiftDraft.filter({ status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500),
-    enabled: canViewAll,
+    queryKey: ["shift-drafts-active", scopedBranches.join("|")],
+    queryFn: async () => {
+      if (fullFinancial) return base44.entities.ShiftDraft.filter({ status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500);
+      const groups = await Promise.all(scopedBranches.map((branch) => base44.entities.ShiftDraft.filter({ branch, status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500)));
+      return groups.flat();
+    },
+    enabled: canReviewOperationally && hasHistoryScope,
     staleTime: 15000,
     refetchOnWindowFocus: true,
   });
@@ -69,17 +85,19 @@ export default function ShiftDelivery() {
     return Array.from(groups.values()).filter((count) => count > 1).length;
   })();
 
-  const tabs = canViewAll
-    ? [
-        { key: "new", label: "تسليم جديد", icon: PlusCircle },
-        { key: "history", label: "التسليمات", icon: List },
-        { key: "duplicates", label: "تنبيهات التكرار", icon: AlertTriangle, count: duplicateCount },
-        { key: "recovery", label: "استعادة الشيفتات", icon: RotateCcw, count: activeDrafts.length },
-        { key: "stats", label: "لوحة الشيفتات المتقدمة", icon: BarChart3 },
-        { key: "report", label: "تفاصيل المصروفات والتصدير", icon: PieIcon },
-        { key: "items", label: "بنود المصروفات", icon: Settings2 },
-      ]
-    : [{ key: "new", label: "تسليم جديد", icon: PlusCircle }];
+  const tabs = [
+    { key: "new", label: "تسليم جديد", icon: PlusCircle },
+    ...(hasHistoryScope ? [{ key: "history", label: "تسليمات الفرع — الدورة الحالية", icon: List }] : []),
+    ...(canReviewOperationally && hasHistoryScope ? [
+      { key: "duplicates", label: "تنبيهات التكرار", icon: AlertTriangle, count: duplicateCount },
+      { key: "recovery", label: "استعادة الشيفتات", icon: RotateCcw, count: activeDrafts.length },
+    ] : []),
+    ...(fullFinancial ? [
+      { key: "stats", label: "لوحة الشيفتات المتقدمة", icon: BarChart3 },
+      { key: "report", label: "تفاصيل المصروفات والتصدير", icon: PieIcon },
+    ] : []),
+    ...(isAdmin ? [{ key: "items", label: "بنود المصروفات", icon: Settings2 }] : []),
+  ];
 
   return (
     <div className="w-full">
