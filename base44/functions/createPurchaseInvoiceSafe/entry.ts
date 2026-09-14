@@ -44,6 +44,16 @@ export default async function(req: Request): Promise<Response> {
     const netPurchaseMode = clean(invoice.net_purchase_mode) || 'inherit';
 
     if (!VALID_BRANCHES.has(branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
+    const explicitBranches = Array.isArray((user as any)?.branch_access)
+      ? (user as any).branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
+      : Array.isArray((user as any)?.data?.branch_access)
+        ? (user as any).data.branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
+        : [];
+    const legacyBranch = clean((user as any)?.branch || (user as any)?.data?.branch);
+    const allowedBranches = explicitBranches.length ? explicitBranches : (VALID_BRANCHES.has(legacyBranch) ? [legacyBranch] : []);
+    if (role !== 'admin' && allowedBranches.length && !allowedBranches.includes(branch)) {
+      return Response.json({ error: 'هذا الحساب غير مصرح له بتسجيل فاتورة لهذا الفرع' }, { status: 403 });
+    }
     if (!systemInvoiceNumber) return Response.json({ error: 'رقم الفاتورة على البرنامج مطلوب' }, { status: 400 });
     if (!enteredBy) return Response.json({ error: 'يجب تحديد مدخل الفاتورة' }, { status: 400 });
     if (!VALID_PAYMENT_TYPES.has(paymentType)) return Response.json({ error: 'طريقة الدفع غير صالحة' }, { status: 400 });
