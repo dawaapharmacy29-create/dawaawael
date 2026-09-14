@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FileText, X, RotateCcw } from "lucide-react";
 import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { isInvoiceInRange } from "@/lib/invoiceIdentity";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -44,14 +45,13 @@ export default function SupplierStatement({ branch, onClose }) {
   const statementEnabled = Boolean(selectedSupplier && dateFrom && dateTo);
   const { data: filteredRows = [] } = useQuery({
     queryKey: ["supplier-statement-invoices", branch, selectedSupplier, dateFrom, dateTo],
-    queryFn: () => loadAllFiltered(base44.entities.PurchaseInvoice, {
-      branch,
-      supplier_name: selectedSupplier,
-      $or: [
-        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
-        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
-      ],
-    }, "invoice_date"),
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: dateFrom,
+      to: dateTo,
+      extraFilter: { branch, supplier_name: selectedSupplier },
+      sort: "invoice_date",
+      maxRows: 20000,
+    }),
     enabled: statementEnabled,
     staleTime: 120000,
   });
