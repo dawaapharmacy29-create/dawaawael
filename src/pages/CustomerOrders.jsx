@@ -57,15 +57,23 @@ async function exportOrdersToExcel(orders) {
   XLSX.writeFile(wb, `طلبات_العملاء_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-async function loadAllCustomerOrders(maxRows = 10000) {
-  const all = [];
-  for (let offset = 0; offset < maxRows; offset += 500) {
-    const batch = await base44.entities.CustomerOrder.list("-created_date", 500, offset);
-    const rows = Array.isArray(batch) ? batch : [];
-    all.push(...rows);
-    if (rows.length < 500) break;
-  }
-  return all;
+async function loadAllCustomerOrders(maxRows = 10000, branches = null) {
+  const branchList = Array.isArray(branches) && branches.length ? branches : [null];
+  const groups = await Promise.all(branchList.map(async (branch) => {
+    const rows = [];
+    const perBranchCap = Math.max(500, Math.ceil(maxRows / branchList.length));
+    for (let offset = 0; offset < perBranchCap; offset += 500) {
+      const batch = branch
+        ? await base44.entities.CustomerOrder.filter({ branch }, "-created_date", 500, offset)
+        : await base44.entities.CustomerOrder.list("-created_date", 500, offset);
+      const page = Array.isArray(batch) ? batch : [];
+      rows.push(...page);
+      if (page.length < 500) break;
+    }
+    return rows;
+  }));
+  const seen = new Set();
+  return groups.flat().filter((row) => row?.id && !seen.has(row.id) && seen.add(row.id)).slice(0, maxRows);
 }
 
 async function loadCustomerOrdersForCycle(cycle, branches = null) {
@@ -110,8 +118,8 @@ export default function CustomerOrders() {
   });
 
   const { data: archiveSourceOrders = [], isLoading: archiveLoading } = useQuery({
-    queryKey: ["customer-orders", "archive"],
-    queryFn: () => loadAllCustomerOrders(),
+    queryKey: ["customer-orders", "archive", serverScopedBranches?.join("|") || "all"],
+    queryFn: () => loadAllCustomerOrders(10000, serverScopedBranches),
     enabled: activeQueue === "archived",
     staleTime: 120000,
     refetchOnWindowFocus: false,
