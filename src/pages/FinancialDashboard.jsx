@@ -16,6 +16,7 @@ import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { cycleRangeFor, previousComparableRange, cairoTodayKey, daysInclusive } from "@/lib/smart-commerce-analytics";
 import { useSearchParams } from "react-router-dom";
+import { useUserRole } from "@/lib/useUserRole";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -55,14 +56,19 @@ function getStoredDates() {
   return { from: p.from, to: p.to };
 }
 
-export default function Dashboard() {
+export default function FinancialDashboard() {
   const qc = useQueryClient();
+  const { canViewAllBranchesFinancials, branchAccess } = useUserRole();
+  const allowedFinancialBranches = canViewAllBranchesFinancials ? BRANCHES : BRANCHES.filter((b) => branchAccess.includes(b));
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState("");
   const [dateFilter, setDateFilter] = useState(getStoredDates);
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const branch = searchParams.get("branch") || "all";
+  const requestedBranch = searchParams.get("branch") || (canViewAllBranchesFinancials ? "all" : allowedFinancialBranches[0] || "");
+  const branch = canViewAllBranchesFinancials
+    ? requestedBranch
+    : (allowedFinancialBranches.includes(requestedBranch) ? requestedBranch : (allowedFinancialBranches[0] || ""));
   const setBranch = (b) => {
     const next = new URLSearchParams(searchParams);
     if (b === "all") next.delete("branch");
@@ -88,6 +94,19 @@ export default function Dashboard() {
   const isManagementCycle = expectedCycleForSelection.from === dateFilter.from && expectedCycleForSelection.to === dateFilter.to;
 
   useEffect(() => { setEditingTarget(false); }, [branch]);
+  useEffect(() => {
+    if (canViewAllBranchesFinancials || !branch) return;
+    const q = searchParams.get("branch");
+    if (q !== branch) {
+      const next = new URLSearchParams(searchParams);
+      next.set("branch", branch);
+      setSearchParams(next, { replace: true });
+    }
+  }, [branch, canViewAllBranchesFinancials, searchParams, setSearchParams]);
+
+  if (!canViewAllBranchesFinancials && allowedFinancialBranches.length === 0) {
+    return <div dir="rtl" className="p-6"><Card className="p-6 border-amber-200 bg-amber-50 text-amber-900"><b>الحساب لديه صلاحية مالية لكن بدون نطاق فرع محدد.</b><p className="text-sm mt-1">حدد branch_access من إدارة المستخدمين قبل عرض أي أرقام مالية.</p></Card></div>;
+  }
 
   // فلترة الفواتير من الخادم حسب الفترة المختارة — يجيب فقط فواتير الشهر بدل 4000+ فاتورة
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
