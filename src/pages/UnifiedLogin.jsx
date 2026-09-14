@@ -31,14 +31,22 @@ export default function UnifiedLogin() {
     setLoading(true);
     setError("");
     try {
-      const aliasResponse = await base44.functions.invoke("resolveUnifiedLoginAlias", { username: username.trim() });
-      const alias = aliasResponse?.data || {};
-      if (!alias.success || !alias.email) {
-        setError(LOGIN_MESSAGES[alias.error] || "تعذر التحقق من اسم المستخدم.");
-        return;
+      const identifier = username.trim();
+      let loginEmail = identifier;
+
+      // توافق كامل مع الحسابات القديمة: البريد الإلكتروني الحالي يظل صالحًا للدخول.
+      // أما اسم المستخدم المختصر فيتم حله Server-side إلى حساب Base44 المرتبط.
+      if (!identifier.includes("@")) {
+        const aliasResponse = await base44.functions.invoke("resolveUnifiedLoginAlias", { username: identifier });
+        const alias = aliasResponse?.data || {};
+        if (!alias.success || !alias.email) {
+          setError(LOGIN_MESSAGES[alias.error] || "تعذر التحقق من اسم المستخدم.");
+          return;
+        }
+        loginEmail = alias.email;
       }
 
-      await base44.auth.loginViaEmailPassword(alias.email, password);
+      await base44.auth.loginViaEmailPassword(loginEmail, password);
       await checkUserAuth();
       window.location.replace("/");
     } catch (err) {
@@ -74,7 +82,7 @@ export default function UnifiedLogin() {
                   id="unified-username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="مثال: د كريم"
+                  placeholder="اسم المستخدم أو البريد الإلكتروني"
                   className="pr-9 h-11"
                   autoComplete="username"
                   autoFocus
