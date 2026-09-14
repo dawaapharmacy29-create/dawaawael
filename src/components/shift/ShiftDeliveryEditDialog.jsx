@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Save, Loader2, CalendarClock } from "lucide-react";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
+import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
+const PAYMENT_EXPENSE_NAMES = new Set(["انستا", "فيزا", "فودافون كاش", "فودافون", "Visa", "Insta"]);
 
 export default function ShiftDeliveryEditDialog({ item, onClose }) {
   const qc = useQueryClient();
@@ -20,7 +22,8 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
     queryFn: () => base44.entities.ExpenseItem.list(),
     staleTime: 60000,
   });
-  const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false);
+  const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false && !PAYMENT_EXPENSE_NAMES.has((i.name || "").trim()));
+  const initialFinancial = useMemo(() => shiftFinancialView(item), [item]);
 
   const [form, setForm] = useState({
     shift_type: item.shift_type || "",
@@ -29,19 +32,28 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
     notes: item.notes || "",
     calculation_date: item.calculation_date || item.shift_date || "",
   });
+  const [payments, setPayments] = useState({
+    cash: initialFinancial.payments.cash || "",
+    visa: initialFinancial.payments.visa || "",
+    insta: initialFinancial.payments.insta || "",
+    vodafone: initialFinancial.payments.vodafone || "",
+    other: initialFinancial.payments.other || "",
+  });
+  const [cashHandover, setCashHandover] = useState(item.cash_handover ?? "");
   const [expenses, setExpenses] = useState(
-    (item.expenses && item.expenses.length > 0)
-      ? item.expenses.map((e) => ({ description: e.description || "", amount: e.amount || "", category: e.category || "" }))
+    initialFinancial.realExpenses.length > 0
+      ? initialFinancial.realExpenses.map((e) => ({ description: e.description || "", amount: e.amount || "", category: e.category || "" }))
       : [{ description: "", amount: "", category: "" }]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const totalExpenses = useMemo(
-    () => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0),
-    [expenses]
-  );
-  const netAmount = (parseFloat(form.total_sales) || 0) - totalExpenses;
+  const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, v) => sum + (parseFloat(v) || 0), 0), [payments]);
+  const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
+  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - totalExpenses);
+  const actualCashHandover = parseFloat(cashHandover) || 0;
+  const cashVariance = actualCashHandover - expectedCashHandover;
+  const netAmount = paymentTotal - totalExpenses;
 
   const updateExpense = (idx, field, value) => {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
@@ -63,7 +75,9 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
   const handleSave = async () => {
     setError("");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
-    if (!form.total_sales || parseFloat(form.total_sales) <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
+    if (paymentTotal <= 0) return setError("الرجاء إدخال تفصيل المبيعات حسب وسيلة التحصيل");
+    if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
+    if (Math.abs(cashVariance) > 1 && !(form.notes || "").trim()) return setError(`يوجد فرق كاش ${cashVariance.toFixed(2)} ج — اكتب سبب الفرق في الملاحظات`);
 
     const validExpenses = expenses
       .filter((e) => e.category || parseFloat(e.amount) > 0)
@@ -86,8 +100,19 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
         updates: {
           shift_type: form.shift_type,
           calculation_date: form.calculation_date || item.shift_date,
-          total_sales: parseFloat(form.total_sales) || 0,
+          total_sales: paymentTotal,
+          cash_sales: parseFloat(payments.cash) || 0,
+          visa_sales: parseFloat(payments.visa) || 0,
+          insta_sales: parseFloat(payments.insta) || 0,
+          vodafone_sales: parseFloat(payments.vodafone) || 0,
+          other_sales: parseFloat(payments.other) || 0,
+          payment_breakdown_total: paymentTotal,
+          cash_handover: actualCashHandover,
+          cash_variance: cashVariance,
+          total_expenses: totalExpenses,
+          net_amount: netAmount,
           expenses: validExpenses,
+          workflow_status: Math.abs(cashVariance) > 1 ? "under_review" : (item.workflow_status || "submitted"),
           notes: form.notes,
         },
       });
@@ -152,15 +177,12 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
                 <p className="text-[11px] text-gray-400">لا يمكن تغيير هوية صاحب التسليم بعد التحقق والحفظ.</p>
               </div>
             </div>
-            <div className="mt-4 space-y-1.5">
-              <Label className="text-sm text-gray-600">إجمالي مبيعات الشيفت (ج.م) <span className="text-red-500">*</span></Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.total_sales}
-                onChange={(e) => setForm({ ...form, total_sales: e.target.value })}
-                className="text-lg font-semibold"
-              />
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+              <div><h4 className="text-sm font-bold text-blue-900">تفصيل المبيعات حسب وسيلة التحصيل</h4>{initialFinancial.legacy && <p className="text-[11px] text-amber-700 mt-1">السجل قديم؛ تم استنتاج وسائل الدفع من البنود القديمة للمراجعة قبل الحفظ.</p>}</div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {[["cash","كاش"],["visa","فيزا"],["insta","إنستا"],["vodafone","فودافون كاش"],["other","أخرى"]].map(([key,label]) => <div key={key} className="space-y-1"><Label className="text-xs">{label}</Label><Input type="number" min="0" value={payments[key]} onChange={(e)=>setPayments((p)=>({...p,[key]:e.target.value}))} placeholder="0" className="h-9"/></div>)}
+              </div>
+              <div className="flex justify-between border-t pt-2"><span className="text-sm font-semibold">إجمالي المبيعات</span><span className="font-black text-blue-700">{fmt(paymentTotal)} ج.م</span></div>
             </div>
           </div>
 
@@ -207,6 +229,11 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-emerald-900">مطابقة الكاش</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><div className="rounded-lg bg-white p-3 border"><p className="text-xs text-gray-500">الكاش المتوقع</p><p className="font-bold">{fmt(expectedCashHandover)} ج.م</p></div><div className="space-y-1"><Label className="text-xs">الكاش الفعلي المسلم</Label><Input type="number" min="0" value={cashHandover} onChange={(e)=>setCashHandover(e.target.value)} className="bg-white"/></div><div className={`rounded-lg p-3 border ${Math.abs(cashVariance)<=1?"bg-emerald-50":"bg-red-50"}`}><p className="text-xs text-gray-500">فرق الكاش</p><p className={`font-black ${Math.abs(cashVariance)<=1?"text-emerald-700":"text-red-700"}`}>{fmt(cashVariance)} ج.م</p></div></div>
           </div>
 
           {/* Summary */}
