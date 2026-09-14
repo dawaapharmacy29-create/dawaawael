@@ -19,7 +19,7 @@ const navItems = [
   { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true, section: "requests" },
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true, section: "requests" },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
-  { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers" },
+  { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers", fullFinancialOnly: true },
   { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers", fullFinancialOnly: true },
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers", fullFinancialOnly: true },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers", fullFinancialOnly: true },
@@ -34,16 +34,16 @@ const navItems = [
   { path: "/purchase-reports", label: "تقارير المشتريات — قديم", icon: FileText, hidden: true, section: "reports" },
   { path: "/reports-branch", label: "تقارير دواء شكري — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
   { path: "/reports-branch?branch=دواء الشامي", label: "تقارير دواء الشامي — قديم", icon: BarChart2, indent: true, hidden: true, section: "reports" },
-  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, adminOnly: true, section: "operations" },
-  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, adminOnly: true, section: "operations" },
-  { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
+  { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, fullFinancialOnly: true, section: "operations" },
+  { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, fullFinancialOnly: true, section: "operations" },
+  { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, managerOnly: true, section: "management" },
   { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
   { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, adminOnly: true, section: "management" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
-  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, section: "management" },
-  { path: "/team-members", label: "فريق العمل", icon: UserCheck, section: "management" },
-  { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, section: "management" },
+  { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, adminOnly: true, section: "management" },
+  { path: "/team-members", label: "فريق العمل", icon: UserCheck, managerOnly: true, section: "management" },
+  { path: "/employee-hr", label: "شؤون الموظفين", icon: Users, teal: true, managerOnly: true, section: "management" },
   { path: "/supabase-sync", label: "مركز مزامنة Supabase", icon: Database, adminOnly: true, section: "management" },
   { path: "/system-health", label: "صحة النظام والبيانات", icon: ShieldCheck, adminOnly: true, section: "management" },
 ];
@@ -52,8 +52,8 @@ const NAV_SECTIONS = [
   { key: "main", label: "الأساسيات", defaultOpen: true },
   { key: "operations", label: "الحركة اليومية", defaultOpen: true },
   { key: "requests", label: "الطلبات", defaultOpen: true },
-  { key: "suppliers", label: "الموردون والحسابات", defaultOpen: true, managerOnly: true },
-  { key: "reports", label: "التقارير", defaultOpen: false, managerOnly: true },
+  { key: "suppliers", label: "الموردون والحسابات", defaultOpen: true, financialSection: true },
+  { key: "reports", label: "التقارير", defaultOpen: false, financialSection: true },
   { key: "management", label: "الإدارة والمتابعة", defaultOpen: false, managerOnly: true },
 ];
 
@@ -96,7 +96,7 @@ export default function AppLayout() {
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
-      .filter((section) => !section.managerOnly || isManager)
+      .filter((section) => (!section.managerOnly || isManager) && (!section.financialSection || canViewAllBranchesFinancials))
       .map((section) => ({
         ...section,
         items: visibleNavItems.filter((item) => item.section === section.key),
