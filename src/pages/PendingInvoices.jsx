@@ -14,6 +14,7 @@ import { normalizeInvoiceNumber, getInvoiceEffectiveDate, getInvoiceCanonicalKey
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
+import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -118,7 +119,7 @@ export default function PendingInvoices() {
           throw new Error(`لا يمكن اعتماد الفاتورة قبل حل التكرار: "${next.system_invoice_number}" موجودة بالفعل في ${next.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
         }
       }
-      return base44.entities.PurchaseInvoice.update(id, data);
+      return updatePurchaseInvoiceSafe(id, data);
     },
     onSuccess: (_, { data }) => {
       invalidateInvoiceCaches();
@@ -185,7 +186,7 @@ export default function PendingInvoices() {
 
       for (let i = 0; i < selected.length; i += 5) {
         const chunk = selected.slice(i, i + 5);
-        await Promise.all(chunk.map((inv) => base44.entities.PurchaseInvoice.update(inv.id, { status: "يتم الحفظ" })));
+        await Promise.all(chunk.map((inv) => updatePurchaseInvoiceSafe(inv.id, { status: "يتم الحفظ" })));
       }
       await logActivity({ action_type: "bulk_status_change", entity_type: "invoice", entity_label: `${selected.length} فاتورة`, details: `اعتماد جماعي آمن: تحويل ${selected.length} فاتورة من انتظار المراجعة إلى يتم الحفظ بعد فحص التكرار والقيم الصفرية.` });
       return selected.length;
