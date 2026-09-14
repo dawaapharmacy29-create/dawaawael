@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,31 +11,38 @@ const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SOURCES = ["واتساب", "مكالمة هاتفية", "داخل الصيدلية"];
 const PRIORITIES = ["عاجل", "متوسط", "عادي"];
 
-export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], onSaved, editOrder = null }) {
-  const [form, setForm] = useState(editOrder || {
-    customer_name: "",
-    phone: "",
-    customer_code: "",
-    branch: "",
-    request_source: "",
-    product_name: "",
-    quantity: 1,
-    customer_type: "عادي",
-    request_type: "عادي",
-    promised_at: "",
-    product_image: "",
-    notes: "",
-    priority: "عادي",
-    assigned_employee: "",
-    recorded_by: "",
-    request_date: new Date().toISOString().split("T")[0],
-  });
+function cairoToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+
+function blankOrder() {
+  return {
+    customer_name: "", phone: "", customer_code: "", branch: "", request_source: "",
+    product_name: "", quantity: 1, customer_type: "عادي", request_type: "عادي",
+    promised_at: "", product_image: "", notes: "", priority: "عادي",
+    assigned_employee: "", recorded_by: "", request_date: cairoToday(),
+  };
+}
+
+export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], allowedBranches = BRANCHES, onSaved, editOrder = null }) {
+  const [form, setForm] = useState(() => editOrder ? { ...blankOrder(), ...editOrder } : blankOrder());
+  const idempotencyKey = useRef(crypto.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [credential, setCredential] = useState("");
   const [saveError, setSaveError] = useState("");
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(editOrder ? { ...blankOrder(), ...editOrder } : blankOrder());
+    setCredential("");
+    setSaveError("");
+    idempotencyKey.current = crypto.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }, [open, editOrder]);
 
   // الأسماء الرسمية الموحدة مع تطبيق الإدارة
   const { data: nameMap = [] } = useQuery({
@@ -83,6 +90,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           mode: "direct_verified",
           admin_staff_id: selectedRecorder.admin_staff_id,
           credential,
+          idempotency_key: idempotencyKey.current,
           order: form,
         });
         const created = createRes?.data || {};
@@ -152,7 +160,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
               <label className="text-xs font-medium text-gray-600">الفرع</label>
               <Select value={form.branch} disabled={!!editOrder} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setCredential(""); setSaveError(""); }}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
-                <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                <SelectContent>{allowedBranches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
