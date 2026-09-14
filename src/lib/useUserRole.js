@@ -12,7 +12,8 @@ export function useUserRole() {
   const isViewer = role === "viewer";
 
   const canDeleteInvoice = isAdmin || !!user?.can_delete_invoice;
-  const canSaveInvoice = isAdmin || role === "manager" || !!user?.can_save_invoice;
+  // تسجيل ومراجعة الفواتير تشغيل يومي لكل حساب مسجل؛ لا يعني رؤية أي إجماليات مالية.
+  const canSaveInvoice = !!user;
   const canManageTeam = isAdmin || !!user?.can_manage_team;
   const canSetBudget = isAdmin || !!user?.can_set_budget;
 
@@ -42,7 +43,7 @@ export function useUserRole() {
   // الإدارة الكاملة فقط ترى كل الفروع تلقائيًا.
   const canAccessFinancialBranch = (branch) => {
     if (financial.canViewAllBranchesFinancials) return true;
-    if (!financial.canViewFinancialDashboard) return false;
+    if (!financial.canViewLimitedFinancialSummary) return false;
     if (!branch) return false;
     if (!hasExplicitBranchAccess) return false;
     return branchAccess.includes(branch);
