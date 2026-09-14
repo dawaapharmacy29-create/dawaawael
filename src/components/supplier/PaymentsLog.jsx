@@ -27,13 +27,28 @@ export default function PaymentsLog() {
   const [dateTo, setDateTo] = useState(today);
 
   const { data: payments = [] } = useQuery({
-    queryKey: ["supplier-payments"],
-    staleTime: 60000,
+    queryKey: ["supplier-payments", selectedSupplier, dateFrom, dateTo],
+    queryFn: async () => {
+      const rows = [];
+      const PAGE = 500;
+      const query = {
+        payment_date: { $gte: dateFrom, $lte: dateTo },
+        ...(selectedSupplier ? { supplier_name: selectedSupplier } : {}),
+      };
+      for (let offset = 0; rows.length < 20000; offset += PAGE) {
+        const batch = await base44.entities.SupplierPayment.filter(query, "-payment_date", PAGE, offset);
+        rows.push(...batch);
+        if (batch.length < PAGE) break;
+      }
+      return rows;
+    },
+    staleTime: 120000,
   });
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
-    staleTime: 60000,
+    queryFn: () => base44.entities.Supplier.list("name"),
+    staleTime: 300000,
   });
 
   const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
