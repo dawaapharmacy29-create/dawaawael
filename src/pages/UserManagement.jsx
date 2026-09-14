@@ -26,9 +26,9 @@ const USER_SORT_COLUMNS = [
 ];
 
 const ROLE_CONFIG = {
-  admin: { label: "مدير", color: "bg-red-100 text-red-700", desc: "صلاحيات كاملة تلقائياً" },
-  manager: { label: "محاسب / مشرف", color: "bg-blue-100 text-blue-700", desc: "إضافة وتعديل وعرض" },
-  viewer: { label: "مشاهد", color: "bg-gray-100 text-gray-700", desc: "عرض فقط (يمكن تخصيص صلاحيات إضافية)" },
+  admin: { label: "مدير نظام", color: "bg-red-100 text-red-700", desc: "إدارة تقنية؛ لا تمنح تفاصيل مالية تلقائيًا" },
+  manager: { label: "مدير / مشرف", color: "bg-blue-100 text-blue-700", desc: "صلاحيات مراجعة تشغيلية حسب نطاق الفرع" },
+  viewer: { label: "مستخدم تشغيلي", color: "bg-gray-100 text-gray-700", desc: "تشغيل يومي بدون تفاصيل مالية افتراضيًا" },
 };
 
 const BRANCH_OPTIONS = ["دواء شكري", "دواء الشامي"];
@@ -218,14 +218,14 @@ export default function UserManagement() {
                     <span className="text-[10px] text-gray-400">لا يمكن تغيير دورك</span>
                   )}
                 </div>
-                {/* Permissions row - only show for non-admin */}
-                {role !== "admin" && (
+                {/* الصلاحية المالية ونطاق الفرع مستقلان عن الدور التقني، لذلك يظهران لكل الحسابات. */}
+                {true && (
                   <div className="mt-3 pt-3 border-t space-y-3">
                     <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
                       <p className="text-xs font-bold text-indigo-900 mb-2">مستوى الوصول المالي</p>
                       <Select
                         value={getFinancialAccessLevel(user)}
-                        disabled={user.id === currentUser?.id}
+                        disabled={updatePerm.isPending}
                         onValueChange={(v) => updatePerm.mutate({ id: user.id, perm: "financial_access_level", value: v, oldValue: getFinancialAccessLevel(user), userEmail: user.email })}
                       >
                         <SelectTrigger className="w-full md:w-64 h-9 text-xs bg-white"><SelectValue /></SelectTrigger>
@@ -265,7 +265,7 @@ export default function UserManagement() {
                           return (
                             <button
                               key={branch}
-                              disabled={user.id === currentUser?.id || updateBranchAccess.isPending}
+                              disabled={updateBranchAccess.isPending}
                               onClick={() => updateBranchAccess.mutate({ id: user.id, branches: next, oldBranches: current, userEmail: user.email })}
                               className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                 enabled ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-200"
