@@ -84,10 +84,10 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/invoices" element={<PurchaseInvoices />} />
+        <Route path="/invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><PurchaseInvoices /></FinancialRouteGuard>} />
         <Route path="/purchase-reports" element={<FinancialRouteGuard><PurchaseReports /></FinancialRouteGuard>} />
         <Route path="/suppliers" element={<Suppliers />} />
-        <Route path="/expenses" element={<Expenses />} />
+        <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><Expenses /></FinancialRouteGuard>} />
         <Route path="/reports" element={<FinancialRouteGuard><Reports /></FinancialRouteGuard>} />
         <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
         <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
@@ -96,7 +96,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/team-members" element={<TeamMembers />} />
-        <Route path="/pending-invoices" element={<PendingInvoices />} />
+        <Route path="/pending-invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><PendingInvoices /></FinancialRouteGuard>} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<InventoryManagement />} />
@@ -113,7 +113,7 @@ const AuthenticatedApp = () => {
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
         <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
-        <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
+        <Route path="/review-needed-invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><ReviewNeededInvoices /></FinancialRouteGuard>} />
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
         <Route path="/system-health" element={<SystemHealth />} />
