@@ -13,6 +13,7 @@ import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate, getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 
 export default function PendingInvoices() {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -50,12 +51,12 @@ export default function PendingInvoices() {
 
   const { data: rangeInvoices = [] } = useQuery({
     queryKey: ["pending-review-range-invoices", pendingRange?.from || "none", pendingRange?.to || "none"],
-    queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, {
-      $or: [
-        { invoice_date: { $gte: pendingRange.from, $lte: pendingRange.to } },
-        { created_date: { $gte: `${pendingRange.from}T00:00:00`, $lte: `${pendingRange.to}T23:59:59` } },
-      ],
-    }, "-created_date", 20000),
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: pendingRange.from,
+      to: pendingRange.to,
+      sort: "-invoice_date",
+      maxRows: 20000,
+    }),
     enabled: Boolean(pendingRange),
     staleTime: 60000,
   });
