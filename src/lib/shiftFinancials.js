@@ -37,7 +37,7 @@ export function shiftFinancialView(record) {
     const type = paymentExpenseType(e);
     if (!explicit && type) legacyPayments[type] += money(e.amount);
     else if (!type) realExpenses.push(e);
-    else if (explicit) realExpenses.push(e); // explicit records are trusted as entered; legacy inference is not applied
+    // حتى في السجل الجديد، أي بند باسم وسيلة دفع لا يُعامل كمصروف حقيقي؛ يظهر كخطأ تصنيف بدل تضخيم المصروفات.
   }
 
   if (!explicit) {
