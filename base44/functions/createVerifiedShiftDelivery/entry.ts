@@ -16,6 +16,26 @@ function cairoDate(now = new Date()) {
   }).format(now);
 }
 
+function cairoHour(now = new Date()) {
+  return Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Cairo', hour: '2-digit', hourCycle: 'h23',
+  }).format(now));
+}
+
+function previousDate(dateKey: string) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const x = new Date(Date.UTC(y, m - 1, d));
+  x.setUTCDate(x.getUTCDate() - 1);
+  return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}-${String(x.getUTCDate()).padStart(2, '0')}`;
+}
+
+function businessDateForShift(shiftType: string, now = new Date()) {
+  const today = cairoDate(now);
+  // المسائي قد يُقفل بعد منتصف الليل وحتى قبل 4 صباحًا، ويظل تابعًا لليوم التشغيلي السابق.
+  if (shiftType === 'مسائي' && cairoHour(now) < 4) return previousDate(today);
+  return today;
+}
+
 async function verifyStaff(adminStaffId: string, credential: string) {
   const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || '';
   if (!secret) return { ok: false, status: 503, error: 'إعداد التحقق مع تطبيق الإدارة غير مكتمل' };
@@ -57,11 +77,21 @@ export default async function(req: Request): Promise<Response> {
     const branch = clean(delivery.branch);
     const shiftType = clean(delivery.shift_type);
     const totalSales = Number(delivery.total_sales || 0);
+    const cashSales = Math.max(0, Number(delivery.cash_sales || 0));
+    const visaSales = Math.max(0, Number(delivery.visa_sales || 0));
+    const instaSales = Math.max(0, Number(delivery.insta_sales || 0));
+    const vodafoneSales = Math.max(0, Number(delivery.vodafone_sales || 0));
+    const otherSales = Math.max(0, Number(delivery.other_sales || 0));
+    const paymentBreakdownTotal = cashSales + visaSales + instaSales + vodafoneSales + otherSales;
+    const idempotencyKey = clean(delivery.idempotency_key);
 
     if (!adminStaffId || !credential) return Response.json({ error: 'بيانات التحقق مطلوبة' }, { status: 400 });
     if (!VALID_BRANCHES.has(branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
     if (!VALID_SHIFTS.has(shiftType)) return Response.json({ error: 'نوع الشيفت غير صالح' }, { status: 400 });
     if (!Number.isFinite(totalSales) || totalSales <= 0) return Response.json({ error: 'إجمالي المبيعات غير صالح' }, { status: 400 });
+    if (paymentBreakdownTotal <= 0 || Math.abs(paymentBreakdownTotal - totalSales) > 0.01) {
+      return Response.json({ error: 'تفصيل وسائل التحصيل لا يساوي إجمالي المبيعات' }, { status: 400 });
+    }
 
     const mappings = await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true });
     const mapping = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === branch);
@@ -73,17 +103,29 @@ export default async function(req: Request): Promise<Response> {
     const staff = verification.result?.staff || {};
     const now = new Date();
     const recordedAt = now.toISOString();
-    const shiftDate = cairoDate(now);
+    const shiftDate = businessDateForShift(shiftType, now);
     const expenses = Array.isArray(delivery.expenses)
       ? delivery.expenses
           .map((e: any) => ({
             description: clean(e?.description),
             amount: Math.max(0, Number(e?.amount || 0)),
             category: clean(e?.category) || 'أخرى',
+            payment_source: ['cash', 'insta', 'vodafone', 'bank', 'other'].includes(clean(e?.payment_source)) ? clean(e?.payment_source) : 'cash',
           }))
           .filter((e: any) => Number.isFinite(e.amount) && (e.amount > 0 || e.description || e.category))
       : [];
     const totalExpenses = expenses.reduce((sum: number, e: any) => sum + e.amount, 0);
+    const cashExpenses = expenses.filter((e: any) => e.payment_source === 'cash').reduce((sum: number, e: any) => sum + e.amount, 0);
+    const expectedCash = Math.max(0, cashSales - cashExpenses);
+    const cashHandover = Math.max(0, Number(delivery.cash_handover || 0));
+    const cashVariance = cashHandover - expectedCash;
+    const workflowStatus = Math.abs(cashVariance) > 1 || clean(delivery.workflow_status) === 'under_review' ? 'under_review' : 'submitted';
+
+    if (idempotencyKey) {
+      const prior = await base44.asServiceRole.entities.ShiftDelivery.filter({ idempotency_key: idempotencyKey });
+      const existingAttempt = prior.find((item: any) => item?.is_archived !== true);
+      if (existingAttempt) return Response.json({ success: true, record: existingAttempt, idempotent_replay: true });
+    }
 
     // منع تكرار نفس تسليم الشيفت. السجل المؤرشف لا يمنع إعادة التسجيل،
     // أما أي سجل تشغيلي موجود لنفس الفرع + التاريخ + نوع الشيفت فيوقف الإنشاء.
@@ -113,10 +155,20 @@ export default async function(req: Request): Promise<Response> {
       identity_verified_at: clean(verification.result?.verified_at) || recordedAt,
       identity_verification_source: clean(verification.result?.source) || 'DawaaManagement',
       total_sales: totalSales,
+      cash_sales: cashSales,
+      visa_sales: visaSales,
+      insta_sales: instaSales,
+      vodafone_sales: vodafoneSales,
+      other_sales: otherSales,
+      payment_breakdown_total: paymentBreakdownTotal,
+      cash_handover: cashHandover,
+      cash_variance: cashVariance,
       expenses,
       total_expenses: totalExpenses,
       net_amount: totalSales - totalExpenses,
       status: 'مؤكد',
+      workflow_status: workflowStatus,
+      idempotency_key: idempotencyKey,
       notes: clean(delivery.notes),
     });
 
