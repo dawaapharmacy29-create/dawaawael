@@ -67,11 +67,15 @@ export default function SupplierStatement({ branch, onClose }) {
 
   const filtered = statementEnabled ? filteredRows.filter((i) => isInvoiceInRange(i, dateFrom, dateTo) && isInvoiceFinanciallyApproved(i)) : null;
   const periodPayments = useMemo(
-    () => paymentRows.filter((p) => !p.branch || p.branch === branch),
+    () => paymentRows.filter((p) => p.branch === branch),
     [paymentRows, branch]
   );
+  const unassignedPeriodPayments = useMemo(
+    () => paymentRows.filter((p) => !p.branch),
+    [paymentRows]
+  );
 
-  const signedPaymentAmount = (p) => (p.transaction_type === "reversal" ? -1 : 1) * (Number(p.amount) || 0);
+  const signedPaymentAmount = (p) => p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (Number(p.amount) || 0);
 
   const reversePayment = useMutation({
     mutationFn: async (payment) => {
@@ -127,6 +131,7 @@ export default function SupplierStatement({ branch, onClose }) {
   const totalReturned = filtered?.reduce((s, i) => s + (i.returned_value || 0), 0) || 0;
   const totalNet = totalPurchases - totalReturned;
   const totalPaid = periodPayments.reduce((s, p) => s + signedPaymentAmount(p), 0);
+  const unassignedPaid = unassignedPeriodPayments.reduce((s, p) => s + signedPaymentAmount(p), 0);
 
   return (
     <div dir="rtl" className="space-y-5">
@@ -179,6 +184,8 @@ export default function SupplierStatement({ branch, onClose }) {
         </Card>
       ) : (
         <>
+          {Math.abs(unassignedPaid) > 0.009 && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"><b>تنبيه دقة:</b> يوجد {fmt(unassignedPaid)} ج دفعات في الفترة بدون فرع محدد. لم تدخل في «المدفوع في المدة» لهذا الفرع حتى لا يتم نسبها عشوائيًا أو خصمها مرتين.</div>}
+
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card className="p-4 text-center bg-blue-50 border-blue-100">
