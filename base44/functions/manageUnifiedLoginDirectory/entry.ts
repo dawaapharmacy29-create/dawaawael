@@ -39,8 +39,23 @@ export default async function(req: Request): Promise<Response> {
       const directoryId = clean(body?.directory_id);
       const base44UserId = clean(body?.base44_user_id);
       if (!directoryId || !base44UserId) return Response.json({ success: false, error: 'بيانات الربط ناقصة' }, { status: 400 });
-      const user: any = await base44.asServiceRole.entities.User.get(base44UserId);
+
+      const [directoryRow, user, activeDirectory] = await Promise.all([
+        base44.asServiceRole.entities.ManagementLoginDirectory.get(directoryId).catch(() => null),
+        base44.asServiceRole.entities.User.get(base44UserId).catch(() => null),
+        base44.asServiceRole.entities.ManagementLoginDirectory.filter({ is_active: true }, 'display_name', 100),
+      ]);
+      if (!directoryRow || directoryRow.is_active === false) return Response.json({ success: false, error: 'سجل موظف الإدارة غير موجود أو غير نشط' }, { status: 404 });
       if (!user) return Response.json({ success: false, error: 'حساب Base44 غير موجود' }, { status: 404 });
+
+      const alreadyLinked = activeDirectory.find((row: any) => row.id !== directoryId && clean(row.base44_user_id) === base44UserId);
+      if (alreadyLinked) {
+        return Response.json({
+          success: false,
+          error: `حساب Base44 ده مربوط بالفعل بـ ${clean(alreadyLinked.display_name) || 'موظف آخر'}. لازم تفك الربط القديم أولًا.`,
+        }, { status: 409 });
+      }
+
       await base44.asServiceRole.entities.ManagementLoginDirectory.update(directoryId, {
         base44_user_id: user.id,
         base44_email: clean(user.email),
