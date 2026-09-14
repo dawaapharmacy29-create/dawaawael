@@ -92,7 +92,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
         <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
         <Route path="/admin-expenses-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesReports /></FinancialRouteGuard>} />
-        <Route path="/supplier-balances" element={<FinancialRouteGuard><SupplierBalances /></FinancialRouteGuard>} />
+        <Route path="/supplier-balances" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierBalances /></FinancialRouteGuard>} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/team-members" element={<TeamMembers />} />
@@ -105,10 +105,10 @@ const AuthenticatedApp = () => {
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<FinancialRouteGuard><ReportsBranch /></FinancialRouteGuard>} />
         <Route path="/supplier-balances-branch" element={<FinancialRouteGuard><SupplierBalancesBranch /></FinancialRouteGuard>} />
-        <Route path="/supplier-intelligence" element={<FinancialRouteGuard><SupplierIntelligence /></FinancialRouteGuard>} />
+        <Route path="/supplier-intelligence" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierIntelligence /></FinancialRouteGuard>} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
-        <Route path="/financial-reports" element={<FinancialRouteGuard><FinancialReports /></FinancialRouteGuard>} />
-        <Route path="/smart-commerce-analytics" element={<FinancialRouteGuard><SmartCommerceAnalytics /></FinancialRouteGuard>} />
+        <Route path="/financial-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialReports /></FinancialRouteGuard>} />
+        <Route path="/smart-commerce-analytics" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SmartCommerceAnalytics /></FinancialRouteGuard>} />
         <Route path="/financial-archive" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialArchive /></FinancialRouteGuard>} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
@@ -117,7 +117,7 @@ const AuthenticatedApp = () => {
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
         <Route path="/system-health" element={<SystemHealth />} />
-        <Route path="/data-reconciliation" element={<FinancialRouteGuard><DataReconciliation /></FinancialRouteGuard>} />
+        <Route path="/data-reconciliation" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><DataReconciliation /></FinancialRouteGuard>} />
         <Route path="/daily-close" element={<FinancialRouteGuard><DailyClose /></FinancialRouteGuard>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
