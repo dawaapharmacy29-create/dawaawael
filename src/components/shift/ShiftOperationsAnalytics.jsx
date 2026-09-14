@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, Banknote, Building2, CreditCard, Gauge, Receipt, Smartphone, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, Banknote, Building2, CreditCard, Gauge, Receipt, Smartphone, TrendingUp, WalletCards, Landmark } from "lucide-react";
+import VisaSettlementMonitor from "./VisaSettlementMonitor";
 import { aggregateShiftFinancials, shiftFinancialView } from "@/lib/shiftFinancials";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 
@@ -57,11 +58,12 @@ export default function ShiftOperationsAnalytics({ deliveries = [] }) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <Kpi title="إجمالي المبيعات" value={`${fmt(agg.sales)} ج`} subtitle={`متوسط يومي ${fmt(agg.sales/days)} ج`} icon={TrendingUp} tone="green"/>
       <Kpi title="المصروفات الحقيقية" value={`${fmt(agg.expenses)} ج`} subtitle={`${expenseRate.toFixed(2)}% من المبيعات`} icon={Receipt} tone="red"/>
-      <Kpi title="صافي التشغيل" value={`${fmt(agg.net)} ج`} subtitle={`${agg.count} شيفت`} icon={WalletCards} tone="blue"/>
-      <Kpi title="التحصيل الإلكتروني" value={`${fmt(electronic)} ج`} subtitle={`${electronicShare.toFixed(1)}% من المبيعات`} icon={CreditCard} tone="purple"/>
-      <Kpi title="الكاش" value={`${fmt(agg.cash)} ج`} subtitle={`متوقع بعد المصروفات ${fmt(agg.expectedCash)} ج`} icon={Banknote} tone="teal"/>
-      <Kpi title="إنستا باي" value={`${fmt(agg.insta)} ج`} subtitle={`${agg.sales ? (agg.insta/agg.sales*100).toFixed(1) : 0}%`} icon={Smartphone} tone="purple"/>
-      <Kpi title="فودافون كاش" value={`${fmt(agg.vodafone)} ج`} subtitle={`${agg.sales ? (agg.vodafone/agg.sales*100).toFixed(1) : 0}%`} icon={Smartphone} tone="red"/>
+      <Kpi title="صافي الخزينة/التشغيل" value={`${fmt(agg.treasuryNet)} ج`} subtitle={`المبيعات كلها − المصروفات الحقيقية`} icon={WalletCards} tone="blue"/>
+      <Kpi title="التحصيل الإلكتروني" value={`${fmt(electronic)} ج`} subtitle={`${electronicShare.toFixed(1)}% من المبيعات — داخل قيمة الخزينة`} icon={CreditCard} tone="purple"/>
+      <Kpi title="الكاش" value={`${fmt(agg.cash)} ج`} subtitle={`مصروف كاش ${fmt(agg.expenseCash)} · متوقع تسليم ${fmt(agg.expectedCash)} ج`} icon={Banknote} tone="teal"/>
+      <Kpi title="الفيزا" value={`${fmt(agg.visa)} ج`} subtitle={`${agg.sales ? (agg.visa/agg.sales*100).toFixed(1) : 0}% من المبيعات`} icon={CreditCard} tone="blue"/>
+      <Kpi title="إنستا باي" value={`${fmt(agg.insta)} ج`} subtitle={`صافي القناة ${fmt(agg.insta-agg.expenseInsta)} ج`} icon={Landmark} tone="purple"/>
+      <Kpi title="فودافون كاش" value={`${fmt(agg.vodafone)} ج`} subtitle={`صافي القناة ${fmt(agg.vodafone-agg.expenseVodafone)} ج`} icon={Smartphone} tone="red"/>
       <Kpi title="فرق الكاش المسجل" value={`${fmt(agg.cashVariance)} ج`} subtitle="للسجلات ذات المطابقة الجديدة" icon={Gauge} tone={Math.abs(agg.cashVariance)>1?"red":"green"}/>
     </div>
 
@@ -70,6 +72,8 @@ export default function ShiftOperationsAnalytics({ deliveries = [] }) {
       <Card className="p-4"><h3 className="font-black text-gray-800 mb-3 flex items-center gap-2"><Receipt className="w-5 h-5 text-rose-600"/> أعلى بنود المصروفات</h3>{expenseCategories.length===0?<p className="text-sm text-gray-400">لا توجد مصروفات في الفترة</p>:<div className="space-y-2">{expenseCategories.slice(0,10).map((e,i)=><div key={e.name} className="flex justify-between items-center border-b pb-2 last:border-0"><span className="text-sm"><b className="text-gray-400 ml-2">#{i+1}</b>{e.name}</span><span className="font-black text-rose-700">{fmt(e.total)} ج</span></div>)}</div>}</Card>
     </div>
 
-    <Card className="p-4"><h3 className="font-black text-gray-800 mb-3 flex items-center gap-2"><Building2 className="w-5 h-5 text-teal-600"/> توزيع وسائل التحصيل</h3><div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">{[["كاش",agg.cash],["فيزا",agg.visa],["إنستا",agg.insta],["فودافون",agg.vodafone],["أخرى",agg.other]].map(([k,v])=><div key={k} className="rounded-lg bg-gray-50 border p-3"><p className="text-xs text-gray-500">{k}</p><p className="font-black mt-1">{fmt(v)} ج</p><p className="text-[11px] text-gray-400">{agg.sales ? (v/agg.sales*100).toFixed(1) : 0}%</p></div>)}</div></Card>
+    <Card className="p-4"><h3 className="font-black text-gray-800 mb-3 flex items-center gap-2"><Building2 className="w-5 h-5 text-teal-600"/> توزيع وسائل التحصيل</h3><div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">{[["كاش",agg.cash],["فيزا",agg.visa],["إنستا",agg.insta],["فودافون",agg.vodafone],["أخرى",agg.other]].map(([k,v])=><div key={k} className="rounded-lg bg-gray-50 border p-3"><p className="text-xs text-gray-500">{k}</p><p className="font-black mt-1">{fmt(v)} ج</p><p className="text-[11px] text-gray-400">{agg.sales ? (v/agg.sales*100).toFixed(1) : 0}%</p></div>)}</div><div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"><b>قاعدة الحساب:</b> كاش + فيزا + إنستا + فودافون + أخرى = إجمالي المبيعات الفعلية. المصروفات الحقيقية فقط هي التي تُخصم للوصول إلى صافي الخزينة/التشغيل.</div></Card>
+
+    <VisaSettlementMonitor from={from} to={to} branch={branch} deliveries={deliveries} />
   </div>;
 }
