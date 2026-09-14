@@ -240,7 +240,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
     if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
-    if (isShiftOverride(form.shift_type, shiftSuggestion?.shiftType)) {
+    if (!initialDraft?.id && isShiftOverride(form.shift_type, shiftSuggestion?.shiftType)) {
       const proceed = window.confirm(`الوقت الحالي يرجح أن الشيفت هو «${shiftSuggestion.shiftType}» وليس «${form.shift_type}».\n${shiftSuggestion.reason || ""}\n\nهل تريد الاستمرار بالاختيار اليدوي؟`);
       if (!proceed) return;
     }
@@ -382,7 +382,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
+              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(false); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -391,12 +391,22 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">نوع الشيفت <span className="text-red-500">*</span></Label>
-              <Select value={form.shift_type} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, shift_type: v }); }}>
+              <Select value={form.shift_type} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(v !== shiftSuggestion?.shiftType); setForm({ ...form, shift_type: v }); }}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>
                   {SHIFT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!initialDraft && (
+                <div className={`rounded-lg border px-2.5 py-2 text-[11px] ${manualShiftOverride ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{shiftDetecting ? "جاري تحديد الشيفت تلقائيًا..." : manualShiftOverride ? `اختيار يدوي — المقترح تلقائيًا: ${shiftSuggestion?.shiftType || "—"}` : `تم التحديد تلقائيًا: ${form.shift_type}`}</span>
+                    {manualShiftOverride && <button type="button" className="underline font-bold" onClick={() => { setManualShiftOverride(false); if (shiftSuggestion?.shiftType) { setDraftBusinessDate(""); setForm((f) => ({ ...f, shift_type: shiftSuggestion.shiftType })); } }}>العودة للتلقائي</button>}
+                  </div>
+                  {!shiftDetecting && shiftSuggestion?.reason && <p className="mt-1 opacity-80">{shiftSuggestion.reason}</p>}
+                  <p className="mt-1 opacity-70">يمكن تغييره يدويًا عند الحاجة، وسيطلب النظام تأكيدًا لو الاختيار مختلف عن المعتاد.</p>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
