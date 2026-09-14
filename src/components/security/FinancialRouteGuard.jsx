@@ -6,7 +6,7 @@ import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
 export default function FinancialRouteGuard({ children, minimum = FINANCIAL_ACCESS.BRANCH, adminOnly = false }) {
   const location = useLocation();
   const role = useUserRole();
-  const rank = { none: 0, operations: 1, branch_financial: 2, full: 3 };
+  const rank = { none: 0, limited: 1, full: 2 };
   const allowed = adminOnly
     ? role.isAdmin
     : (rank[role.financialAccessLevel] || 0) >= (rank[minimum] || 0);
