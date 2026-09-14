@@ -111,11 +111,12 @@ export default function SupplierIntelligence() {
     const withdrawals = periodInvoices.reduce((s,i)=>s+invoiceGross(i),0);
     const returns = periodInvoices.reduce((s,i)=>s+(Number(i.returned_value)||0),0);
     const creditPurchases = periodInvoices.reduce((s,i)=>s+getInvoiceCreditAmount(i),0);
+    const periodOutstanding = periodInvoices.filter((i)=>i.payment_type === "آجل").reduce((s,i)=>s+Math.max(0,invoiceGross(i)-(Number(i.paid_value)||0)),0);
     const paid = periodPayments.reduce((s,p)=>s+paymentSigned(p),0);
     const avgInvoice = periodInvoices.length ? withdrawals/periodInvoices.length : 0;
     const monthKeys = [...new Set(periodInvoices.map(i=>(i.invoice_date || i.created_date?.slice(0,7) || "").slice(0,7)).filter(Boolean))];
     const avgMonthly = monthKeys.length ? withdrawals/monthKeys.length : 0;
-    return { billedPurchases, withdrawals, returns, creditPurchases, paid, avgInvoice, avgMonthly, invoiceCount:periodInvoices.length, monthCount:monthKeys.length, netMovement:creditPurchases-paid };
+    return { billedPurchases, withdrawals, returns, creditPurchases, periodOutstanding, paid, avgInvoice, avgMonthly, invoiceCount:periodInvoices.length, monthCount:monthKeys.length, netMovement:creditPurchases-paid };
   }, [periodInvoices,periodPayments]);
 
   const currentBalanceDetails = useMemo(() => {
@@ -199,11 +200,12 @@ export default function SupplierIntelligence() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Metric title={currentBalance >= 0 ? "الرصيد الحالي علينا" : "رصيد لصالحنا عند المورد"} value={money(Math.abs(currentBalance))} subtitle="رصيد حالي مستقل عن الفترة المختارة" icon={HandCoins} tone={currentBalance>=0?"rose":"emerald"}/>
         <Metric title="صافي مسحوبات الفترة" value={money(summary.withdrawals)} subtitle={`${summary.invoiceCount.toLocaleString("ar-EG")} فاتورة · قبل المرتجعات ${money(summary.billedPurchases)}`} icon={WalletCards} tone="teal"/>
-        <Metric title="المشتريات الآجل في الفترة" value={money(summary.creditPurchases)} subtitle="الجزء الذي يكوّن مديونية" icon={FileText} tone="amber"/>
-        <Metric title="المدفوع في الفترة" value={money(summary.paid)} subtitle="بعد حركات العكس Reversal" icon={CreditCard} tone="emerald"/>
+        <Metric title="المتبقي علينا من فواتير الفترة" value={money(summary.periodOutstanding)} subtitle="آجل الفترة بعد المرتجعات والمسدد على نفس الفواتير" icon={HandCoins} tone="rose"/>
+        <Metric title="المشتريات الآجل في الفترة" value={money(summary.creditPurchases)} subtitle="إجمالي الجزء الآجل الذي نشأ داخل الفترة" icon={FileText} tone="amber"/>
+        <Metric title="المدفوع نقديًا في الفترة" value={money(summary.paid)} subtitle="قد يشمل سداد فواتير أقدم · بعد Reversal" icon={CreditCard} tone="emerald"/>
         <Metric title="متوسط قيمة الفاتورة" value={money(summary.avgInvoice)} subtitle="صافي بعد المرتجع" icon={Activity} tone="blue"/>
         <Metric title="متوسط المسحوبات الشهري" value={money(summary.avgMonthly)} subtitle={`${summary.monthCount.toLocaleString("ar-EG")} شهر فيه تعامل`} icon={CalendarRange} tone="violet"/>
-        <Metric title="صافي حركة الآجل بالفترة" value={money(summary.netMovement)} subtitle="آجل الفترة − الدفعات" icon={TrendingUp} tone={summary.netMovement>0?"rose":"emerald"}/>
+        <Metric title="صافي التدفق الدائن بالفترة" value={money(summary.netMovement)} subtitle="آجل نشأ بالفترة − كل الدفعات المنفذة بالفترة؛ ليس رصيد فواتير الفترة" icon={TrendingUp} tone={summary.netMovement>0?"rose":"emerald"}/>
         <Metric title="المرتجعات في الفترة" value={money(summary.returns)} subtitle="خصومات من إجمالي الفواتير" icon={FileText} tone="amber"/>
       </div>
 
