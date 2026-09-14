@@ -8,10 +8,10 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard, section: "main" },
-  { path: "/invoices", label: "فواتير الشراء", icon: FileText, section: "main", operationsFinancial: true },
-  { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main", operationsFinancial: true },
+  { path: "/invoices", label: "فواتير الشراء", icon: FileText, section: "main" },
+  { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main" },
   { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, section: "main" },
-  { path: "/expenses", label: "المصروفات", icon: Receipt, section: "operations", operationsFinancial: true },
+  { path: "/expenses", label: "المصروفات", icon: Receipt, section: "operations", fullFinancialOnly: true },
   { path: "/returns", label: "المرتجعات", icon: RotateCcw, pink: true, section: "operations" },
   { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true, hidden: true, section: "operations" },
   { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true, hidden: true, section: "operations" },
@@ -37,7 +37,7 @@ const navItems = [
   { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, adminOnly: true, section: "operations" },
   { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, adminOnly: true, section: "operations" },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, section: "management" },
-  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "management", operationsFinancial: true },
+  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
   { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, adminOnly: true, section: "management" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
@@ -91,8 +91,8 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
-  const { isAdmin, isManager, canUseFinancialOperations, canViewFinancialReports, canViewAllBranchesFinancials } = useUserRole();
-  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager) && (!item.operationsFinancial || canUseFinancialOperations) && (!item.financialOnly || canViewFinancialReports) && (!item.fullFinancialOnly || canViewAllBranchesFinancials));
+  const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials } = useUserRole();
+  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager) && (!item.financialOnly || canViewFinancialReports) && (!item.fullFinancialOnly || canViewAllBranchesFinancials));
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
@@ -102,7 +102,7 @@ export default function AppLayout() {
         items: visibleNavItems.filter((item) => item.section === section.key),
       }))
       .filter((section) => section.items.length > 0),
-    [isAdmin, isManager, canUseFinancialOperations, canViewFinancialReports, canViewAllBranchesFinancials]
+    [isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials]
   );
 
   const isItemActive = (item) => {
