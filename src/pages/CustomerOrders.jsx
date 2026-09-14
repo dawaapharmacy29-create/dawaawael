@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, ShoppingBag, Download, PieChart, LayoutList, LayoutGrid, RefreshCw, SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import * as XLSX from "xlsx";
 import OrderOperationsBar, { matchesOrderQueue } from "@/components/orders/OrderOperationsBar";
 import OrderTable from "@/components/orders/OrderTable";
 import OrderFormDialog from "@/components/orders/OrderFormDialog";
@@ -19,13 +18,15 @@ import OrderBranchOverview from "@/components/orders/OrderBranchOverview";
 import { logActivity } from "@/lib/activityLogger";
 import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
 import { getCurrentOrderCycle, isOrderInCycle } from "@/lib/orderCycle";
+import { loadCustomerOrdersByBusinessDate } from "@/lib/customerOrderRangeLoader";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const STATUSES = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
 const STATUS_LIST = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم التوصيل", "الصنف غير متوفر حاليا", "تم الإلغاء"];
 
-function exportOrdersToExcel(orders) {
+async function exportOrdersToExcel(orders) {
+  const XLSX = await import("xlsx");
   const rows = orders.map((o) => ({
     "رقم الطلب": o.order_number || o.id?.slice(-6) || "",
     "اسم العميل": o.customer_name || "",
@@ -67,26 +68,18 @@ async function loadAllCustomerOrders(maxRows = 10000) {
   return all;
 }
 
-async function loadCustomerOrdersForCycle(cycle) {
-  const all = [];
-  const query = {
-    $or: [
-      { request_date: { $gte: cycle.start, $lte: cycle.end } },
-      { requested_at: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
-      { created_date: { $gte: `${cycle.start}T00:00:00`, $lte: `${cycle.end}T23:59:59` } },
-    ],
-  };
-  for (let offset = 0; offset < 10000; offset += 500) {
-    const batch = await base44.entities.CustomerOrder.filter(query, "-created_date", 500, offset);
-    const rows = Array.isArray(batch) ? batch : [];
-    all.push(...rows);
-    if (rows.length < 500) break;
-  }
-  return all;
+async function loadCustomerOrdersForCycle(cycle, branches = null) {
+  return loadCustomerOrdersByBusinessDate(base44.entities.CustomerOrder, {
+    from: cycle.start,
+    to: cycle.end,
+    branches,
+    maxRows: 10000,
+  });
 }
 
 export default function CustomerOrders() {
-  const { isAdmin, isManager, canAccessBranch } = useUserRole();
+  const { isAdmin, isManager, canAccessBranch, branchAccess, hasExplicitBranchAccess } = useUserRole();
+  const serverScopedBranches = !isAdmin && hasExplicitBranchAccess ? branchAccess : null;
   const qc = useQueryClient();
   const currentCycle = getCurrentOrderCycle();
 
@@ -110,8 +103,8 @@ export default function CustomerOrders() {
   const [syncResult, setSyncResult] = useState(null);
 
   const { data: currentOrders = [], isLoading: currentLoading } = useQuery({
-    queryKey: ["customer-orders", "cycle", currentCycle.start, currentCycle.end],
-    queryFn: () => loadCustomerOrdersForCycle(currentCycle),
+    queryKey: ["customer-orders", "cycle", currentCycle.start, currentCycle.end, serverScopedBranches?.join("|") || "all"],
+    queryFn: () => loadCustomerOrdersForCycle(currentCycle, serverScopedBranches),
     staleTime: 60000,
     refetchOnWindowFocus: false,
   });
@@ -433,7 +426,8 @@ export default function CustomerOrders() {
           open={showForm}
           onOpenChange={setShowForm}
           teamMembers={teamMembers}
-          onSaved={() => qc.invalidateQueries(["customer-orders"])}
+          allowedBranches={isAdmin || !hasExplicitBranchAccess ? BRANCHES : branchAccess}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["customer-orders"] })}
         />
       )}
 
@@ -446,7 +440,7 @@ export default function CustomerOrders() {
           isManager={isManager}
           onUpdated={(updated) => {
             setSelectedOrder(updated);
-            qc.invalidateQueries(["customer-orders"]);
+            qc.invalidateQueries({ queryKey: ["customer-orders"] });
           }}
         />
       )}
