@@ -84,11 +84,11 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><PurchaseInvoices /></FinancialRouteGuard>} />
-        <Route path="/purchase-reports" element={<FinancialRouteGuard><PurchaseReports /></FinancialRouteGuard>} />
+        <Route path="/invoices" element={<PurchaseInvoices />} />
+        <Route path="/purchase-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><PurchaseReports /></FinancialRouteGuard>} />
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><Expenses /></FinancialRouteGuard>} />
-        <Route path="/reports" element={<FinancialRouteGuard><Reports /></FinancialRouteGuard>} />
+        <Route path="/reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Reports /></FinancialRouteGuard>} />
         <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
         <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
         <Route path="/admin-expenses-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesReports /></FinancialRouteGuard>} />
@@ -96,7 +96,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/team-members" element={<TeamMembers />} />
-        <Route path="/pending-invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><PendingInvoices /></FinancialRouteGuard>} />
+        <Route path="/pending-invoices" element={<PendingInvoices />} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<InventoryManagement />} />
@@ -113,12 +113,12 @@ const AuthenticatedApp = () => {
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
         <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
-        <Route path="/review-needed-invoices" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><ReviewNeededInvoices /></FinancialRouteGuard>} />
+        <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
         <Route path="/system-health" element={<SystemHealth />} />
         <Route path="/data-reconciliation" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><DataReconciliation /></FinancialRouteGuard>} />
-        <Route path="/daily-close" element={<FinancialRouteGuard><DailyClose /></FinancialRouteGuard>} />
+        <Route path="/daily-close" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><DailyClose /></FinancialRouteGuard>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
