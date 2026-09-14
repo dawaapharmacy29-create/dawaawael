@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Activity, Building2, CalendarRange, CreditCard, FileText, HandCoins, Target, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, AlertTriangle, Building2, CalendarRange, CreditCard, FileText, HandCoins, Target, TrendingUp, WalletCards } from "lucide-react";
 import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
+import { getInvoiceCanonicalKey } from "@/lib/invoiceIdentity";
 import { isInvoiceFinanciallyApproved, getInvoiceCreditAmount } from "@/lib/purchaseCalculations";
 import { cairoTodayKey, cycleRangeFor } from "@/lib/smart-commerce-analytics";
 
@@ -106,6 +107,7 @@ export default function SupplierIntelligence() {
   const periodPayments = useMemo(() => scopedPayments.filter((p)=>p.payment_date>=from && p.payment_date<=to), [scopedPayments,from,to]);
 
   const summary = useMemo(() => {
+    const billedPurchases = periodInvoices.reduce((s,i)=>s+(Number(i.total_value)||0),0);
     const withdrawals = periodInvoices.reduce((s,i)=>s+invoiceGross(i),0);
     const returns = periodInvoices.reduce((s,i)=>s+(Number(i.returned_value)||0),0);
     const creditPurchases = periodInvoices.reduce((s,i)=>s+getInvoiceCreditAmount(i),0);
@@ -113,16 +115,53 @@ export default function SupplierIntelligence() {
     const avgInvoice = periodInvoices.length ? withdrawals/periodInvoices.length : 0;
     const monthKeys = [...new Set(periodInvoices.map(i=>(i.invoice_date || i.created_date?.slice(0,7) || "").slice(0,7)).filter(Boolean))];
     const avgMonthly = monthKeys.length ? withdrawals/monthKeys.length : 0;
-    return { withdrawals, returns, creditPurchases, paid, avgInvoice, avgMonthly, invoiceCount:periodInvoices.length, monthCount:monthKeys.length, netMovement:creditPurchases-paid };
+    return { billedPurchases, withdrawals, returns, creditPurchases, paid, avgInvoice, avgMonthly, invoiceCount:periodInvoices.length, monthCount:monthKeys.length, netMovement:creditPurchases-paid };
   }, [periodInvoices,periodPayments]);
 
-  const currentBalance = useMemo(() => {
+  const currentBalanceDetails = useMemo(() => {
     const remainingInvoices = openCreditInvoices.reduce((s,inv)=>s+Math.max(0, invoiceGross(inv)-(Number(inv.paid_value)||0)),0);
     const debtRows = debts.filter((d)=>branch==="all" || d.branch===branch);
-    const oldDebt = debtRows.reduce((s,d)=>s+(Number(d.initial_debt)||0)+(Number(d.adjustment)||0),0);
-    const generalPayments = allSupplierPayments.filter((p)=>!p.invoice_id && p.allocation_type!=="multi_invoice" && (branch==="all" || !p.branch || p.branch===branch)).reduce((s,p)=>s+paymentSigned(p),0);
-    return round2(remainingInvoices + oldDebt - generalPayments);
+    const oldDebt = debtRows.reduce((s,d)=>s+(Number(d.initial_debt)||0),0);
+    const adjustment = debtRows.reduce((s,d)=>s+(Number(d.adjustment)||0),0);
+    const generalRows = allSupplierPayments.filter((p)=>!p.invoice_id && p.allocation_type!=="multi_invoice");
+    const attributedGeneral = generalRows.filter((p)=>branch==="all" || p.branch===branch).reduce((s,p)=>s+paymentSigned(p),0);
+    const unassignedGeneral = branch === "all" ? 0 : generalRows.filter((p)=>!p.branch).reduce((s,p)=>s+paymentSigned(p),0);
+    return {
+      remainingInvoices: round2(remainingInvoices), oldDebt: round2(oldDebt), adjustment: round2(adjustment),
+      generalPayments: round2(attributedGeneral), unassignedGeneral: round2(unassignedGeneral),
+      balance: round2(remainingInvoices + oldDebt + adjustment - attributedGeneral),
+    };
   }, [openCreditInvoices,debts,allSupplierPayments,branch]);
+  const currentBalance = currentBalanceDetails.balance;
+
+  const quality = useMemo(() => {
+    const rawPeriod = invoicesRaw.filter((i)=>{ const d=(i.invoice_date || i.created_date?.slice(0,10) || ""); return d>=from && d<=to && (i.transaction_type || "external_purchase") !== "internal_transfer"; });
+    const pending = rawPeriod.filter((i)=>i.status === "انتظار المراجعة");
+    const rejected = rawPeriod.filter((i)=>i.status === "مرفوضة");
+    const approvedRows = rawPeriod.filter(isInvoiceFinanciallyApproved);
+    const zeroRows = approvedRows.filter((i)=>invoiceGross(i)<=0.009);
+    const groups = new Map();
+    approvedRows.forEach((i)=>{ const key=getInvoiceCanonicalKey(i); if(!key)return; if(!groups.has(key))groups.set(key,[]); groups.get(key).push(i); });
+    const duplicateGroups = [...groups.values()].filter((rows)=>rows.length>1);
+    const positiveValues = approvedRows.map(invoiceGross).filter((v)=>v>0).sort((a,b)=>a-b);
+    const median = positiveValues.length ? positiveValues[Math.floor(positiveValues.length/2)] : 0;
+    const extremeRows = approvedRows.filter((i)=>{ const v=invoiceGross(i); return v>0 && median>0 && v>=Math.max(50000,median*5); });
+    return {
+      pendingCount:pending.length, pendingValue:round2(pending.reduce((s,i)=>s+invoiceGross(i),0)),
+      rejectedCount:rejected.length, zeroCount:zeroRows.length, duplicateGroups, extremeRows, median,
+      issueCount:pending.length+rejected.length+zeroRows.length+duplicateGroups.length+extremeRows.length,
+    };
+  }, [invoicesRaw,from,to]);
+
+  const branchComparison = useMemo(() => BRANCHES.map((b) => {
+    const rows = periodInvoices.filter((i)=>i.branch===b);
+    const purchases = rows.reduce((s,i)=>s+invoiceGross(i),0);
+    const branchOpen = openCreditInvoices.filter((i)=>i.branch===b).reduce((s,i)=>s+Math.max(0,invoiceGross(i)-(Number(i.paid_value)||0)),0);
+    const debtRows = debts.filter((d)=>d.branch===b);
+    const legacy = debtRows.reduce((s,d)=>s+(Number(d.initial_debt)||0)+(Number(d.adjustment)||0),0);
+    const branchGeneral = allSupplierPayments.filter((p)=>!p.invoice_id && p.allocation_type!=="multi_invoice" && p.branch===b).reduce((s,p)=>s+paymentSigned(p),0);
+    return { branch:b, purchases:round2(purchases), invoiceCount:rows.length, avgInvoice:rows.length?purchases/rows.length:0, currentBalance:round2(branchOpen+legacy-branchGeneral) };
+  }), [periodInvoices,openCreditInvoices,debts,allSupplierPayments]);
 
   const monthly = useMemo(() => {
     const map=new Map();
