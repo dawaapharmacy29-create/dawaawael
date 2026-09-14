@@ -1,4 +1,5 @@
 import { useAuth } from "@/lib/AuthContext";
+import { buildFinancialPermissions } from "@/lib/financialAccess";
 
 export function useUserRole() {
   // المستخدم تم تحميله بالفعل مرة واحدة داخل AuthContext عند بدء التطبيق.
@@ -36,6 +37,17 @@ export function useUserRole() {
     return branchAccess.includes(branch);
   };
 
+  const financial = buildFinancialPermissions(user);
+  // البيانات المالية أكثر حساسية من التشغيل: الوصول المالي حسب الفرع يحتاج نطاق فرع صريح.
+  // الإدارة الكاملة فقط ترى كل الفروع تلقائيًا.
+  const canAccessFinancialBranch = (branch) => {
+    if (financial.canViewAllBranchesFinancials) return true;
+    if (!financial.canViewFinancialDashboard) return false;
+    if (!branch) return false;
+    if (!hasExplicitBranchAccess) return false;
+    return branchAccess.includes(branch);
+  };
+
   return {
     role,
     isAdmin,
@@ -49,5 +61,7 @@ export function useUserRole() {
     branchAccess,
     hasExplicitBranchAccess,
     canAccessBranch,
+    canAccessFinancialBranch,
+    ...financial,
   };
 }
