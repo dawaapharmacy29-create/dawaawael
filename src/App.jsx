@@ -8,6 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from './components/layout/AppLayout';
 import { lazy, useEffect } from "react";
 import FinancialRouteGuard from "@/components/security/FinancialRouteGuard";
+import RoleRouteGuard from "@/components/security/RoleRouteGuard";
 import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
 
 // تقسيم الصفحات إلى حزم مستقلة: الصفحة لا تُحمّل إلا عند فتحها.
@@ -86,16 +87,16 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/invoices" element={<PurchaseInvoices />} />
         <Route path="/purchase-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><PurchaseReports /></FinancialRouteGuard>} />
-        <Route path="/suppliers" element={<Suppliers />} />
+        <Route path="/suppliers" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Suppliers /></FinancialRouteGuard>} />
         <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Expenses /></FinancialRouteGuard>} />
         <Route path="/reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Reports /></FinancialRouteGuard>} />
-        <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
-        <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
+        <Route path="/admin-expenses-shokry" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesShokry /></FinancialRouteGuard>} />
+        <Route path="/admin-expenses-shami" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesShami /></FinancialRouteGuard>} />
         <Route path="/admin-expenses-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesReports /></FinancialRouteGuard>} />
         <Route path="/supplier-balances" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierBalances /></FinancialRouteGuard>} />
-        <Route path="/activity-log" element={<ActivityLog />} />
-        <Route path="/user-management" element={<UserManagement />} />
-        <Route path="/team-members" element={<TeamMembers />} />
+        <Route path="/activity-log" element={<RoleRouteGuard managerOnly><ActivityLog /></RoleRouteGuard>} />
+        <Route path="/user-management" element={<RoleRouteGuard adminOnly><UserManagement /></RoleRouteGuard>} />
+        <Route path="/team-members" element={<RoleRouteGuard managerOnly><TeamMembers /></RoleRouteGuard>} />
         <Route path="/pending-invoices" element={<PendingInvoices />} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
@@ -111,12 +112,12 @@ const AuthenticatedApp = () => {
         <Route path="/smart-commerce-analytics" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SmartCommerceAnalytics /></FinancialRouteGuard>} />
         <Route path="/financial-archive" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialArchive /></FinancialRouteGuard>} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
-        <Route path="/security-audit" element={<SecurityAuditPage />} />
-        <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
+        <Route path="/security-audit" element={<RoleRouteGuard adminOnly><SecurityAuditPage /></RoleRouteGuard>} />
+        <Route path="/supplier-rules-backfill" element={<RoleRouteGuard adminOnly><SupplierRulesBackfill /></RoleRouteGuard>} />
         <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
-        <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
-        <Route path="/employee-hr" element={<EmployeeHR />} />
-        <Route path="/system-health" element={<SystemHealth />} />
+        <Route path="/supabase-sync" element={<RoleRouteGuard adminOnly><SupabaseSyncCenter /></RoleRouteGuard>} />
+        <Route path="/employee-hr" element={<RoleRouteGuard managerOnly><EmployeeHR /></RoleRouteGuard>} />
+        <Route path="/system-health" element={<RoleRouteGuard adminOnly><SystemHealth /></RoleRouteGuard>} />
         <Route path="/data-reconciliation" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><DataReconciliation /></FinancialRouteGuard>} />
         <Route path="/daily-close" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><DailyClose /></FinancialRouteGuard>} />
       </Route>
