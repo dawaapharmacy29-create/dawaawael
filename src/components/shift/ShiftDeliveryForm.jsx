@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Wallet, Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Wallet, Plus, Trash2, Save, Loader2, Banknote, CreditCard, Smartphone, Landmark, CircleDollarSign } from "lucide-react";
 import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyCloseGuard";
 import { getSmartShiftSuggestion, getTimeBasedShiftSuggestion, isShiftOverride } from "@/lib/shiftAutoDetection";
 
@@ -44,9 +44,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const [manualShiftOverride, setManualShiftOverride] = useState(false);
   const [shiftDetecting, setShiftDetecting] = useState(false);
   const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+  const [visaControl, setVisaControl] = useState({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
   const [cashHandover, setCashHandover] = useState("");
-  const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
-  const [liveExpenseForm, setLiveExpenseForm] = useState({ category: "", amount: "", note: "" });
+  const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "", payment_source: "cash" }]);
+  const [liveExpenseForm, setLiveExpenseForm] = useState({ category: "", amount: "", note: "", payment_source: "cash" });
   const [liveExpenseSaving, setLiveExpenseSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -75,8 +76,14 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       vodafone: initialDraft.vodafone_sales || "",
       other: initialDraft.other_sales || (savedBreakdown <= 0 && Number(initialDraft.total_sales || 0) > 0 ? initialDraft.total_sales : ""),
     });
+    setVisaControl({
+      terminalAmount: initialDraft.visa_terminal_amount || "",
+      operationCount: initialDraft.visa_operation_count || "",
+      terminalName: initialDraft.visa_terminal_name || "",
+      batchReference: initialDraft.visa_batch_reference || "",
+    });
     setCashHandover(initialDraft.cash_handover ?? "");
-    setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses : [{ description: "", amount: "", category: "" }]);
+    setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses.map((e) => ({ ...e, payment_source: e.payment_source || "cash" })) : [{ description: "", amount: "", category: "", payment_source: "cash" }]);
     setDraftBusinessDate(initialDraft.business_date || "");
     draftIdRef.current = initialDraft.id;
     draftKeyRef.current = initialDraft.draft_key || "";
@@ -131,10 +138,16 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const liveExpenseTotal = useMemo(() => liveExpenseEvents.reduce((sum, e) => sum + (Number(e.amount) || 0), 0), [liveExpenseEvents]);
   const closingExpenseTotal = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
   const totalExpenses = liveExpenseTotal + closingExpenseTotal;
-  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - totalExpenses);
+  const cashFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => (e.payment_source || "cash") === "cash").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => (e.payment_source || "cash") === "cash").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
+  const instaFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => e.payment_source === "insta").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => e.payment_source === "insta").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
+  const vodafoneFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => e.payment_source === "vodafone").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => e.payment_source === "vodafone").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
+  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - cashFundedExpenses);
   const actualCashHandover = parseFloat(cashHandover) || 0;
   const cashVariance = actualCashHandover - expectedCashHandover;
+  const visaTerminalAmount = parseFloat(visaControl.terminalAmount) || 0;
+  const visaVariance = visaTerminalAmount - (parseFloat(payments.visa) || 0);
   const netAmount = paymentTotal - totalExpenses;
+  const treasuryNet = netAmount;
 
   useEffect(() => {
     if (!form.branch || !form.shift_type || !form.employee_map_id) return;
