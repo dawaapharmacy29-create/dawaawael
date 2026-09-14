@@ -6,14 +6,15 @@ const BRANCH_OPTIONS = [
   { value: "دواء شكري", label: "دواء شكري", activeClass: "bg-blue-600 text-white" },
 ];
 
-export default function BranchSelector({ value, onChange }) {
+export default function BranchSelector({ value, onChange, allowedBranches = null, showAll = true }) {
+  const options = BRANCH_OPTIONS.filter((b) => b.value === "all" ? showAll : (!allowedBranches || allowedBranches.includes(b.value)));
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-sm font-semibold text-gray-600 flex items-center gap-1 whitespace-nowrap">
         <Building2 className="w-4 h-4" /> عرض بيانات:
       </span>
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
-        {BRANCH_OPTIONS.map((b) => (
+        {options.map((b) => (
           <button
             key={b.value}
             onClick={() => onChange(b.value)}
