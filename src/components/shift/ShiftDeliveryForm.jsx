@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Wallet, Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyCloseGuard";
+import { getSmartShiftSuggestion, getTimeBasedShiftSuggestion, isShiftOverride } from "@/lib/shiftAutoDetection";
 
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -30,14 +31,18 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   });
   const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false && !PAYMENT_EXPENSE_NAMES.has((i.name || "").trim()));
 
+  const initialShiftSuggestion = useMemo(() => getTimeBasedShiftSuggestion(), []);
   const [form, setForm] = useState({
     branch: "",
-    shift_type: "",
+    shift_type: initialShiftSuggestion.shiftType,
     employee_map_id: "",
     pin: "",
     total_sales: "",
     notes: "",
   });
+  const [shiftSuggestion, setShiftSuggestion] = useState(initialShiftSuggestion);
+  const [manualShiftOverride, setManualShiftOverride] = useState(false);
+  const [shiftDetecting, setShiftDetecting] = useState(false);
   const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
   const [cashHandover, setCashHandover] = useState("");
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
