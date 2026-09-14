@@ -50,11 +50,25 @@ export function shiftFinancialView(record) {
   }
 
   const paymentTotal = cash + visa + insta + vodafone + other;
+  const expenseSources = realExpenses.reduce((acc, e) => {
+    const source = ["cash","insta","vodafone","bank","other"].includes(e?.payment_source) ? e.payment_source : "cash";
+    acc[source] += money(e.amount);
+    return acc;
+  }, { cash:0, insta:0, vodafone:0, bank:0, other:0 });
   const realExpenseTotal = realExpenses.reduce((s, e) => s + money(e.amount), 0);
-  const expectedCash = Math.max(0, cash - realExpenseTotal);
+  const expectedCash = Math.max(0, cash - expenseSources.cash);
   const actualCash = money(record?.cash_handover);
   const cashVariance = explicit ? money(record?.cash_variance) : 0;
   const operationalNet = totalSales - realExpenseTotal;
+  const treasuryGross = paymentTotal;
+  const treasuryNet = paymentTotal - realExpenseTotal;
+  const channelNet = {
+    cash: cash - expenseSources.cash,
+    visa,
+    insta: insta - expenseSources.insta,
+    vodafone: vodafone - expenseSources.vodafone,
+    other: other - expenseSources.other - expenseSources.bank,
+  };
 
   return {
     legacy: !explicit,
@@ -62,10 +76,14 @@ export function shiftFinancialView(record) {
     payments: { cash, visa, insta, vodafone, other, total: paymentTotal },
     realExpenses,
     realExpenseTotal,
+    expenseSources,
     expectedCash,
     actualCash,
     cashVariance,
     operationalNet,
+    treasuryGross,
+    treasuryNet,
+    channelNet,
     electronicTotal: visa + insta + vodafone + other,
     electronicShare: totalSales > 0 ? ((visa + insta + vodafone + other) / totalSales) * 100 : 0,
     expenseRate: totalSales > 0 ? (realExpenseTotal / totalSales) * 100 : 0,
