@@ -83,7 +83,7 @@ export default function DailyClose() {
     const presentShiftTypes = new Set(activeShifts.map((s) => s.shift_type));
     const missingShifts = EXPECTED_SHIFTS.filter((type) => !presentShiftTypes.has(type));
     const reviewShifts = activeShifts.filter((s) => s.status === "مراجعة");
-    const unresolvedWorkflowShifts = activeShifts.filter((s) => !["approved", "closed"].includes(s.workflow_status || "submitted"));
+    const unresolvedWorkflowShifts = activeShifts.filter((s) => s.workflow_status && !["approved", "closed"].includes(s.workflow_status));
 
     const shiftGroups = new Map();
     activeShifts.forEach((s) => {
