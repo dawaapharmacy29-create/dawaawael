@@ -29,10 +29,8 @@ export default async function(req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
 
     const role = String(user.role || '');
-    const canSaveInvoice = user.can_save_invoice === true || user?.data?.can_save_invoice === true;
-    if (!['admin', 'manager'].includes(role) && !canSaveInvoice) {
-      return Response.json({ error: 'ليس لديك صلاحية إضافة فواتير شراء' }, { status: 403 });
-    }
+    // تسجيل الفواتير عملية تشغيلية أساسية لكل حساب مسجل.
+    // الصلاحيات المالية الحساسة (الإجماليات/الذمم/التقارير) منفصلة تمامًا عن هذا المسار.
 
     const body = await req.json().catch(() => ({}));
     const invoice = body?.invoice || {};
