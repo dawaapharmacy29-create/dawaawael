@@ -12,6 +12,8 @@ import AdminSummary from "@/components/purchase-reports/AdminSummary";
 import MonthlySalesPurchasesChart from "@/components/purchase-reports/MonthlySalesPurchasesChart";
 import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { isInvoiceInRange } from "@/lib/invoiceIdentity";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
+import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const BRANCH_COLORS = { "دواء شكري": "#3b82f6", "دواء الشامي": "#a855f7" };
@@ -77,11 +79,12 @@ export default function PurchaseReports() {
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["purchase-reports-invoices", dateFrom, dateTo],
-    queryFn: () => loadAllPurchaseInvoices(10000, {
-      $or: [
-        { invoice_date: { $gte: dateFrom, $lte: dateTo } },
-        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
-      ],
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: dateFrom,
+      to: dateTo,
+      extraFilter: filterBranch === "الكل" ? {} : { branch: filterBranch },
+      sort: "-invoice_date",
+      maxRows: 10000,
     }),
     staleTime: 120000,
   });
@@ -173,11 +176,11 @@ export default function PurchaseReports() {
   // بيانات الشهر الكامل لا تُحمّل إلا عند فتح أداة التصنيف الجماعي.
   const { data: thisMonthInvoices = [] } = useQuery({
     queryKey: ["purchase-reports-categorization-month", monthStartStr(), monthEndStr()],
-    queryFn: () => loadAllPurchaseInvoices(10000, {
-      $or: [
-        { invoice_date: { $gte: monthStartStr(), $lte: monthEndStr() } },
-        { created_date: { $gte: `${monthStartStr()}T00:00:00`, $lte: `${monthEndStr()}T23:59:59` } },
-      ],
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: monthStartStr(),
+      to: monthEndStr(),
+      sort: "-invoice_date",
+      maxRows: 10000,
     }),
     enabled: categorizeOpen,
     staleTime: 120000,
@@ -196,7 +199,7 @@ export default function PurchaseReports() {
     try {
       for (let i = 0; i < entries.length; i += 5) {
         const chunk = entries.slice(i, i + 5);
-        await Promise.all(chunk.map(([id, cat]) => base44.entities.PurchaseInvoice.update(id, { purchase_category: cat, purchase_category_source: "manual" })));
+        await Promise.all(chunk.map(([id, cat]) => updatePurchaseInvoiceSafe(id, { purchase_category: cat, purchase_category_source: "manual" })));
       }
       qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
       qc.invalidateQueries({ queryKey: ["purchase-reports-invoices"] });
