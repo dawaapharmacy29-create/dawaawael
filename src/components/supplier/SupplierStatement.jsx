@@ -11,6 +11,7 @@ import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { useUserRole } from "@/lib/useUserRole";
+import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -109,7 +110,7 @@ export default function SupplierStatement({ branch, onClose }) {
           const invoice = invoiceRows[0];
           if (!invoice) continue;
           const nextPaid = Math.max(0, (Number(invoice.paid_value) || 0) - (Number(allocation.amount) || 0));
-          await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: nextPaid });
+          await updatePurchaseInvoiceSafe(invoice.id, { paid_value: nextPaid });
         }
         if (reversalAllocations.length > 0) await base44.entities.SupplierPayment.update(reversalRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
       } catch (err) {
