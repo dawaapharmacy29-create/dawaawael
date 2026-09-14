@@ -69,7 +69,7 @@ export default function UnifiedLogin() {
             <ShieldCheck className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-black text-gray-900 mt-4">صيدليات دواء</h1>
-          <p className="text-sm text-gray-500 mt-1">دواء وائل — الدخول الموحد</p>
+          <p className="text-sm text-gray-500 mt-1">دواء وائل — دخول الحسابات المربوطة</p>
         </div>
 
         <Card className="p-5 md:p-6 shadow-sm border-gray-200">
@@ -121,7 +121,7 @@ export default function UnifiedLogin() {
             </Button>
 
             <p className="text-[11px] leading-5 text-gray-500 text-center">
-              لا يتم حفظ كلمة المرور داخل دواء وائل. يتم استخدامها فقط لإنشاء جلسة دخول موثقة للحساب المرتبط.
+              اسم المستخدم المختصر يعمل للحسابات المربوطة. كلمة المرور المستخدمة حاليًا هي كلمة مرور حساب دواء وائل/Base44، ولا يتم حفظها داخل التطبيق. توحيد نفس باسورد تطبيق الإدارة لم يكتمل بعد ولن يتم تنفيذه بطريقة غير آمنة.
             </p>
           </form>
         </Card>
