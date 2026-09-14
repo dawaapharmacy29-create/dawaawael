@@ -65,20 +65,22 @@ export default function PharmacyOrderDetailDialog({ open, onOpenChange, order, t
 
   const updateOrder = async (updates, newStatus, timelineNote) => {
     setSaving(true);
-    const user = await base44.auth.me();
-    const userName = user?.full_name || user?.email || "مجهول";
-    const timeline = [...(order.timeline || []), {
-      status: newStatus || order.status,
-      by: userName,
-      at: new Date().toISOString(),
-      note: timelineNote || "",
-    }];
-    const updated = { ...updates, timeline };
-    if (newStatus) updated.status = newStatus;
-    if (isArchived) throw new Error("الطلب مؤرشف. استعده أولًا قبل التعديل");
-    await base44.entities.PharmacyOrder.update(order.id, updated);
-    setSaving(false);
-    onUpdated?.({ ...order, ...updated });
+    try {
+      const updated = { ...updates };
+      if (newStatus) updated.status = newStatus;
+      if (isArchived) throw new Error("الطلب مؤرشف. استعده أولًا قبل التعديل");
+      const res = await base44.functions.invoke("savePharmacyOrderSafe", {
+        action: "update",
+        id: order.id,
+        updates: updated,
+        timeline_note: timelineNote || "تحديث طلب الصيدلية",
+      });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر تحديث طلب الصيدلية");
+      onUpdated?.(result.record || { ...order, ...updated });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStartSearch = () =>
