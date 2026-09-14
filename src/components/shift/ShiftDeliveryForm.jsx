@@ -175,7 +175,11 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           other_sales: parseFloat(payments.other) || 0,
           cash_handover: actualCashHandover,
           cash_variance: cashVariance,
-          expenses: expenses.map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "" })),
+          visa_terminal_amount: visaTerminalAmount,
+          visa_operation_count: parseInt(visaControl.operationCount, 10) || 0,
+          visa_terminal_name: visaControl.terminalName || "",
+          visa_batch_reference: visaControl.batchReference || "",
+          expenses: expenses.map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "", payment_source: e.payment_source || "cash" })), 
           notes: form.notes || "",
           status: "draft",
           last_saved_at: new Date().toISOString(),
@@ -196,14 +200,14 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       }
     }, 1200);
     return () => clearTimeout(timer);
-  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap, cashHandover, cashVariance, draftBusinessDate]);
+  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap, cashHandover, cashVariance, draftBusinessDate, visaControl, visaTerminalAmount]);
 
   const updateExpense = (idx, field, value) => {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
   };
 
   const addExpense = () => {
-    setExpenses((prev) => [...prev, { description: "", amount: "", category: "" }]);
+    setExpenses((prev) => [...prev, { description: "", amount: "", category: "", payment_source: "cash" }]);
   };
 
   const removeExpense = (idx) => {
