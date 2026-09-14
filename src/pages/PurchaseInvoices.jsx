@@ -162,10 +162,15 @@ export default function PurchaseInvoices() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       await assertDailyCloseOpen(data.branch, getInvoiceEffectiveDate(data), "إضافة فاتورة جديدة");
-      const res = await base44.functions.invoke("createPurchaseInvoiceSafe", { invoice: data });
-      const result = res?.data || {};
-      if (!result.success) throw new Error(result.error || "تعذر إنشاء الفاتورة");
-      return result.record;
+      try {
+        const res = await base44.functions.invoke("createPurchaseInvoiceSafe", { invoice: data });
+        const result = res?.data || {};
+        if (!result.success) throw new Error(result.error || "تعذر إنشاء الفاتورة");
+        return result.record;
+      } catch (error) {
+        const message = error?.response?.data?.error || error?.data?.error || error?.message || "تعذر إنشاء الفاتورة";
+        throw new Error(message);
+      }
     },
     onSuccess: (inv) => {
       // تحديث ذكي: أضف الفاتورة الجديدة للكاش مباشرة بدلاً من إعادة تحميل الكل
@@ -652,6 +657,7 @@ export default function PurchaseInvoices() {
         onSubmit={handleSubmit}
         invoice={editingInvoice}
         isLoading={createMutation.isPending || updateMutation.isPending}
+        externalError={createMutation.error?.message || updateMutation.error?.message || ""}
         allInvoices={invoices}
       />
 
