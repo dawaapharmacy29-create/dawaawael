@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from './components/layout/AppLayout';
 import { lazy, useEffect } from "react";
+import FinancialRouteGuard from "@/components/security/FinancialRouteGuard";
+import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
 
 // تقسيم الصفحات إلى حزم مستقلة: الصفحة لا تُحمّل إلا عند فتحها.
 // يقلل حجم التحميل الأولي ويمنع تحميل كود التقارير وHR والمخزون مع الصفحة الرئيسية.
@@ -83,14 +85,14 @@ const AuthenticatedApp = () => {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/invoices" element={<PurchaseInvoices />} />
-        <Route path="/purchase-reports" element={<PurchaseReports />} />
+        <Route path="/purchase-reports" element={<FinancialRouteGuard><PurchaseReports /></FinancialRouteGuard>} />
         <Route path="/suppliers" element={<Suppliers />} />
         <Route path="/expenses" element={<Expenses />} />
-        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports" element={<FinancialRouteGuard><Reports /></FinancialRouteGuard>} />
         <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
         <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
-        <Route path="/admin-expenses-reports" element={<AdminExpensesReports />} />
-        <Route path="/supplier-balances" element={<SupplierBalances />} />
+        <Route path="/admin-expenses-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><AdminExpensesReports /></FinancialRouteGuard>} />
+        <Route path="/supplier-balances" element={<FinancialRouteGuard><SupplierBalances /></FinancialRouteGuard>} />
         <Route path="/activity-log" element={<ActivityLog />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/team-members" element={<TeamMembers />} />
@@ -101,13 +103,13 @@ const AuthenticatedApp = () => {
         <Route path="/customer-orders" element={<CustomerOrders />} />
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<InventoryCount />} />
-        <Route path="/reports-branch" element={<ReportsBranch />} />
-        <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
-        <Route path="/supplier-intelligence" element={<SupplierIntelligence />} />
+        <Route path="/reports-branch" element={<FinancialRouteGuard><ReportsBranch /></FinancialRouteGuard>} />
+        <Route path="/supplier-balances-branch" element={<FinancialRouteGuard><SupplierBalancesBranch /></FinancialRouteGuard>} />
+        <Route path="/supplier-intelligence" element={<FinancialRouteGuard><SupplierIntelligence /></FinancialRouteGuard>} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
-        <Route path="/financial-reports" element={<FinancialReports />} />
-        <Route path="/smart-commerce-analytics" element={<SmartCommerceAnalytics />} />
-        <Route path="/financial-archive" element={<FinancialArchive />} />
+        <Route path="/financial-reports" element={<FinancialRouteGuard><FinancialReports /></FinancialRouteGuard>} />
+        <Route path="/smart-commerce-analytics" element={<FinancialRouteGuard><SmartCommerceAnalytics /></FinancialRouteGuard>} />
+        <Route path="/financial-archive" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialArchive /></FinancialRouteGuard>} />
         <Route path="/shift-delivery" element={<ShiftDelivery />} />
         <Route path="/security-audit" element={<SecurityAuditPage />} />
         <Route path="/supplier-rules-backfill" element={<SupplierRulesBackfill />} />
@@ -115,8 +117,8 @@ const AuthenticatedApp = () => {
         <Route path="/supabase-sync" element={<SupabaseSyncCenter />} />
         <Route path="/employee-hr" element={<EmployeeHR />} />
         <Route path="/system-health" element={<SystemHealth />} />
-        <Route path="/data-reconciliation" element={<DataReconciliation />} />
-        <Route path="/daily-close" element={<DailyClose />} />
+        <Route path="/data-reconciliation" element={<FinancialRouteGuard><DataReconciliation /></FinancialRouteGuard>} />
+        <Route path="/daily-close" element={<FinancialRouteGuard><DailyClose /></FinancialRouteGuard>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
