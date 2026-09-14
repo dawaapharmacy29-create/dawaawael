@@ -16,6 +16,7 @@ import { logActivity } from "@/lib/activityLogger";
 import { useUserRole } from "@/lib/useUserRole";
 import { CATEGORY_LABELS, TRANSACTION_TYPE_LABELS, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 
@@ -134,16 +135,19 @@ export default function PurchaseInvoices() {
 
   // تحميل متوازي بدل التسلسلي — يقلل وقت التحميل من ~10 ثواني لـ ~3 ثواني
   const { data: invoices = [], isLoading, isFetching } = useQuery({
-    queryKey: ["purchase-invoices", "range", dateFrom || "all", dateTo || "all"],
-    queryFn: async () => fetchAllParallel(base44.entities.PurchaseInvoice, {
-      pageSize: 1000,
-      query: dateFrom && dateTo ? {
-        $or: [
-          { invoice_date: { $gte: dateFrom, $lte: dateTo } },
-          { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
-        ],
-      } : null,
-    }),
+    queryKey: ["purchase-invoices", "range", dateFrom || "all", dateTo || "all", filterBranch],
+    queryFn: async () => dateFrom && dateTo
+      ? loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+          from: dateFrom,
+          to: dateTo,
+          extraFilter: filterBranch === "الكل" ? {} : { branch: filterBranch },
+          sort: "-invoice_date",
+          maxRows: 20000,
+        })
+      : fetchAllParallel(base44.entities.PurchaseInvoice, {
+          pageSize: 1000,
+          query: filterBranch === "الكل" ? null : { branch: filterBranch },
+        }),
     staleTime: 120000,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
@@ -151,6 +155,7 @@ export default function PurchaseInvoices() {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: () => base44.entities.Supplier.list(),
+    staleTime: 300000,
   });
 
   const createMutation = useMutation({
