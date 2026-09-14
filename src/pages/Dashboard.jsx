@@ -5,13 +5,15 @@ import { useUserRole } from "@/lib/useUserRole";
 import FinancialDashboard from "./FinancialDashboard";
 
 function OperationalDashboard() {
-  const { user, financialAccessLevel } = useUserRole();
+  const { user, financialAccessLevel, canUseFinancialOperations } = useUserRole();
   const name = user?.full_name || user?.name || "";
   const cards = [
     { to: "/shift-delivery", label: "تسليم الشيفت", desc: "تسجيل ومراجعة تسليمات الشيفت", icon: Clock },
     { to: "/customer-orders", label: "طلبات العملاء", desc: "متابعة طلبات العملاء والحركة اليومية", icon: ShoppingBag },
-    { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة الفواتير التشغيلية حسب صلاحيتك", icon: ClipboardList },
-    { to: "/expenses", label: "المصروفات", desc: "تسجيل ومتابعة المصروفات المسموح بها", icon: Receipt },
+    ...(canUseFinancialOperations ? [
+      { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة الفواتير التشغيلية حسب صلاحيتك", icon: ClipboardList },
+      { to: "/expenses", label: "المصروفات", desc: "تسجيل ومتابعة المصروفات المسموح بها", icon: Receipt },
+    ] : []),
   ];
 
   return (
