@@ -94,7 +94,32 @@ export const AuthProvider = ({ children }) => {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
-      setUser(currentUser);
+      let effectiveUser = { ...currentUser, financial_access_level: 'none' };
+      try {
+        const accessResponse = await base44.functions.invoke('getUnifiedAccessProfile', {});
+        const accessData = accessResponse?.data || {};
+        if (accessData.success && accessData.linked && accessData.profile) {
+          effectiveUser = {
+            ...currentUser,
+            ...accessData.profile,
+            unified_identity_linked: true,
+          };
+        } else {
+          effectiveUser = {
+            ...currentUser,
+            financial_access_level: 'none',
+            unified_identity_linked: false,
+          };
+        }
+      } catch (profileError) {
+        console.warn('Unified access profile lookup failed; using safest access level.', profileError);
+        effectiveUser = {
+          ...currentUser,
+          financial_access_level: 'none',
+          unified_identity_linked: false,
+        };
+      }
+      setUser(effectiveUser);
       setIsAuthenticated(true);
       setAuthError(null);
       setIsLoadingAuth(false);
