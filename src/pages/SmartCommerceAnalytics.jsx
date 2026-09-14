@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
@@ -23,6 +23,7 @@ const fmtPct = (n) => n === null || n === undefined || !Number.isFinite(n) ? "�
 const money = (n) => `${fmt(n)} ج`;
 const shortMoney = (n) => Number(n || 0) >= 1_000_000 ? `${(Number(n) / 1_000_000).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} مليون` : money(n);
 const monthLabel = (key) => { if (!key) return ""; const [y,m] = key.slice(0,7).split("-").map(Number); return `${MONTHS_AR[m-1]} ${y}`; };
+const previousDayKey = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }; 
 
 function Trend({ value, label = "مقارنة بالفترة السابقة" }) {
   if (value === null || value === undefined || !Number.isFinite(value)) return <span className="text-xs text-gray-400">لا توجد فترة سابقة مكتملة للمقارنة</span>;
@@ -76,6 +77,7 @@ export default function SmartCommerceAnalytics() {
   const [branch, setBranch] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [historyEnabled, setHistoryEnabled] = useState(false);
 
   const fullRange = useMemo(() => {
     if (mode === "month") return calendarMonthRange(today);
@@ -85,33 +87,62 @@ export default function SmartCommerceAnalytics() {
   const currentRange = useMemo(() => clampRangeToToday(fullRange, today), [fullRange, today]);
   const prevRange = useMemo(() => previousComparableRange(currentRange, 1), [currentRange]);
   const prevRanges = useMemo(() => [1,2,3].map((i) => previousComparableRange(currentRange, i)), [currentRange]);
-  const analyticsDataRange = useMemo(() => ({
-    from: prevRanges[prevRanges.length - 1]?.from || currentRange.from,
-    to: currentRange.to,
-  }), [prevRanges, currentRange]);
+  const coreDataRange = useMemo(() => ({ from: prevRange.from, to: currentRange.to }), [prevRange, currentRange]);
+  const historicalDataRange = useMemo(() => ({
+    from: prevRanges[prevRanges.length - 1]?.from || prevRange.from,
+    to: previousDayKey(prevRange.from),
+  }), [prevRanges, prevRange]);
+  useEffect(() => {
+    setHistoryEnabled(false);
+    const timer = setTimeout(() => setHistoryEnabled(true), 650);
+    return () => clearTimeout(timer);
+  }, [mode, branch, customFrom, customTo]);
   const managementMonth = (fullRange.to || fullRange.from || "").slice(0, 7);
 
   const branchQuery = branch === "all" ? {} : { branch }; 
 
-  const { data: handovers = [], isLoading: salesLoading } = useQuery({
-    queryKey: ["smart-analytics-handovers", analyticsDataRange.from, analyticsDataRange.to, branch],
+  const { data: coreHandovers = [], isLoading: salesLoading } = useQuery({
+    queryKey: ["smart-analytics-handovers-core", coreDataRange.from, coreDataRange.to, branch],
     queryFn: () => loadAllEntityRows(base44.entities.ShiftDelivery, "-shift_date", 10000, {
       ...branchQuery,
-      shift_date: { $gte: analyticsDataRange.from, $lte: analyticsDataRange.to },
+      shift_date: { $gte: coreDataRange.from, $lte: coreDataRange.to },
     }),
     staleTime: 120000,
   });
-  const { data: invoices = [], isLoading: purchaseLoading } = useQuery({
-    queryKey: ["smart-analytics-purchases", analyticsDataRange.from, analyticsDataRange.to, branch],
+  const { data: coreInvoices = [], isLoading: purchaseLoading } = useQuery({
+    queryKey: ["smart-analytics-purchases-core", coreDataRange.from, coreDataRange.to, branch],
     queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
-      from: analyticsDataRange.from,
-      to: analyticsDataRange.to,
+      from: coreDataRange.from,
+      to: coreDataRange.to,
       extraFilter: branchQuery,
       sort: "-invoice_date",
       maxRows: 10000,
     }),
     staleTime: 120000,
   });
+  const { data: historyHandovers = [] } = useQuery({
+    queryKey: ["smart-analytics-handovers-history", historicalDataRange.from, historicalDataRange.to, branch],
+    queryFn: () => loadAllEntityRows(base44.entities.ShiftDelivery, "-shift_date", 10000, {
+      ...branchQuery,
+      shift_date: { $gte: historicalDataRange.from, $lte: historicalDataRange.to },
+    }),
+    enabled: historyEnabled && historicalDataRange.from <= historicalDataRange.to,
+    staleTime: 300000,
+  });
+  const { data: historyInvoices = [] } = useQuery({
+    queryKey: ["smart-analytics-purchases-history", historicalDataRange.from, historicalDataRange.to, branch],
+    queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: historicalDataRange.from,
+      to: historicalDataRange.to,
+      extraFilter: branchQuery,
+      sort: "-invoice_date",
+      maxRows: 10000,
+    }),
+    enabled: historyEnabled && historicalDataRange.from <= historicalDataRange.to,
+    staleTime: 300000,
+  });
+  const handovers = useMemo(() => [...coreHandovers, ...historyHandovers], [coreHandovers, historyHandovers]);
+  const invoices = useMemo(() => [...coreInvoices, ...historyInvoices], [coreInvoices, historyInvoices]);
   const { data: suppliers = [] } = useQuery({
     queryKey: ["smart-analytics-suppliers"],
     queryFn: () => base44.entities.Supplier.list(),
