@@ -105,7 +105,7 @@ const emptyForm = {
   cash_amount: "",
 };
 
-export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, allInvoices = [] }) {
+export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, externalError = "", allInvoices = [] }) {
   const [form, setForm] = useState(emptyForm);
   const [dupError, setDupError] = useState("");
 
@@ -670,7 +670,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className="text-sm" />
           </div>
 
-          {dupError && <p className="text-red-500 text-xs bg-red-50 p-2 rounded-md">{dupError}</p>}
+          {(dupError || externalError) && <p className="text-red-600 text-xs bg-red-50 border border-red-100 p-2 rounded-md">{dupError || externalError}</p>}
 
           <DialogFooter className="gap-2 flex-row-reverse">
             <Button type="submit" disabled={isLoading} className="bg-teal-600 hover:bg-teal-700">
