@@ -12,25 +12,11 @@ import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { getInvoiceCanonicalKey, isInvoiceInRange } from "@/lib/invoiceIdentity";
 import { getInvoiceNetAmount, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { cairoTodayKey } from "@/lib/smart-commerce-analytics";
+import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const EXPECTED_SHIFTS = ["صباحي", "مسائي", "ليلي"];
-const PAYMENT_METHOD_KEYWORDS = ["فودافون كاش", "انستا", "فيزا"];
 const money = (n) => Number(n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
-
-function realShiftExpenses(record) {
-  return (record.expenses || []).reduce((sum, item) => {
-    const label = `${item.category || ""} ${item.description || ""}`;
-    return PAYMENT_METHOD_KEYWORDS.some((k) => label.includes(k)) ? sum : sum + (Number(item.amount) || 0);
-  }, 0);
-}
-
-function electronicShiftAmount(record) {
-  return (record.expenses || []).reduce((sum, item) => {
-    const label = `${item.category || ""} ${item.description || ""}`;
-    return PAYMENT_METHOD_KEYWORDS.some((k) => label.includes(k)) ? sum + (Number(item.amount) || 0) : sum;
-  }, 0);
-}
 
 function statusBadge(status) {
   if (status === "closed") return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">مقفول</Badge>;
@@ -97,6 +83,7 @@ export default function DailyClose() {
     const presentShiftTypes = new Set(activeShifts.map((s) => s.shift_type));
     const missingShifts = EXPECTED_SHIFTS.filter((type) => !presentShiftTypes.has(type));
     const reviewShifts = activeShifts.filter((s) => s.status === "مراجعة");
+    const unresolvedWorkflowShifts = activeShifts.filter((s) => !["approved", "closed"].includes(s.workflow_status || "submitted"));
 
     const shiftGroups = new Map();
     activeShifts.forEach((s) => {
@@ -109,10 +96,11 @@ export default function DailyClose() {
     const shiftAnomalies = activeShifts.flatMap((s) => {
       const reasons = [];
       const sales = Number(s.total_sales) || 0;
-      const totalExpenses = Number(s.total_expenses) || 0;
-      const net = Number(s.net_amount) || 0;
+      const financial = shiftFinancialView(s);
+      const totalExpenses = financial.realExpenseTotal;
+      const net = financial.operationalNet;
       const arithmeticGap = Math.abs(sales - totalExpenses - net);
-      const electronic = electronicShiftAmount(s);
+      const electronic = financial.electronicTotal;
       if (sales <= 10) reasons.push("مبيعات منخفضة جدًا");
       if (arithmeticGap > 0.5) reasons.push(`عدم اتزان حسابي ${money(arithmeticGap)} ج`);
       if (sales > 0 && electronic / sales >= 0.85) reasons.push("نسبة دفع إلكتروني مرتفعة جدًا");
@@ -139,11 +127,12 @@ export default function DailyClose() {
     const sales = activeShifts.filter((s) => s.status !== "مراجعة").reduce((sum, s) => sum + (Number(s.total_sales) || 0), 0);
     const purchases = approvedInvoices.reduce((sum, i) => sum + getInvoiceNetAmount(i, suppliers), 0);
     const externalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const shiftExpenses = activeShifts.filter((s) => s.status !== "مراجعة").reduce((sum, s) => sum + realShiftExpenses(s), 0);
+    const shiftExpenses = activeShifts.filter((s) => s.status !== "مراجعة").reduce((sum, s) => sum + shiftFinancialView(s).realExpenseTotal, 0);
 
     const blockingIssueCount = missingShifts.length
       + duplicateShiftGroups.length
       + reviewShifts.length
+      + unresolvedWorkflowShifts.length
       + shiftAnomalies.filter((s) => s.reasons.some((r) => r.startsWith("عدم اتزان") || r.includes("منخفضة جدًا"))).length
       + pendingInvoices.length
       + duplicateInvoiceGroups.length
@@ -152,7 +141,7 @@ export default function DailyClose() {
     const warningCount = shiftAnomalies.filter((s) => s.reasons.some((r) => r.includes("إلكتروني"))).length + rejectedInvoices.length;
 
     return {
-      activeShifts, missingShifts, reviewShifts, duplicateShiftGroups, shiftAnomalies,
+      activeShifts, missingShifts, reviewShifts, unresolvedWorkflowShifts, duplicateShiftGroups, shiftAnomalies,
       invoices, approvedInvoices, pendingInvoices, pendingExternal, pendingInternal, rejectedInvoices,
       duplicateInvoiceGroups, zeroExternal, sales, purchases, externalExpenses, shiftExpenses,
       blockingIssueCount, warningCount,
@@ -182,6 +171,7 @@ export default function DailyClose() {
       missing_shifts: audit.missingShifts,
       duplicate_shift_groups: audit.duplicateShiftGroups.map((g) => g.map((x) => x.id)),
       review_shift_ids: audit.reviewShifts.map((x) => x.id),
+      unresolved_workflow_shift_ids: audit.unresolvedWorkflowShifts.map((x) => x.id),
       anomaly_shift_ids: audit.shiftAnomalies.map((x) => x.id),
       pending_invoice_ids: audit.pendingInvoices.map((x) => x.id),
       duplicate_invoice_groups: audit.duplicateInvoiceGroups.map((g) => g.map((x) => x.id)),
@@ -262,7 +252,7 @@ export default function DailyClose() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card className="p-4 space-y-2"><h2 className="font-bold">الشيفتات</h2><p className="text-sm">الموجود: {audit.activeShifts.length}/3</p>{audit.missingShifts.length > 0 && <p className="text-sm text-red-700">الناقص: {audit.missingShifts.join("، ")}</p>}{audit.duplicateShiftGroups.length > 0 && <p className="text-sm text-red-700">مجموعات مكررة: {audit.duplicateShiftGroups.length}</p>}{audit.reviewShifts.length > 0 && <p className="text-sm text-amber-700">تحت المراجعة: {audit.reviewShifts.length}</p>}{audit.shiftAnomalies.map((s) => <div key={s.id} className="text-xs border rounded-lg p-2 bg-amber-50"><b>{s.shift_type} — {s.submitted_by}</b>: {s.reasons.join("، ")}</div>)}</Card>
+        <Card className="p-4 space-y-2"><h2 className="font-bold">الشيفتات</h2><p className="text-sm">الموجود: {audit.activeShifts.length}/3</p>{audit.missingShifts.length > 0 && <p className="text-sm text-red-700">الناقص: {audit.missingShifts.join("، ")}</p>}{audit.duplicateShiftGroups.length > 0 && <p className="text-sm text-red-700">مجموعات مكررة: {audit.duplicateShiftGroups.length}</p>}{audit.reviewShifts.length > 0 && <p className="text-sm text-amber-700">تحت المراجعة: {audit.reviewShifts.length}</p>}{audit.unresolvedWorkflowShifts.length > 0 && <p className="text-sm text-red-700">لم تُعتمد/تُقفل بعد: {audit.unresolvedWorkflowShifts.length}</p>}{audit.shiftAnomalies.map((s) => <div key={s.id} className="text-xs border rounded-lg p-2 bg-amber-50"><b>{s.shift_type} — {s.submitted_by}</b>: {s.reasons.join("، ")}</div>)}</Card>
         <Card className="p-4 space-y-2"><h2 className="font-bold">الفواتير</h2><p className="text-sm">المحتسبة ماليًا: {audit.approvedInvoices.length}</p><p className="text-sm text-amber-700">انتظار المراجعة: {audit.pendingInvoices.length} ({audit.pendingExternal.length} خارجي + {audit.pendingInternal.length} داخلي)</p>{audit.rejectedInvoices.length > 0 && <p className="text-sm text-gray-600">مرفوضة: {audit.rejectedInvoices.length}</p>}{audit.duplicateInvoiceGroups.length > 0 && <p className="text-sm text-red-700">مجموعات مشتبه تكرار: {audit.duplicateInvoiceGroups.length}</p>}{audit.zeroExternal.length > 0 && <p className="text-sm text-red-700">شراء خارجي بقيمة صفر: {audit.zeroExternal.length}</p>}</Card>
       </div>
 
