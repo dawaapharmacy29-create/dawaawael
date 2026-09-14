@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CalendarClock } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
+import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -18,6 +19,7 @@ const SHIFT_BADGE = {
 
 export default function ShiftDeliveryDetail({ item, onClose }) {
   const qc = useQueryClient();
+  const financial = shiftFinancialView(item);
   const { isAdmin, isManager } = useUserRole();
 
   // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
@@ -86,15 +88,23 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
             </div>
             <div className="bg-red-50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500">المصروفات</p>
-              <p className="font-bold text-red-600 text-sm">{fmt(item.total_expenses)}</p>
+              <p className="font-bold text-red-600 text-sm">{fmt(financial.realExpenseTotal)}</p>
             </div>
             <div className="bg-green-50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500">الصافي</p>
-              <p className="font-bold text-green-600 text-sm">{fmt(item.net_amount)}</p>
+              <p className="font-bold text-green-600 text-sm">{fmt(financial.operationalNet)}</p>
             </div>
           </div>
 
-          {item.expenses && item.expenses.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2"><p className="text-sm font-semibold text-gray-700">وسائل التحصيل</p>{financial.legacy && <Badge className="bg-amber-100 text-amber-800">بيانات قديمة مستنتجة</Badge>}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+              {[["كاش", financial.payments.cash],["فيزا", financial.payments.visa],["إنستا", financial.payments.insta],["فودافون", financial.payments.vodafone],["أخرى", financial.payments.other]].map(([label,value]) => <div key={label} className="rounded-lg border bg-gray-50 p-2"><p className="text-gray-400">{label}</p><p className="font-bold text-gray-800">{fmt(value)}</p></div>)}
+            </div>
+            {!financial.legacy && <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs"><div className="rounded-lg border p-2"><p className="text-gray-400">الكاش المتوقع</p><b>{fmt(financial.expectedCash)}</b></div><div className="rounded-lg border p-2"><p className="text-gray-400">الكاش المسلم</p><b>{fmt(financial.actualCash)}</b></div><div className={`rounded-lg border p-2 ${Math.abs(financial.cashVariance)>1?"bg-red-50":"bg-emerald-50"}`}><p className="text-gray-400">الفرق</p><b>{fmt(financial.cashVariance)}</b></div></div>}
+          </div>
+
+          {financial.realExpenses.length > 0 && (
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">بنود المصروفات</p>
               <div className="border rounded-lg overflow-hidden">
@@ -107,7 +117,7 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {item.expenses.map((e, i) => (
+                    {financial.realExpenses.map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description || "—"}</TableCell>
                         <TableCell className="text-sm">{e.category || "—"}</TableCell>
