@@ -214,12 +214,7 @@
         },
         {
           "user_condition": {
-            "data.can_save_invoice": true
-          }
-        },
-        {
-          "user_condition": {
-            "data.can_delete_invoice": true
+            "role": "viewer"
           }
         }
       ]
@@ -238,7 +233,7 @@
         },
         {
           "user_condition": {
-            "data.can_save_invoice": true
+            "role": "viewer"
           }
         }
       ]
