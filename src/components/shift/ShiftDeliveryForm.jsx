@@ -92,6 +92,26 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     return () => clearInterval(t);
   }, []);
 
+  const shiftDetectionBucket = Math.floor(now.getTime() / (5 * 60 * 1000));
+  useEffect(() => {
+    if (initialDraft?.id || manualShiftOverride) return;
+    let cancelled = false;
+    const detect = async () => {
+      setShiftDetecting(true);
+      try {
+        const suggestion = await getSmartShiftSuggestion(form.branch, now);
+        if (cancelled) return;
+        setShiftSuggestion(suggestion);
+        setForm((prev) => prev.shift_type === suggestion.shiftType ? prev : { ...prev, shift_type: suggestion.shiftType });
+        setDraftBusinessDate("");
+      } finally {
+        if (!cancelled) setShiftDetecting(false);
+      }
+    };
+    detect();
+    return () => { cancelled = true; };
+  }, [form.branch, manualShiftOverride, initialDraft?.id, shiftDetectionBucket]);
+
   const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
   const liveBusinessDate = draftBusinessDate || (form.shift_type ? currentShiftBusinessDate(form.shift_type) : "");
   const { data: liveExpenseEvents = [] } = useQuery({
@@ -220,6 +240,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
     if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
+    if (isShiftOverride(form.shift_type, shiftSuggestion?.shiftType)) {
+      const proceed = window.confirm(`الوقت الحالي يرجح أن الشيفت هو «${shiftSuggestion.shiftType}» وليس «${form.shift_type}».\n${shiftSuggestion.reason || ""}\n\nهل تريد الاستمرار بالاختيار اليدوي؟`);
+      if (!proceed) return;
+    }
     if (paymentTotal <= 0) return setError("الرجاء إدخال تفصيل المبيعات حسب وسيلة الدفع");
     if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
     if (Math.abs(cashVariance) > 1 && !(form.notes || "").trim()) return setError(`يوجد فرق كاش ${cashVariance.toFixed(2)} ج — اكتب سبب الفرق في الملاحظات قبل الحفظ`);
@@ -302,9 +326,12 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
       qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
+      const nextSuggestion = getTimeBasedShiftSuggestion();
+      setShiftSuggestion(nextSuggestion);
+      setManualShiftOverride(false);
       setForm({
         branch: "",
-        shift_type: "",
+        shift_type: nextSuggestion.shiftType,
         employee_map_id: "",
         pin: "",
         total_sales: "",
