@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
 import { PlusCircle, List, BarChart3, PieChart as PieIcon, Settings2, AlertTriangle, RotateCcw } from "lucide-react";
 import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
 import ShiftDeliveryHistory from "@/components/shift/ShiftDeliveryHistory";
-import ShiftOperationsAnalytics from "@/components/shift/ShiftOperationsAnalytics";
-import ShiftDeliveryReport from "@/components/shift/ShiftDeliveryReport";
-import ExpenseItemsTab from "@/components/shift/ExpenseItemsTab";
-import ShiftRecoveryQueue from "@/components/shift/ShiftRecoveryQueue";
+const ShiftOperationsAnalytics = lazy(() => import("@/components/shift/ShiftOperationsAnalytics"));
+const ShiftDeliveryReport = lazy(() => import("@/components/shift/ShiftDeliveryReport"));
+const ExpenseItemsTab = lazy(() => import("@/components/shift/ExpenseItemsTab"));
+const ShiftRecoveryQueue = lazy(() => import("@/components/shift/ShiftRecoveryQueue"));
 import { cn } from "@/lib/utils";
 import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 
@@ -70,7 +70,7 @@ export default function ShiftDelivery() {
       const groups = await Promise.all(scopedBranches.map((branch) => base44.entities.ShiftDraft.filter({ branch, status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500)));
       return groups.flat();
     },
-    enabled: canReviewOperationally && hasHistoryScope,
+    enabled: activeTab === "recovery" && canReviewOperationally && hasHistoryScope,
     staleTime: 15000,
     refetchOnWindowFocus: true,
   });
@@ -144,12 +144,14 @@ export default function ShiftDelivery() {
         {activeTab === "duplicates" && canReviewOperationally && hasHistoryScope && (
           <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />
         )}
-        {activeTab === "recovery" && canReviewOperationally && hasHistoryScope && (
-          <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />
-        )}
-        {activeTab === "stats" && fullFinancial && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
-        {activeTab === "report" && fullFinancial && <ShiftDeliveryReport deliveries={activeDeliveries} />}
-        {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
+        <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل الجزء المطلوب...</div>}>
+          {activeTab === "recovery" && canReviewOperationally && hasHistoryScope && (
+            <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />
+          )}
+          {activeTab === "stats" && fullFinancial && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
+          {activeTab === "report" && fullFinancial && <ShiftDeliveryReport deliveries={activeDeliveries} />}
+          {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
+        </Suspense>
       </div>
     </div>
   );
