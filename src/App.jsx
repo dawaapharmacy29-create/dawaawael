@@ -87,7 +87,7 @@ const AuthenticatedApp = () => {
         <Route path="/invoices" element={<PurchaseInvoices />} />
         <Route path="/purchase-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><PurchaseReports /></FinancialRouteGuard>} />
         <Route path="/suppliers" element={<Suppliers />} />
-        <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.OPERATIONS}><Expenses /></FinancialRouteGuard>} />
+        <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Expenses /></FinancialRouteGuard>} />
         <Route path="/reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Reports /></FinancialRouteGuard>} />
         <Route path="/admin-expenses-shokry" element={<AdminExpensesShokry />} />
         <Route path="/admin-expenses-shami" element={<AdminExpensesShami />} />
