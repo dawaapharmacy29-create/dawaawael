@@ -103,8 +103,8 @@ const AuthenticatedApp = () => {
         <Route path="/customer-orders" element={<CustomerOrders />} />
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<InventoryCount />} />
-        <Route path="/reports-branch" element={<FinancialRouteGuard><ReportsBranch /></FinancialRouteGuard>} />
-        <Route path="/supplier-balances-branch" element={<FinancialRouteGuard><SupplierBalancesBranch /></FinancialRouteGuard>} />
+        <Route path="/reports-branch" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><ReportsBranch /></FinancialRouteGuard>} />
+        <Route path="/supplier-balances-branch" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierBalancesBranch /></FinancialRouteGuard>} />
         <Route path="/supplier-intelligence" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierIntelligence /></FinancialRouteGuard>} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/financial-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialReports /></FinancialRouteGuard>} />
