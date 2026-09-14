@@ -357,23 +357,34 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         await Promise.allSettled(liveExpenseEvents.map((event) => base44.entities.ShiftExpenseEvent.update(event.id, { status: "linked", linked_shift_id: savedShiftId })));
         qc.invalidateQueries({ queryKey: ["shift-expense-events"] });
       }
+      let visaTrackingWarning = "";
       if ((parseFloat(payments.visa) || 0) > 0) {
-        await base44.entities.ShiftPaymentReconciliation.create({
-          shift_id: savedShiftId,
-          branch: form.branch,
-          business_date: businessDate,
-          shift_type: form.shift_type,
-          payment_method: "visa",
-          expected_amount: parseFloat(payments.visa) || 0,
-          terminal_amount: visaTerminalAmount,
-          operation_count: parseInt(visaControl.operationCount, 10) || 0,
-          variance: visaVariance,
-          terminal_name: visaControl.terminalName || "",
-          batch_reference: visaControl.batchReference || "",
-          settlement_status: Math.abs(visaVariance) <= 1 ? "matched" : "difference",
-          notes: Math.abs(visaVariance) > 1 ? (form.notes || "فرق فيزا يحتاج مراجعة") : "",
-        });
-        qc.invalidateQueries({ queryKey: ["shift-payment-reconciliation"] });
+        try {
+          const payload = {
+            shift_id: savedShiftId,
+            branch: form.branch,
+            business_date: businessDate,
+            shift_type: form.shift_type,
+            payment_method: "visa",
+            expected_amount: parseFloat(payments.visa) || 0,
+            terminal_amount: visaTerminalAmount,
+            operation_count: parseInt(visaControl.operationCount, 10) || 0,
+            variance: visaVariance,
+            terminal_name: visaControl.terminalName || "",
+            batch_reference: visaControl.batchReference || "",
+            settlement_status: Math.abs(visaVariance) <= 1 ? "matched" : "difference",
+            notes: Math.abs(visaVariance) > 1 ? (form.notes || "فرق فيزا يحتاج مراجعة") : "",
+          };
+          const existingVisa = savedShiftId ? await base44.entities.ShiftPaymentReconciliation.filter({ shift_id: savedShiftId, payment_method: "visa" }, "-updated_date", 1) : [];
+          if (existingVisa[0]) await base44.entities.ShiftPaymentReconciliation.update(existingVisa[0].id, payload);
+          else await base44.entities.ShiftPaymentReconciliation.create(payload);
+          qc.invalidateQueries({ queryKey: ["shift-payment-reconciliation"] });
+        } catch (visaError) {
+          visaTrackingWarning = "تم حفظ الشيفت، لكن تعذر حفظ متابعة الفيزا بسبب الاتصال. لا تعِد إرسال الشيفت؛ راجع مركز متابعة الفيزا.";
+          if (draftIdRef.current) {
+            try { await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "submitted", submitted_shift_id: savedShiftId, last_error: visaTrackingWarning, last_saved_at: new Date().toISOString() }); } catch {}
+          }
+        }
       }
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
@@ -400,6 +411,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       draftKeyRef.current = "";
       retryCountRef.current = 0;
       submissionTokenRef.current = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shift-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      if (visaTrackingWarning) window.alert(visaTrackingWarning);
       if (onSaved) onSaved();
     } catch (e) {
       const message = e.message || "حدث خطأ أثناء الحفظ";
