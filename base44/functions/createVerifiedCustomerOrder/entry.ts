@@ -150,7 +150,12 @@ export default async function(req: Request): Promise<Response> {
     if (!mapping) return Response.json({ error: 'الموظف غير مربوط بهذا الفرع في سجل الأسماء الرسمي' }, { status: 403 });
 
     const verification: any = await verifyStaff(adminStaffId, credential);
-    if (!verification.ok) return Response.json({ error: verification.error }, { status: verification.status });
+    // Expected identity-validation failures are returned as a normal function payload
+    // so the Base44 client can show the real Arabic message instead of the generic
+    // "Request failed with status code 400" transport error.
+    if (!verification.ok) {
+      return Response.json({ success: false, error: verification.error, verification_status: verification.status });
+    }
 
     const staff = verification.result?.staff || {};
     const now = new Date().toISOString();
