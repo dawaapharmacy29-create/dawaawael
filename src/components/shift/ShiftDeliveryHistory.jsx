@@ -67,7 +67,7 @@ function dateVariant(dateStr) {
  * كارت يوم واحد (شكل ومنطق مطابق لصفحة تسليم الشيفت في DawaaBills):
  * هيدر ملخّص باللون المناسب لليوم + بطاقة منفصلة لكل فرع بداخلها التسليمات.
  */
-function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestore }) {
+function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView, onEdit, onDelete, onRestore }) {
   const accent = ACCENTS[dateVariant(dateStr)];
   const financialTotals = aggregateShiftFinancials(records);
   const totalSales = financialTotals.sales;
@@ -101,7 +101,7 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestor
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {BRANCHES.map((branch) => {
+        {visibleBranches.map((branch) => {
           const branchRecords = records
             .filter((r) => r.branch === branch)
             .sort((a, b) => (SHIFT_ORDER[a.shift_type] ?? 99) - (SHIFT_ORDER[b.shift_type] ?? 99));
@@ -189,7 +189,8 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestor
   );
 }
 
-export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDuplicateAlert = false, duplicateOnly = false }) {
+export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRANCHES, onNewShift, showDuplicateAlert = false, duplicateOnly = false }) {
+  const visibleBranches = allowedBranches?.length ? BRANCHES.filter((b) => allowedBranches.includes(b)) : [];
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const [detailItem, setDetailItem] = useState(null);
@@ -280,40 +281,40 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
     dateFiltered.forEach((r) => {
       const d = r.shift_date;
       if (!d) return;
-      if (!map.has(d)) map.set(d, { "دواء شكري": 0, "دواء الشامي": 0 });
+      if (!map.has(d)) map.set(d, Object.fromEntries(visibleBranches.map((b) => [b, 0])));
       const entry = map.get(d);
-      entry[r.branch] = (entry[r.branch] || 0) + (r.total_sales || 0);
+      if (visibleBranches.includes(r.branch)) entry[r.branch] = (entry[r.branch] || 0) + (r.total_sales || 0);
     });
     return Array.from(map.entries())
       .map(([dateStr, totals]) => ({
         dateStr,
         dayName: new Date(dateStr).toLocaleDateString("ar-EG", { weekday: "long" }),
         totals,
-        grandTotal: BRANCHES.reduce((s, b) => s + (totals[b] || 0), 0),
+        grandTotal: visibleBranches.reduce((s, b) => s + (totals[b] || 0), 0),
       }))
       .sort((a, b) => b.dateStr.localeCompare(a.dateStr));
-  }, [dateFiltered]);
+  }, [dateFiltered, visibleBranches]);
 
   const branchAverages = useMemo(() => {
     const avgs = {};
-    BRANCHES.forEach((b) => {
+    visibleBranches.forEach((b) => {
       const values = dailyBranchTotals.map((row) => row.totals[b] || 0);
       avgs[b] = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
     });
     const grandValues = dailyBranchTotals.map((row) => row.grandTotal);
     avgs.grandTotal = grandValues.length > 0 ? grandValues.reduce((s, v) => s + v, 0) / grandValues.length : 0;
     return avgs;
-  }, [dailyBranchTotals]);
+  }, [dailyBranchTotals, visibleBranches]);
 
   const columnGrandTotals = useMemo(() => {
-    const totals = { "دواء شكري": 0, "دواء الشامي": 0 };
+    const totals = Object.fromEntries(visibleBranches.map((b) => [b, 0]));
     let grand = 0;
     dailyBranchTotals.forEach((row) => {
-      BRANCHES.forEach((b) => { totals[b] += row.totals[b] || 0; });
+      visibleBranches.forEach((b) => { totals[b] += row.totals[b] || 0; });
       grand += row.grandTotal || 0;
     });
     return { totals, grand };
-  }, [dailyBranchTotals]);
+  }, [dailyBranchTotals, visibleBranches]);
 
   if (duplicateOnly) {
     return (
@@ -431,7 +432,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
                 <tr className="bg-gradient-to-l from-indigo-50 via-teal-50 to-emerald-50 border-b border-gray-100">
                   <th className="px-4 py-3.5 text-right font-bold text-gray-600">اليوم</th>
                   <th className="px-4 py-3.5 text-right font-bold text-gray-600">التاريخ</th>
-                  {BRANCHES.map((b) => (
+                  {visibleBranches.map((b) => (
                     <th key={b} className="px-4 py-3.5 text-left">
                       <span className="flex items-center gap-1.5 justify-end">
                         <span className={`w-2 h-2 rounded-full ${BRANCH_COLORS[b].dot}`} />
@@ -451,7 +452,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
                   <tr key={row.dateStr} className={`hover:bg-gray-50/80 transition-colors ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
                     <td className="px-4 py-3 font-semibold text-gray-700">{row.dayName}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{row.dateStr}</td>
-                    {BRANCHES.map((b) => {
+                    {visibleBranches.map((b) => {
                       const value = row.totals[b] || 0;
                       const isAbove = value >= (branchAverages[b] || 0);
                       return (
@@ -471,7 +472,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
               <tfoot>
                 <tr className="bg-gradient-to-l from-indigo-100 via-teal-100 to-emerald-100 border-t-2 border-teal-200">
                   <td colSpan={2} className="px-4 py-3.5 font-extrabold text-gray-700">إجمالي الفترة</td>
-                  {BRANCHES.map((b) => (
+                  {visibleBranches.map((b) => (
                     <td key={b} className="px-4 py-3.5 text-left font-extrabold text-gray-800">
                       {columnGrandTotals.totals[b].toLocaleString("ar-EG")}
                     </td>
@@ -494,6 +495,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
             key={dateStr}
             dateStr={dateStr}
             records={items}
+            visibleBranches={visibleBranches}
             isAdmin={isAdmin}
             onView={setDetailItem}
             onEdit={setEditItem}
