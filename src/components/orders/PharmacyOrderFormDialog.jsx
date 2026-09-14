@@ -11,12 +11,6 @@ const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SOURCES = ["واتساب", "مكالمة هاتفية", "داخل الصيدلية"];
 const PRIORITIES = ["عاجل", "متوسط", "عادي"];
 
-let orderCounter = Date.now();
-function genOrderNumber() {
-  orderCounter++;
-  return `PHR-${new Date().getFullYear()}-${String(orderCounter).slice(-4)}`;
-}
-
 export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMembers = [], onSaved, editOrder = null }) {
   const { user } = useUserRole();
   const [form, setForm] = useState(editOrder || {
@@ -49,23 +43,18 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
   const handleSave = async () => {
     if (!form.customer_name || !form.phone || !form.product_name) return;
     setSaving(true);
-    const userName = user?.full_name || user?.email || "مجهول";
-    const now = new Date().toISOString();
-    const data = {
-      ...form,
-      status: editOrder ? form.status : "طلب جديد",
-      order_number: editOrder ? form.order_number : genOrderNumber(),
-      timeline: editOrder ? form.timeline : [{ status: "طلب جديد", by: userName, at: now, note: "تم إنشاء الطلب" }],
-      ...(!editOrder && { added_at: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
-    };
-    if (editOrder) {
-      await base44.entities.PharmacyOrder.update(editOrder.id, data);
-    } else {
-      await base44.entities.PharmacyOrder.create(data);
+    try {
+      const payload = editOrder
+        ? { action: "update", id: editOrder.id, updates: form, timeline_note: "تعديل بيانات طلب الصيدلية" }
+        : { action: "create", order: form };
+      const res = await base44.functions.invoke("savePharmacyOrderSafe", payload);
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر حفظ طلب الصيدلية");
+      onSaved?.(result.record);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onSaved?.();
-    onOpenChange(false);
   };
 
   return (
