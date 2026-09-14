@@ -193,8 +193,9 @@ export default function SupplierBalancesBranch() {
       // المديونية القديمة = المديونية قبل التطبيق + متبقي الفواتير القديمة
       const oldDebt = round2(initialDebt + oldInvoicesRemaining);
 
-      // الدفعات العامة (غير المخصصة على فاتورة محددة) تُخصم من الإجمالي مباشرة دون تغيير بيانات الفواتير
-      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && (!p.branch || p.branch === branch));
+      // صفحة الفرع لا تنسب دفعة قديمة بلا فرع إلى هذا الفرع من تلقاء نفسها؛
+      // الدفعات غير المحدد لها فرع تظهر في التحليل الإجمالي وتحتاج توزيعًا صريحًا إذا أردنا نسبتها لفرع.
+      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && p.branch === branch);
       const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
 
       // المديونية المحسوبة من السجلات + فرق التسوية اليدوي = الرصيد النهائي
