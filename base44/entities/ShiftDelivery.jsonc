@@ -112,6 +112,17 @@
           },
           "category": {
             "type": "string"
+          },
+          "payment_source": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "insta",
+              "vodafone",
+              "bank",
+              "other"
+            ],
+            "default": "cash"
           }
         }
       },
