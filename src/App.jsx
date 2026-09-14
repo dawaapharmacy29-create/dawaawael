@@ -29,6 +29,7 @@ const PharmacyOrders = lazy(() => import('./pages/PharmacyOrders'));
 const InventoryCount = lazy(() => import('./pages/InventoryCount'));
 const ReportsBranch = lazy(() => import('./pages/ReportsBranch'));
 const SupplierBalancesBranch = lazy(() => import('./pages/SupplierBalancesBranch'));
+const SupplierIntelligence = lazy(() => import('./pages/SupplierIntelligence'));
 const ReplenishmentPage = lazy(() => import('./pages/ReplenishmentPage'));
 const FinancialReports = lazy(() => import('./pages/FinancialReports'));
 const FinancialArchive = lazy(() => import('./pages/FinancialArchive'));
@@ -102,6 +103,7 @@ const AuthenticatedApp = () => {
         <Route path="/inventory-count" element={<InventoryCount />} />
         <Route path="/reports-branch" element={<ReportsBranch />} />
         <Route path="/supplier-balances-branch" element={<SupplierBalancesBranch />} />
+        <Route path="/supplier-intelligence" element={<SupplierIntelligence />} />
         <Route path="/replenishment" element={<ReplenishmentPage />} />
         <Route path="/financial-reports" element={<FinancialReports />} />
         <Route path="/smart-commerce-analytics" element={<SmartCommerceAnalytics />} />
