@@ -3,7 +3,7 @@ import { ShieldAlert } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
 
-export default function FinancialRouteGuard({ children, minimum = FINANCIAL_ACCESS.BRANCH, adminOnly = false }) {
+export default function FinancialRouteGuard({ children, minimum = FINANCIAL_ACCESS.FULL, adminOnly = false }) {
   const location = useLocation();
   const role = useUserRole();
   const rank = { none: 0, limited: 1, full: 2 };
