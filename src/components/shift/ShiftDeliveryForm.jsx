@@ -15,6 +15,13 @@ import { getSmartShiftSuggestion, getTimeBasedShiftSuggestion, isShiftOverride }
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
 const PAYMENT_EXPENSE_NAMES = new Set(["انستا", "فيزا", "فودافون كاش", "فودافون", "Visa", "Insta"]);
+const EXPENSE_SOURCES = [
+  ["cash", "كاش"],
+  ["insta", "إنستا باي"],
+  ["vodafone", "فودافون كاش"],
+  ["bank", "حساب بنكي"],
+  ["other", "أخرى"],
+];
 
 export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const qc = useQueryClient();
@@ -233,11 +240,12 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         category: liveExpenseForm.category,
         amount,
         note: liveExpenseForm.note || "",
+        payment_source: liveExpenseForm.payment_source || "cash",
         occurred_at: new Date().toISOString(),
         status: "posted",
         source: "during_shift",
       });
-      setLiveExpenseForm({ category: "", amount: "", note: "" });
+      setLiveExpenseForm({ category: "", amount: "", note: "", payment_source: "cash" });
       qc.invalidateQueries({ queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type] });
     } catch (e) {
       setError(e.message || "تعذر تسجيل المصروف");
@@ -364,7 +372,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       setPayments({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
       setCashHandover("");
       setExpenses([{ description: "", amount: "", category: "" }]);
-      setLiveExpenseForm({ category: "", amount: "", note: "" });
+      setLiveExpenseForm({ category: "", amount: "", note: "", payment_source: "cash" });
       setDraftState("");
       setDraftBusinessDate("");
       draftIdRef.current = null;
