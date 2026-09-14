@@ -77,8 +77,14 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ success: false, error: 'الحساب غير مصرح له بتعديل فاتورة خارج نطاق فرعه' }, { status: 403 });
     }
 
-    await assertDayOpen(base44, oldBranch, oldDate);
-    if (branch !== oldBranch || invoiceDate !== oldDate) await assertDayOpen(base44, branch, invoiceDate);
+    const updateKeys = Object.keys(updates);
+    const projectionOnly = updateKeys.length === 1 && updateKeys[0] === 'paid_value';
+    // paid_value هو Projection لدفتر SupplierPayment ويمكن أن يتغير بعد إقفال يوم الفاتورة.
+    // أي تعديل آخر في هوية/قيمة/حالة الفاتورة يظل محميًا بالإقفال اليومي.
+    if (!projectionOnly) {
+      await assertDayOpen(base44, oldBranch, oldDate);
+      if (branch !== oldBranch || invoiceDate !== oldDate) await assertDayOpen(base44, branch, invoiceDate);
+    }
 
     const systemInvoiceNumber = clean(next.system_invoice_number);
     const enteredBy = clean(next.entered_by);
