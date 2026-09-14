@@ -104,8 +104,15 @@ export function aggregateShiftFinancials(records = []) {
     acc.expectedCash += f.expectedCash;
     acc.actualCash += f.actualCash;
     acc.cashVariance += f.cashVariance;
+    acc.treasuryGross += f.treasuryGross;
+    acc.treasuryNet += f.treasuryNet;
+    acc.expenseCash += f.expenseSources.cash;
+    acc.expenseInsta += f.expenseSources.insta;
+    acc.expenseVodafone += f.expenseSources.vodafone;
+    acc.expenseBank += f.expenseSources.bank;
+    acc.expenseOther += f.expenseSources.other;
     acc.legacyCount += f.legacy ? 1 : 0;
     acc.count += 1;
     return acc;
-  }, { sales:0,cash:0,visa:0,insta:0,vodafone:0,other:0,expenses:0,net:0,expectedCash:0,actualCash:0,cashVariance:0,legacyCount:0,count:0 });
+  }, { sales:0,cash:0,visa:0,insta:0,vodafone:0,other:0,expenses:0,net:0,expectedCash:0,actualCash:0,cashVariance:0,treasuryGross:0,treasuryNet:0,expenseCash:0,expenseInsta:0,expenseVodafone:0,expenseBank:0,expenseOther:0,legacyCount:0,count:0 });
 }
