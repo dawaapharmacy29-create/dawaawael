@@ -12,6 +12,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortControls } from "@/components/table/SortControls";
 import { SHIFT_TYPE_ORDER } from "@/lib/sortUtils";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
+import { aggregateShiftFinancials, shiftFinancialView } from "@/lib/shiftFinancials";
 
 const SHIFT_SORT_COLUMNS = [
   { field: "shift_type", label: "نوع الشفت", type: "status", statusMap: SHIFT_TYPE_ORDER },
@@ -68,9 +69,10 @@ function dateVariant(dateStr) {
  */
 function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestore }) {
   const accent = ACCENTS[dateVariant(dateStr)];
-  const totalSales = records.reduce((s, r) => s + (r.total_sales || 0), 0);
-  const totalExpenses = records.reduce((s, r) => s + (r.total_expenses || 0), 0);
-  const netAmount = records.reduce((s, r) => s + (r.net_amount || 0), 0);
+  const financialTotals = aggregateShiftFinancials(records);
+  const totalSales = financialTotals.sales;
+  const totalExpenses = financialTotals.expenses;
+  const netAmount = financialTotals.net;
 
   return (
     <div className="mb-6">
@@ -115,8 +117,9 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestor
               </div>
             );
           }
-          const bNet = branchRecords.reduce((s, r) => s + (r.net_amount || 0), 0);
-          const bSales = branchRecords.reduce((s, r) => s + (r.total_sales || 0), 0);
+          const branchFinancial = aggregateShiftFinancials(branchRecords);
+          const bNet = branchFinancial.net;
+          const bSales = branchFinancial.sales;
           return (
             <div key={branch} className={`bg-white rounded-xl border border-r-4 ${colors.accent} overflow-hidden`}>
               <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
@@ -163,7 +166,7 @@ function DayCard({ dateStr, records, isAdmin, onView, onEdit, onDelete, onRestor
                     </div>
                     <div className="flex items-center justify-end text-xs gap-2">
                       <span className="text-gray-500">مبيعات: <span className="font-medium">{fmt(r.total_sales)}</span></span>
-                      <span className="text-green-600 font-bold">صافي: {fmt(r.net_amount)}</span>
+                      <span className="text-green-600 font-bold">صافي: {fmt(shiftFinancialView(r).operationalNet)}</span>
                     </div>
                   </div>
                 ))}
@@ -341,7 +344,7 @@ export default function ShiftDeliveryHistory({ deliveries, onNewShift, showDupli
                     {records.map((r) => (
                       <div key={r.id} className="rounded-lg bg-gray-50 px-3 py-2 text-xs flex items-center justify-between gap-2 flex-wrap">
                         <span className="font-semibold text-gray-700">{r.submitted_by || "غير محدد"}{r.status === "مراجعة" ? " — تحت المراجعة" : ""}</span>
-                        <span className="text-gray-500">مبيعات {fmt(r.total_sales)} ج · مصروفات {fmt(r.total_expenses)} ج · صافي {fmt(r.net_amount)} ج</span>
+                        <span className="text-gray-500">مبيعات {fmt(r.total_sales)} ج · مصروفات فعلية {fmt(shiftFinancialView(r).realExpenseTotal)} ج · صافي {fmt(shiftFinancialView(r).operationalNet)} ج</span>
                       </div>
                     ))}
                   </div>
