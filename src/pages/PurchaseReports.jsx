@@ -51,19 +51,6 @@ function monthLabel() {
 
 const fmt = (n) => (n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 });
 
-async function loadAllPurchaseInvoices(maxRows = 10000, query = null) {
-  const pageSize = 500;
-  const rows = [];
-  for (let page = 0; rows.length < maxRows; page += 1) {
-    const batch = query
-      ? await base44.entities.PurchaseInvoice.filter(query, "-invoice_date", pageSize, page * pageSize)
-      : await base44.entities.PurchaseInvoice.list("-invoice_date", pageSize, page * pageSize);
-    rows.push(...batch);
-    if (batch.length < pageSize) break;
-  }
-  return rows.slice(0, maxRows);
-}
-
 export default function PurchaseReports() {
   const { isAdmin } = useUserRole();
   const qc = useQueryClient();
@@ -78,7 +65,7 @@ export default function PurchaseReports() {
   const [savingCategories, setSavingCategories] = useState(false);
 
   const { data: invoices = [], isLoading } = useQuery({
-    queryKey: ["purchase-reports-invoices", dateFrom, dateTo],
+    queryKey: ["purchase-reports-invoices", dateFrom, dateTo, filterBranch],
     queryFn: () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
       from: dateFrom,
       to: dateTo,
