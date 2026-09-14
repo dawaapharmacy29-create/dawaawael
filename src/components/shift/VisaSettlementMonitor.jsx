@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { CreditCard, Landmark, AlertTriangle, CheckCircle2, Clock3, Percent } from "lucide-react";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { useUserRole } from "@/lib/useUserRole";
+import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -44,7 +45,7 @@ export default function VisaSettlementMonitor({ from, to, branch = "الكل", d
     if (d.is_archived === true || d.status === "مراجعة") return false;
     if (!d.shift_date || d.shift_date < from || d.shift_date > to) return false;
     if (branch !== "الكل" && d.branch !== branch) return false;
-    return Number(d.visa_sales || 0) > 0;
+    return shiftFinancialView(d).payments.visa > 0;
   }).length, [deliveries, from, to, branch]);
 
   const stats = useMemo(() => {
