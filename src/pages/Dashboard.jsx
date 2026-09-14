@@ -34,6 +34,7 @@ function OperationalDashboard() {
 }
 
 export default function Dashboard() {
-  const { canViewFinancialDashboard } = useUserRole();
-  return canViewFinancialDashboard ? <FinancialDashboard /> : <OperationalDashboard />;
+  const { canViewFinancialDashboard, canViewAllBranchesFinancials, branchAccess } = useUserRole();
+  const canRenderFinancial = canViewFinancialDashboard && (canViewAllBranchesFinancials || branchAccess.length > 0);
+  return canRenderFinancial ? <FinancialDashboard /> : <OperationalDashboard />;
 }
