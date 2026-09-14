@@ -46,19 +46,21 @@ async function loadAll(entity: any, query: any, sort = '-created_date', maxRows 
   return rows.slice(0, maxRows);
 }
 
-function getUserField(user: any, key: string) {
-  return user?.[key] ?? user?.data?.[key];
-}
-
-function allowedBranchesFor(user: any, level: string) {
-  if (level === 'full') return BRANCHES;
-  const explicit = getUserField(user, 'branch_access');
-  if (Array.isArray(explicit)) {
-    const valid = explicit.map(clean).filter((b: string) => BRANCHES.includes(b));
-    if (valid.length) return [...new Set(valid)];
-  }
-  const legacy = clean(getUserField(user, 'branch'));
-  return BRANCHES.includes(legacy) ? [legacy] : [];
+async function getEffectiveDirectoryAccess(base44: any, user: any) {
+  const rows = await base44.asServiceRole.entities.ManagementLoginDirectory.filter({ is_active: true });
+  const email = clean(user?.email).toLowerCase();
+  const userId = clean(user?.id);
+  const match = rows.find((r: any) =>
+    clean(r.base44_user_id) === userId ||
+    (clean(r.base44_email) && clean(r.base44_email).toLowerCase() === email)
+  );
+  if (!match) return { level: 'none', branches: [] as string[] };
+  const level = clean(match.financial_access_level) || 'none';
+  const branch = clean(match.branch);
+  const branches = level === 'full' || branch === 'كل الفروع'
+    ? BRANCHES
+    : BRANCHES.includes(branch) ? [branch] : [];
+  return { level, branches };
 }
 
 function invoiceNet(inv: any, suppliers: any[]) {
@@ -116,12 +118,13 @@ export default async function(req: Request): Promise<Response> {
     const user: any = await base44.auth.me();
     if (!user) return Response.json({ error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
 
-    const level = clean(getUserField(user, 'financial_access_level')) || 'none';
+    const access = await getEffectiveDirectoryAccess(base44, user);
+    const level = access.level;
     if (!['limited', 'full'].includes(level)) {
       return Response.json({ error: 'الحساب لا يملك صلاحية عرض الملخص المالي' }, { status: 403 });
     }
 
-    const branches = allowedBranchesFor(user, level);
+    const branches = access.branches;
     if (!branches.length) {
       return Response.json({ error: 'لم يتم تحديد نطاق الفروع المسموح به لهذا الحساب' }, { status: 403 });
     }
