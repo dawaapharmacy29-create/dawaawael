@@ -7,6 +7,7 @@ import { Download } from "lucide-react";
 import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
 import DateRangeFilter from "./DateRangeFilter";
 import { cn } from "@/lib/utils";
+import { aggregateShiftFinancials, shiftFinancialView } from "@/lib/shiftFinancials";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
@@ -66,14 +67,7 @@ export default function ShiftDeliveryReport({ deliveries }) {
     .filter((d) => d.status !== "مراجعة")
     .sort((a, b) => (a.shift_date < b.shift_date ? 1 : -1)), [matching]);
 
-  const totals = useMemo(() => {
-    return {
-      sales: filtered.reduce((s, d) => s + (d.total_sales || 0), 0),
-      expenses: filtered.reduce((s, d) => s + (d.total_expenses || 0), 0),
-      net: filtered.reduce((s, d) => s + (d.net_amount || 0), 0),
-      count: filtered.length,
-    };
-  }, [filtered]);
+  const totals = useMemo(() => aggregateShiftFinancials(filtered), [filtered]);
 
   const exportExcel = () => {
     import("xlsx").then((XLSX) => {
@@ -83,8 +77,14 @@ export default function ShiftDeliveryReport({ deliveries }) {
         "نوع الشيفت": d.shift_type || "",
         "الموظف": d.submitted_by || "",
         "إجمالي المبيعات": d.total_sales || 0,
-        "إجمالي المصروفات": d.total_expenses || 0,
-        "الصافي": d.net_amount || 0,
+        "كاش": shiftFinancialView(d).payments.cash,
+        "فيزا": shiftFinancialView(d).payments.visa,
+        "إنستا": shiftFinancialView(d).payments.insta,
+        "فودافون كاش": shiftFinancialView(d).payments.vodafone,
+        "أخرى": shiftFinancialView(d).payments.other,
+        "المصروفات الحقيقية": shiftFinancialView(d).realExpenseTotal,
+        "صافي التشغيل": shiftFinancialView(d).operationalNet,
+        "Legacy": shiftFinancialView(d).legacy ? "نعم" : "لا",
         "ملاحظات": d.notes || "",
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -151,7 +151,7 @@ export default function ShiftDeliveryReport({ deliveries }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <Card className="p-3 text-center">
           <p className="text-xs text-gray-500">عدد التسليمات</p>
-          <p className="text-lg font-bold text-gray-800">{totals.count}</p>
+          <p className="text-lg font-bold text-gray-800">{filtered.length}</p>
         </Card>
         <Card className="p-3 text-center">
           <p className="text-xs text-gray-500">إجمالي المبيعات</p>
@@ -160,6 +160,7 @@ export default function ShiftDeliveryReport({ deliveries }) {
         <Card className="p-3 text-center">
           <p className="text-xs text-gray-500">إجمالي المصروفات</p>
           <p className="text-lg font-bold text-red-600">{fmt(totals.expenses)}</p>
+          <p className="text-[10px] text-gray-400">بعد فصل إنستا/فيزا/فودافون</p>
         </Card>
         <Card className="p-3 text-center">
           <p className="text-xs text-gray-500">الصافي</p>
@@ -198,8 +199,8 @@ export default function ShiftDeliveryReport({ deliveries }) {
                     <TableCell className="text-sm">{d.shift_type || "—"}</TableCell>
                     <TableCell className="text-sm">{d.submitted_by || "—"}</TableCell>
                     <TableCell className="text-sm font-medium text-blue-700">{fmt(d.total_sales)}</TableCell>
-                    <TableCell className="text-sm font-medium text-red-600">{fmt(d.total_expenses)}</TableCell>
-                    <TableCell className="text-sm font-bold text-green-600">{fmt(d.net_amount)}</TableCell>
+                    <TableCell className="text-sm font-medium text-red-600">{fmt(shiftFinancialView(d).realExpenseTotal)}</TableCell>
+                    <TableCell className="text-sm font-bold text-green-600">{fmt(shiftFinancialView(d).operationalNet)}</TableCell>
                   </TableRow>
                 ))
               )}
