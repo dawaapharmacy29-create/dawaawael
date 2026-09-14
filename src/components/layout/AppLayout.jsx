@@ -21,8 +21,8 @@ const navItems = [
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
   { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers" },
   { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers", fullFinancialOnly: true },
-  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers", financialOnly: true },
-  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers", financialOnly: true },
+  { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers", fullFinancialOnly: true },
+  { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers", fullFinancialOnly: true },
   { path: "/supplier-intelligence", label: "تحليل الموردين والتفاوض", icon: TrendingUp, section: "suppliers", fullFinancialOnly: true },
   // الواجهة المعتمدة للتقارير: أربع صفحات فقط. الصفحات القديمة تظل موجودة كمسارات احتياطية بدون إظهارها في القائمة.
   { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports", fullFinancialOnly: true },
