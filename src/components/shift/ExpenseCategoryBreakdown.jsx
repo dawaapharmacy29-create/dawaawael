@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -21,7 +22,7 @@ export default function ExpenseCategoryBreakdown({ deliveries, title = "تفصي
   const categories = useMemo(() => {
     const map = {};
     deliveries.forEach((d) => {
-      (d.expenses || []).forEach((e) => {
+      shiftFinancialView(d).realExpenses.forEach((e) => {
         const cat = (e.category && e.category.trim()) || "أخرى";
         if (!map[cat]) map[cat] = { total: 0, items: [] };
         map[cat].total += e.amount || 0;
