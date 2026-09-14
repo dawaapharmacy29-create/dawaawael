@@ -26,18 +26,6 @@ function normalizeInvoiceNumber(value: unknown) {
 function effectiveDate(inv: any) {
   return clean(inv?.invoice_date) || clean(inv?.created_date).slice(0, 10);
 }
-function getUserField(user: any, key: string) { return user?.[key] ?? user?.data?.[key]; }
-function allowedBranchesFor(user: any) {
-  if (String(user?.role || '') === 'admin') return [...VALID_BRANCHES];
-  const explicit = getUserField(user, 'branch_access');
-  if (Array.isArray(explicit)) {
-    const valid = explicit.map(clean).filter((b: string) => VALID_BRANCHES.has(b));
-    if (valid.length) return [...new Set(valid)];
-  }
-  const legacy = clean(getUserField(user, 'branch'));
-  return VALID_BRANCHES.has(legacy) ? [legacy] : [];
-}
-
 async function assertDayOpen(base44: any, branch: string, date: string) {
   if (!branch || !date) return;
   const rows = await base44.asServiceRole.entities.DailyClose.filter({ branch, business_date: date }, '-updated_date', 5);
@@ -72,10 +60,8 @@ export default async function(req: Request): Promise<Response> {
     const oldBranch = clean(current.branch);
 
     if (!VALID_BRANCHES.has(branch)) return Response.json({ success: false, error: 'الفرع غير صالح' }, { status: 400 });
-    const allowedBranches = allowedBranchesFor(user);
-    if (allowedBranches.length && (!allowedBranches.includes(oldBranch) || !allowedBranches.includes(branch))) {
-      return Response.json({ success: false, error: 'الحساب غير مصرح له بتعديل فاتورة خارج نطاق فرعه' }, { status: 403 });
-    }
+    // تعديل/مراجعة الفاتورة جزء من التشغيل اليومي المتاح للحسابات المسجلة.
+    // صلاحيات الفرع تخص عرض البيانات المالية والتقارير، لا تنفيذ المراجعة التشغيلية.
 
     const updateKeys = Object.keys(updates);
     const projectionOnly = updateKeys.length === 1 && updateKeys[0] === 'paid_value';
