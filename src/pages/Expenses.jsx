@@ -18,6 +18,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { SortableHeader } from "@/components/table/SortableHeader";
 import { SortControls } from "@/components/table/SortControls";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
+import { loadExpensesByBusinessDate } from "@/lib/expenseRangeLoader";
 
 const EXPENSE_SORT_COLUMNS = [
   { field: "description", label: "الوصف", type: "text" },
@@ -49,17 +50,6 @@ function defaultExpenseRange() {
   return { from, to: today };
 }
 
-async function loadExpensesRange(query) {
-  const rows = [];
-  const PAGE = 500;
-  for (let offset = 0; offset < 20000; offset += PAGE) {
-    const batch = await base44.entities.Expense.filter(query, "-created_date", PAGE, offset);
-    rows.push(...batch);
-    if (batch.length < PAGE) break;
-  }
-  return rows;
-}
-
 export default function Expenses() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -78,12 +68,12 @@ export default function Expenses() {
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses", "range", dateFrom, dateTo, filterBranch],
-    queryFn: () => loadExpensesRange({
-      ...(filterBranch !== "الكل" ? { branch: filterBranch } : {}),
-      $or: [
-        { date: { $gte: dateFrom, $lte: dateTo } },
-        { created_date: { $gte: `${dateFrom}T00:00:00`, $lte: `${dateTo}T23:59:59` } },
-      ],
+    queryFn: () => loadExpensesByBusinessDate(base44.entities.Expense, {
+      from: dateFrom,
+      to: dateTo,
+      extraFilter: filterBranch !== "الكل" ? { branch: filterBranch } : {},
+      sort: "-date",
+      maxRows: 20000,
     }),
     enabled: Boolean(dateFrom && dateTo),
     staleTime: 60000,
