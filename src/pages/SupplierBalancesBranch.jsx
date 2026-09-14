@@ -14,6 +14,7 @@ import SupplierStatement from "@/components/supplier/SupplierStatement";
 import { useUserRole } from "@/lib/useUserRole";
 import { isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
 import { summarizeSupplierAging } from "@/lib/supplierAging";
+import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -102,7 +103,7 @@ export default function SupplierBalancesBranch() {
       });
       try {
         // paid_value يظل Projection متوافقًا مع الشاشات القديمة؛ سجل SupplierPayment هو دفتر الحركة التفصيلي الجديد.
-        await base44.entities.PurchaseInvoice.update(invoice.id, { paid_value: newPaid });
+        await updatePurchaseInvoiceSafe(invoice.id, { paid_value: newPaid });
         await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
       } catch (err) {
         try { await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "needs_review", allocation_sync_error: err?.message || "تعذر تحديث paid_value" }); } catch {}
@@ -317,7 +318,7 @@ export default function SupplierBalancesBranch() {
           for (const allocation of allocations) {
             const inv = openInvoices.find((x) => x.id === allocation.invoice_id);
             if (!inv) continue;
-            await base44.entities.PurchaseInvoice.update(inv.id, { paid_value: round2((inv.paid_value || 0) + allocation.amount) });
+            await updatePurchaseInvoiceSafe(inv.id, { paid_value: round2((inv.paid_value || 0) + allocation.amount) });
           }
           await base44.entities.SupplierPayment.update(paymentRow.id, { allocation_sync_status: "applied", allocation_sync_error: "" });
         } catch (err) {
