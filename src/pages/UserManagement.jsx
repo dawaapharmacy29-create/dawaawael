@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShieldCheck, UserPlus, Mail, Check, X, Lock } from "lucide-react";
+import { ShieldCheck, UserPlus, Mail, Check, X, Lock, Link2, Unlink, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
 import { useAuth } from "@/lib/AuthContext";
@@ -51,6 +51,17 @@ export default function UserManagement() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: () => base44.entities.User.list(),
+  });
+  const { data: unifiedDirectory = { directory: [], users: [] }, isLoading: unifiedLoading, refetch: refetchUnified } = useQuery({
+    queryKey: ["unified-login-directory"],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("manageUnifiedLoginDirectory", { action: "list" });
+      const payload = res?.data || {};
+      if (!payload.success) throw new Error(payload.error || "تعذر تحميل دليل الدخول الموحد");
+      return payload;
+    },
+    enabled: isAdmin,
+    staleTime: 60000,
   });
   const { sortField, sortDirection, toggleSort, setSort, resetSort, sortData } = useTableSorting({
     columns: USER_SORT_COLUMNS,
@@ -101,7 +112,23 @@ export default function UserManagement() {
     },
   });
 
+  const updateUnifiedLink = useMutation({
+    mutationFn: async ({ action, directory_id, base44_user_id, financial_access_level }) => {
+      const res = await base44.functions.invoke("manageUnifiedLoginDirectory", { action, directory_id, base44_user_id, financial_access_level });
+      const payload = res?.data || {};
+      if (!payload.success) throw new Error(payload.error || "تعذر تحديث الربط");
+      return payload;
+    },
+    onSuccess: async () => {
+      await refetchUnified();
+      await checkUserAuth();
+      toast({ title: "تم تحديث الربط", description: "تم تحديث هوية الدخول والصلاحية الفعلية بأمان." });
+    },
+    onError: (error) => toast({ title: "تعذر تحديث الربط", description: error?.message || "حدث خطأ", variant: "destructive" }),
+  });
+
   const updateBranchAccess = useMutation({
+
     mutationFn: async ({ id, branches, oldBranches, userEmail }) => {
       await base44.entities.User.update(id, { branch_access: branches });
       await logActivity({
@@ -177,6 +204,83 @@ export default function UserManagement() {
         ))}
       </div>
 
+      {/* Unified login directory — المصدر الموثوق لهوية الإدارة والصلاحية المالية */}
+      <Card className="p-4 md:p-5 border-teal-200 bg-teal-50/30">
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-teal-700" />
+              <h2 className="font-bold text-gray-900">ربط الدخول الموحد</h2>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">يربط يوزر تطبيق الإدارة بحساب Base44 الصحيح. لا يتم تخزين أو عرض أي كلمة مرور هنا.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetchUnified()} disabled={unifiedLoading} className="gap-2 bg-white">
+            <RefreshCw className={`w-4 h-4 ${unifiedLoading ? "animate-spin" : ""}`} /> تحديث
+          </Button>
+        </div>
+
+        {unifiedLoading ? (
+          <div className="py-6 text-center text-sm text-gray-400">جاري تحميل روابط الدخول...</div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {(unifiedDirectory.directory || []).map((entry) => {
+              const linkedUser = (unifiedDirectory.users || []).find((u) => u.id === entry.base44_user_id);
+              return (
+                <div key={entry.id} className="rounded-xl border bg-white p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-gray-900">{entry.display_name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">يوزر الإدارة: <b dir="ltr">{entry.login_username}</b></p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{entry.management_role || "—"} · {entry.branch || "—"}</p>
+                    </div>
+                    <Badge className={entry.financial_access_level === "full" ? "bg-emerald-100 text-emerald-800" : entry.financial_access_level === "limited" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"}>
+                      {entry.financial_access_level === "full" ? "مالي كامل" : entry.financial_access_level === "limited" ? "مالي محدود" : "تشغيلي فقط"}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">حساب Base44 المرتبط</Label>
+                    <Select
+                      value={entry.base44_user_id || "unlinked"}
+                      disabled={updateUnifiedLink.isPending}
+                      onValueChange={(value) => {
+                        if (value === "unlinked") updateUnifiedLink.mutate({ action: "unlink", directory_id: entry.id });
+                        else updateUnifiedLink.mutate({ action: "link", directory_id: entry.id, base44_user_id: value });
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unlinked">غير مربوط</SelectItem>
+                        {(unifiedDirectory.users || []).map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email} — {u.email}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <div className="mt-1.5 text-[11px]">
+                      {linkedUser ? <span className="text-emerald-700">✓ مربوط حاليًا بـ {linkedUser.full_name || linkedUser.email}</span> : <span className="text-amber-700">غير مربوط — لن يعمل الدخول باليوزر المختصر حتى يتم اختيار الحساب الصحيح</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">مستوى الرؤية المالية الفعلي</Label>
+                    <Select
+                      value={entry.financial_access_level || "none"}
+                      disabled={updateUnifiedLink.isPending}
+                      onValueChange={(value) => updateUnifiedLink.mutate({ action: "set_financial_level", directory_id: entry.id, financial_access_level: value })}
+                    >
+                      <SelectTrigger className="mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">تشغيلي فقط</SelectItem>
+                        <SelectItem value="limited">مالي محدود</SelectItem>
+                        <SelectItem value="full">مالي كامل</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
       {/* Users List */}
       {isLoading ? (
         <Card className="p-8 text-center text-gray-400">
@@ -222,20 +326,8 @@ export default function UserManagement() {
                 {true && (
                   <div className="mt-3 pt-3 border-t space-y-3">
                     <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
-                      <p className="text-xs font-bold text-indigo-900 mb-2">مستوى الوصول المالي</p>
-                      <Select
-                        value={getFinancialAccessLevel(user)}
-                        disabled={updatePerm.isPending}
-                        onValueChange={(v) => updatePerm.mutate({ id: user.id, perm: "financial_access_level", value: v, oldValue: getFinancialAccessLevel(user), userEmail: user.email })}
-                      >
-                        <SelectTrigger className="w-full md:w-64 h-9 text-xs bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={FINANCIAL_ACCESS.NONE}>{FINANCIAL_ACCESS_LABELS.none}</SelectItem>
-                          <SelectItem value={FINANCIAL_ACCESS.LIMITED}>{FINANCIAL_ACCESS_LABELS.limited}</SelectItem>
-                          <SelectItem value={FINANCIAL_ACCESS.FULL}>{FINANCIAL_ACCESS_LABELS.full}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[10px] text-indigo-700 mt-2">التشغيل اليومي (الشيفتات، الفواتير، المراجعة والطلبات) متاح بشكل مستقل. «مالي محدود» يعرض فقط ملخص المبيعات والمشتريات للدورة الحالية والسابقة. «مالي كامل» يفتح التقارير والذمم والتفاصيل الحساسة.</p>
+                      <p className="text-xs font-bold text-indigo-900">الصلاحية المالية الفعلية تُدار من «ربط الدخول الموحد» أعلاه</p>
+                      <p className="text-[10px] text-indigo-700 mt-1">تم إلغاء الاعتماد الأمني على الحقل المالي داخل User حتى لا يستطيع أي مستخدم رفع صلاحياته ذاتيًا.</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {PERMISSIONS.map((p) => {
