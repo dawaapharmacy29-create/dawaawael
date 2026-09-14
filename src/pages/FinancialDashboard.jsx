@@ -104,10 +104,6 @@ export default function FinancialDashboard() {
     }
   }, [branch, canViewAllBranchesFinancials, searchParams, setSearchParams]);
 
-  if (!canViewAllBranchesFinancials && allowedFinancialBranches.length === 0) {
-    return <div dir="rtl" className="p-6"><Card className="p-6 border-amber-200 bg-amber-50 text-amber-900"><b>الحساب لديه صلاحية مالية لكن بدون نطاق فرع محدد.</b><p className="text-sm mt-1">حدد branch_access من إدارة المستخدمين قبل عرض أي أرقام مالية.</p></Card></div>;
-  }
-
   // فلترة الفواتير من الخادم حسب الفترة المختارة — يجيب فقط فواتير الشهر بدل 4000+ فاتورة
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ["purchase-invoices", "byDate", dateFilter.from, dateFilter.to],
@@ -314,7 +310,7 @@ export default function FinancialDashboard() {
         </div>
       </div>
 
-      <BranchSelector value={branch} onChange={setBranch} />
+      <BranchSelector value={branch} onChange={setBranch} allowedBranches={allowedFinancialBranches} showAll={canViewAllBranchesFinancials} />
 
       {/* Stats — كارت كبير للمدفوعات + كروت صغيرة */}
       <DashboardStatsCards
