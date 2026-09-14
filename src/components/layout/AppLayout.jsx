@@ -39,7 +39,7 @@ const navItems = [
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, managerOnly: true, section: "management" },
   { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main" },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
-  { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, fullFinancialOnly: true, section: "reports" }
+  { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, fullFinancialOnly: true, section: "reports" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
   { path: "/user-management", label: "المستخدمين والصلاحيات", icon: UserCheck, adminOnly: true, section: "management" },
   { path: "/team-members", label: "فريق العمل", icon: UserCheck, managerOnly: true, section: "management" },
