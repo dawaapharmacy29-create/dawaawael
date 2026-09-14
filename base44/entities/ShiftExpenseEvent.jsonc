@@ -1,0 +1,139 @@
+{
+  "name": "ShiftExpenseEvent",
+  "type": "object",
+  "properties": {
+    "branch": {
+      "type": "string",
+      "enum": [
+        "\u062f\u0648\u0627\u0621 \u0634\u0643\u0631\u064a",
+        "\u062f\u0648\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u064a"
+      ]
+    },
+    "business_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "shift_type": {
+      "type": "string",
+      "enum": [
+        "\u0635\u0628\u0627\u062d\u064a",
+        "\u0645\u0633\u0627\u0626\u064a",
+        "\u0644\u064a\u0644\u064a"
+      ]
+    },
+    "employee_map_id": {
+      "type": "string"
+    },
+    "employee_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "note": {
+      "type": "string"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "posted",
+        "linked",
+        "voided"
+      ],
+      "default": "posted"
+    },
+    "linked_shift_id": {
+      "type": "string"
+    },
+    "void_reason": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "during_shift",
+        "closing"
+      ],
+      "default": "during_shift"
+    }
+  },
+  "required": [
+    "branch",
+    "business_date",
+    "shift_type",
+    "category",
+    "amount",
+    "occurred_at"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "viewer"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "viewer"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "viewer"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "__no_hard_delete_shift_expense_events__"
+      }
+    }
+  }
+}

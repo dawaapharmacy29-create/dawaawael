@@ -41,6 +41,8 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
   const [cashHandover, setCashHandover] = useState("");
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "" }]);
+  const [liveExpenseForm, setLiveExpenseForm] = useState({ category: "", amount: "", note: "" });
+  const [liveExpenseSaving, setLiveExpenseSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [draftState, setDraftState] = useState("");
@@ -86,10 +88,17 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   }, []);
 
   const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
-  const totalExpenses = useMemo(
-    () => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0),
-    [expenses]
-  );
+  const liveBusinessDate = draftBusinessDate || (form.shift_type ? currentShiftBusinessDate(form.shift_type) : "");
+  const { data: liveExpenseEvents = [] } = useQuery({
+    queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type],
+    queryFn: () => base44.entities.ShiftExpenseEvent.filter({ branch: form.branch, business_date: liveBusinessDate, shift_type: form.shift_type, status: "posted" }, "occurred_at", 300),
+    enabled: Boolean(form.branch && form.shift_type && liveBusinessDate),
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+  });
+  const liveExpenseTotal = useMemo(() => liveExpenseEvents.reduce((sum, e) => sum + (Number(e.amount) || 0), 0), [liveExpenseEvents]);
+  const closingExpenseTotal = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
+  const totalExpenses = liveExpenseTotal + closingExpenseTotal;
   const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - totalExpenses);
   const actualCashHandover = parseFloat(cashHandover) || 0;
   const cashVariance = actualCashHandover - expectedCashHandover;
@@ -156,6 +165,50 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     setExpenses((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const addLiveExpense = async () => {
+    setError("");
+    if (!form.branch || !form.shift_type || !liveBusinessDate) return setError("اختر الفرع ونوع الشيفت أولًا قبل تسجيل مصروف أثناء الشيفت");
+    if (!liveExpenseForm.category) return setError("اختر بند المصروف");
+    const amount = parseFloat(liveExpenseForm.amount) || 0;
+    if (amount <= 0) return setError("قيمة المصروف يجب أن تكون أكبر من صفر");
+    setLiveExpenseSaving(true);
+    try {
+      await assertDailyCloseOpen(form.branch, liveBusinessDate, "تسجيل مصروف أثناء الشيفت");
+      const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
+      await base44.entities.ShiftExpenseEvent.create({
+        branch: form.branch,
+        business_date: liveBusinessDate,
+        shift_type: form.shift_type,
+        employee_map_id: form.employee_map_id || "",
+        employee_name: selectedEmployee?.canonical_name || "",
+        category: liveExpenseForm.category,
+        amount,
+        note: liveExpenseForm.note || "",
+        occurred_at: new Date().toISOString(),
+        status: "posted",
+        source: "during_shift",
+      });
+      setLiveExpenseForm({ category: "", amount: "", note: "" });
+      qc.invalidateQueries({ queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type] });
+    } catch (e) {
+      setError(e.message || "تعذر تسجيل المصروف");
+    } finally {
+      setLiveExpenseSaving(false);
+    }
+  };
+
+  const voidLiveExpense = async (event) => {
+    const reason = window.prompt("سبب إلغاء حركة المصروف (لن يتم حذفها):");
+    if (!reason?.trim()) return;
+    try {
+      await assertDailyCloseOpen(event.branch, event.business_date, "إلغاء حركة مصروف أثناء الشيفت");
+      await base44.entities.ShiftExpenseEvent.update(event.id, { status: "voided", void_reason: reason.trim() });
+      qc.invalidateQueries({ queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type] });
+    } catch (e) {
+      setError(e.message || "تعذر إلغاء الحركة");
+    }
+  };
+
   const handleSave = async () => {
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
@@ -166,13 +219,15 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
     if (Math.abs(cashVariance) > 1 && !(form.notes || "").trim()) return setError(`يوجد فرق كاش ${cashVariance.toFixed(2)} ج — اكتب سبب الفرق في الملاحظات قبل الحفظ`);
 
-    const validExpenses = expenses
+    const liveExpenses = liveExpenseEvents.map((e) => ({
+      description: `${e.note || ""}${e.note ? " — " : ""}مسجل أثناء الشيفت ${e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : ""}`.trim(),
+      amount: Number(e.amount) || 0,
+      category: e.category || "أخرى",
+    }));
+    const closingExpenses = expenses
       .filter((e) => e.category || parseFloat(e.amount) > 0)
-      .map((e) => ({
-        description: e.description || "",
-        amount: parseFloat(e.amount) || 0,
-        category: e.category || "أخرى",
-      }));
+      .map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "أخرى" }));
+    const validExpenses = [...liveExpenses, ...closingExpenses];
 
     setSaving(true);
     try {
@@ -227,12 +282,17 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         setError(message);
         return;
       }
+      const savedShiftId = saved.record?.id || saved.id || "";
       if (draftIdRef.current) {
         await base44.entities.ShiftDraft.update(draftIdRef.current, {
           status: "submitted",
-          submitted_shift_id: saved.record?.id || saved.id || "",
+          submitted_shift_id: savedShiftId,
           last_saved_at: new Date().toISOString(),
         });
+      }
+      if (savedShiftId && liveExpenseEvents.length > 0) {
+        await Promise.allSettled(liveExpenseEvents.map((event) => base44.entities.ShiftExpenseEvent.update(event.id, { status: "linked", linked_shift_id: savedShiftId })));
+        qc.invalidateQueries({ queryKey: ["shift-expense-events"] });
       }
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
@@ -248,6 +308,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       setPayments({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
       setCashHandover("");
       setExpenses([{ description: "", amount: "", category: "" }]);
+      setLiveExpenseForm({ category: "", amount: "", note: "" });
       setDraftState("");
       setDraftBusinessDate("");
       draftIdRef.current = null;
@@ -355,10 +416,22 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           </div>
         </div>
 
-        {/* Section 2: Expenses */}
+        {/* Section 2: Expenses during the shift */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+          <div><h3 className="text-sm font-bold text-amber-900">مصروفات أثناء الشيفت — سجل حركة لحظي</h3><p className="text-[11px] text-amber-700 mt-1">سجل المصروف وقت حدوثه. الحركة تحفظ بوقتها وتفضل موجودة حتى لو الصفحة اتقفلت، ولا تُحذف؛ يمكن إلغاؤها بسبب موثق.</p></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+            <div className="space-y-1"><Label className="text-xs">البند</Label><Select value={liveExpenseForm.category} onValueChange={(v)=>setLiveExpenseForm((f)=>({...f,category:v}))}><SelectTrigger className="bg-white"><SelectValue placeholder="اختر البند"/></SelectTrigger><SelectContent>{activeExpenseItems.map((c)=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1"><Label className="text-xs">القيمة</Label><Input type="number" min="0" className="bg-white" value={liveExpenseForm.amount} onChange={(e)=>setLiveExpenseForm((f)=>({...f,amount:e.target.value}))} placeholder="0"/></div>
+            <div className="space-y-1"><Label className="text-xs">ملاحظة</Label><Input className="bg-white" value={liveExpenseForm.note} onChange={(e)=>setLiveExpenseForm((f)=>({...f,note:e.target.value}))} placeholder="مثال: شراء مستلزمات"/></div>
+            <Button type="button" onClick={addLiveExpense} disabled={liveExpenseSaving || !form.branch || !form.shift_type} className="bg-amber-600 hover:bg-amber-700 text-white">{liveExpenseSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Plus className="w-4 h-4"/>} تسجيل الآن</Button>
+          </div>
+          {liveExpenseEvents.length > 0 && <div className="space-y-2"><div className="flex justify-between text-sm"><span className="font-semibold text-gray-700">الحركات المسجلة ({liveExpenseEvents.length})</span><b className="text-amber-800">{fmt(liveExpenseTotal)} ج.م</b></div>{liveExpenseEvents.map((e)=><div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border p-2 text-xs"><div><b>{e.category}</b><span className="text-gray-500 mr-2">{fmt(e.amount)} ج</span>{e.note && <span className="text-gray-400 mr-2">— {e.note}</span>}<p className="text-[10px] text-gray-400 mt-0.5">{e.occurred_at ? new Date(e.occurred_at).toLocaleString("ar-EG") : ""}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>voidLiveExpense(e)} className="text-red-600">إلغاء</Button></div>)}</div>}
+        </div>
+
+        {/* Section 3: Closing expenses */}
         <div>
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
-            <h3 className="text-sm font-semibold text-gray-700">مصروفات الشفت</h3>
+            <div><h3 className="text-sm font-semibold text-gray-700">مصروفات إضافية عند التقفيل</h3><p className="text-[11px] text-gray-400 mt-0.5">استخدمها فقط لو فيه مصروف لم يتم تسجيله أثناء الشيفت.</p></div>
             <Button type="button" variant="outline" size="sm" onClick={addExpense} className="text-blue-600 border-blue-200 hover:bg-blue-50">
               <Plus className="w-4 h-4" /> إضافة بند
             </Button>
@@ -428,6 +501,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">إجمالي المصروفات الفعلية</span>
             <span className="text-lg font-bold text-red-600">{fmt(totalExpenses)} ج.م</span>
+            <span className="text-[10px] text-gray-400 mr-2">({fmt(liveExpenseTotal)} أثناء الشيفت + {fmt(closingExpenseTotal)} عند التقفيل)</span>
           </div>
           <div className="flex justify-between items-center pt-2 border-t">
             <span className="text-sm font-semibold text-gray-700">صافي الشيفت</span>
