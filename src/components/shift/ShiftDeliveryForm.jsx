@@ -278,16 +278,18 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     }
     if (paymentTotal <= 0) return setError("الرجاء إدخال تفصيل المبيعات حسب وسيلة الدفع");
     if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
-    if (Math.abs(cashVariance) > 1 && !(form.notes || "").trim()) return setError(`يوجد فرق كاش ${cashVariance.toFixed(2)} ج — اكتب سبب الفرق في الملاحظات قبل الحفظ`);
+    if ((parseFloat(payments.visa) || 0) > 0 && visaControl.terminalAmount === "") return setError("يوجد تحصيل فيزا — أدخل قيمة تقرير إقفال جهاز POS لمطابقة الفيزا");
+    if ((Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) && !(form.notes || "").trim()) return setError(`يوجد فرق يحتاج مراجعة${Math.abs(cashVariance) > 1 ? ` — فرق كاش ${cashVariance.toFixed(2)} ج` : ""}${Math.abs(visaVariance) > 1 ? ` — فرق فيزا ${visaVariance.toFixed(2)} ج` : ""}. اكتب السبب في الملاحظات قبل الحفظ`);
 
     const liveExpenses = liveExpenseEvents.map((e) => ({
       description: `${e.note || ""}${e.note ? " — " : ""}مسجل أثناء الشيفت ${e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : ""}`.trim(),
       amount: Number(e.amount) || 0,
       category: e.category || "أخرى",
+      payment_source: e.payment_source || "cash",
     }));
     const closingExpenses = expenses
       .filter((e) => e.category || parseFloat(e.amount) > 0)
-      .map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "أخرى" }));
+      .map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "أخرى", payment_source: e.payment_source || "cash" }));
     const validExpenses = [...liveExpenses, ...closingExpenses];
 
     setSaving(true);
@@ -327,7 +329,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           cash_handover: actualCashHandover,
           cash_variance: cashVariance,
           idempotency_key: submissionTokenRef.current,
-          workflow_status: Math.abs(cashVariance) > 1 ? "under_review" : "submitted",
+          workflow_status: (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) ? "under_review" : "submitted",
           expenses: validExpenses,
           notes: form.notes,
         },
@@ -355,6 +357,24 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         await Promise.allSettled(liveExpenseEvents.map((event) => base44.entities.ShiftExpenseEvent.update(event.id, { status: "linked", linked_shift_id: savedShiftId })));
         qc.invalidateQueries({ queryKey: ["shift-expense-events"] });
       }
+      if ((parseFloat(payments.visa) || 0) > 0) {
+        await base44.entities.ShiftPaymentReconciliation.create({
+          shift_id: savedShiftId,
+          branch: form.branch,
+          business_date: businessDate,
+          shift_type: form.shift_type,
+          payment_method: "visa",
+          expected_amount: parseFloat(payments.visa) || 0,
+          terminal_amount: visaTerminalAmount,
+          operation_count: parseInt(visaControl.operationCount, 10) || 0,
+          variance: visaVariance,
+          terminal_name: visaControl.terminalName || "",
+          batch_reference: visaControl.batchReference || "",
+          settlement_status: Math.abs(visaVariance) <= 1 ? "matched" : "difference",
+          notes: Math.abs(visaVariance) > 1 ? (form.notes || "فرق فيزا يحتاج مراجعة") : "",
+        });
+        qc.invalidateQueries({ queryKey: ["shift-payment-reconciliation"] });
+      }
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
       qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
@@ -370,8 +390,9 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         notes: "",
       });
       setPayments({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+      setVisaControl({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
       setCashHandover("");
-      setExpenses([{ description: "", amount: "", category: "" }]);
+      setExpenses([{ description: "", amount: "", category: "", payment_source: "cash" }]);
       setLiveExpenseForm({ category: "", amount: "", note: "", payment_source: "cash" });
       setDraftState("");
       setDraftBusinessDate("");
