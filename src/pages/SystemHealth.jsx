@@ -176,6 +176,7 @@ export default function SystemHealth() {
     return [...groups.values()].filter((group) => group.length > 1);
   }, [activeShifts]);
 
+  const customerOrdersMissingBranch = useMemo(() => recentOrders.filter((o) => o.is_archived !== true && !String(o.branch || "").trim()), [recentOrders]);
   const duplicateOrderIdempotencyGroups = useMemo(() => {
     const groups = new Map();
     recentOrders.filter((o) => o.idempotency_key && o.is_archived !== true).forEach((o) => {
@@ -216,7 +217,7 @@ export default function SystemHealth() {
   const failedSync = failedSyncRows;
   const lastSync = lastSuccessfulSyncRows[0]?.synced_at || null;
   const loading = membersLoading || identityLoading || shiftsLoading || invoicesLoading || syncLoading || dailyCloseLoading || draftsLoading || paymentSyncLoading || (deepChecksEnabled && (creditLoading || suppliersLoading || ordersLoading || recentInvoicesLoading));
-  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + shiftPaymentMismatch.length + pendingInvoices.length + duplicateInvoiceGroups.length + duplicateOrderIdempotencyGroups.length + ordersMissingVerifiedRecorder.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length + paymentSyncIssues.length;
+  const issueCount = duplicateMembers.length + membersWithoutIdentity.length + unlinkedIdentities.length + reviewShifts.length + duplicateShiftGroups.length + shiftPaymentMismatch.length + pendingInvoices.length + duplicateInvoiceGroups.length + duplicateOrderIdempotencyGroups.length + ordersMissingVerifiedRecorder.length + customerOrdersMissingBranch.length + failedSync.length + openDailyCloses.length + activeDraftIssues.length + overdueSupplierInvoices.length + paymentSyncIssues.length;
 
   if (!isAdmin) {
     return <div dir="rtl" className="p-8 text-center text-gray-500">هذه الصفحة للمدير فقط.</div>;
@@ -245,6 +246,7 @@ export default function SystemHealth() {
         <HealthCard title="مجموعات فواتير مكررة" value={duplicateInvoiceGroups.length} subtitle="رقم + فرع + تاريخ خلال آخر 120 يوم" icon={AlertTriangle} bad={duplicateInvoiceGroups.length > 0} />
         <HealthCard title="طلبات عملاء مكررة بالإرسال" value={duplicateOrderIdempotencyGroups.length} subtitle="نفس idempotency key خلال آخر 45 يوم" icon={AlertTriangle} bad={duplicateOrderIdempotencyGroups.length > 0} />
         <HealthCard title="طلبات بدون إثبات مسجل" value={ordersMissingVerifiedRecorder.length} subtitle="طلب مباشر ناقص ربط الهوية" icon={Users} warn={ordersMissingVerifiedRecorder.length > 0} />
+        <HealthCard title="طلبات عملاء بدون فرع" value={customerOrdersMissingBranch.length} subtitle="سجلات قديمة تحتاج تحديد الفرع بدل نسبها تلقائيًا" icon={AlertTriangle} warn={customerOrdersMissingBranch.length > 0} />
         <HealthCard title="مزامنة متعثرة" value={failedSync.length} subtitle="كل سجلات Failed أو Pending retry غير المحلولة" icon={RefreshCw} bad={failedSync.length > 0} />
         <HealthCard title="إقفالات تحتاج مراجعة" value={openDailyCloses.length} subtitle="إقفال محفوظ بحالة يحتاج مراجعة أو أعيد فتحه" icon={AlertTriangle} warn={openDailyCloses.length > 0} />
         <HealthCard title="مسودات شيفت متعثرة" value={activeDraftIssues.length} subtitle="فشل سابق أو إرسال عالق لأكثر من 5 دقائق" icon={RefreshCw} bad={activeDraftIssues.length > 0} />
@@ -272,13 +274,14 @@ export default function SystemHealth() {
             {duplicateInvoiceGroups.slice(0, 20).map((group) => <div key={`inv-dup-${group[0]?.id}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>فاتورة مكررة:</b> {group[0]?.branch} — {group[0]?.invoice_date || "بدون تاريخ"} — {group[0]?.system_invoice_number} ({group.length} سجلات)</div>)}
             {duplicateOrderIdempotencyGroups.slice(0, 20).map((group) => <div key={`order-dup-${group[0]?.id}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>إعادة إرسال طلب عميل:</b> {group[0]?.branch} — {group[0]?.customer_name} — {group[0]?.product_name} ({group.length} سجلات)</div>)}
             {ordersMissingVerifiedRecorder.slice(0, 20).map((o) => <div key={`order-id-${o.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>طلب ناقص إثبات الهوية:</b> {o.branch} — {o.customer_name} — {o.order_number || o.id}</div>)}
+            {customerOrdersMissingBranch.slice(0, 20).map((o) => <div key={`order-branch-${o.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>طلب بدون فرع:</b> {o.request_date || "بدون تاريخ"} — {o.customer_name} — {o.product_name || "بدون صنف"}. لم يتم إسناده تلقائيًا لأي فرع.</div>)}
             {reviewShifts.slice(0, 20).map((s) => <div key={`review-${s.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>تحت المراجعة:</b> {s.branch} — {s.shift_date} — {s.shift_type}</div>)}
             {failedSync.slice(0, 20).map((r) => <div key={`sync-${r.id}`} className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm"><b>مزامنة متعثرة:</b> {r.entity_name || "سجل"} — {r.status}</div>)}
             {openDailyCloses.slice(0, 20).map((r) => <div key={`close-${r.id}`} className="rounded-lg border border-orange-100 bg-orange-50 p-3 text-sm"><b>إقفال يومي يحتاج مراجعة:</b> {r.branch} — {r.business_date} — {r.quality_issue_count || 0} نقطة</div>)}
             {activeDraftIssues.slice(0, 20).map((d) => <div key={`draft-${d.id}`} className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm"><b>مسودة شيفت متعثرة:</b> {d.branch} — {d.business_date} — {d.shift_type} {d.last_error ? `— ${d.last_error}` : "— إرسال عالق"}</div>)}
             {overdueSupplierInvoices.slice(0, 20).map((inv) => <div key={`due-${inv.id}`} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"><b>فاتورة مورد متأخرة:</b> {inv.supplier_name || "مورد"} — {inv.system_invoice_number || inv.id} — متبقي {Math.max(0, (Number(inv.total_value) || 0) - (Number(inv.returned_value) || 0) - (Number(inv.paid_value) || 0)).toLocaleString("ar-EG")} ج</div>)}
             {paymentSyncIssues.slice(0, 20).map((p) => <div key={`pay-sync-${p.id}`} className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm"><b>دفعة مورد لم يكتمل توزيعها:</b> {p.supplier_name || "مورد"} — {Number(p.amount || 0).toLocaleString("ar-EG")} ج — {p.allocation_sync_status}{p.allocation_sync_error ? ` — ${p.allocation_sync_error}` : ""}</div>)}
-            {duplicateShiftGroups.length === 0 && shiftPaymentMismatch.length === 0 && duplicateInvoiceGroups.length === 0 && duplicateOrderIdempotencyGroups.length === 0 && ordersMissingVerifiedRecorder.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && activeDraftIssues.length === 0 && overdueSupplierInvoices.length === 0 && paymentSyncIssues.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
+            {duplicateShiftGroups.length === 0 && shiftPaymentMismatch.length === 0 && duplicateInvoiceGroups.length === 0 && duplicateOrderIdempotencyGroups.length === 0 && ordersMissingVerifiedRecorder.length === 0 && customerOrdersMissingBranch.length === 0 && reviewShifts.length === 0 && failedSync.length === 0 && openDailyCloses.length === 0 && activeDraftIssues.length === 0 && overdueSupplierInvoices.length === 0 && paymentSyncIssues.length === 0 && <p className="text-sm text-emerald-600">لا توجد مشكلات تشغيل ظاهرة في نطاق الفحص.</p>}
           </div>
         </div>
       </div>
