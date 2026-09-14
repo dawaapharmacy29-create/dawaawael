@@ -24,7 +24,8 @@ export function currentShiftBusinessDate(shiftType) {
   const today = cairoTodayKey();
   if (shiftType !== "مسائي") return today;
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Cairo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-  if (hour >= 2) return today;
+  // المسائي قد يستمر فعليًا حتى 2–4 صباحًا؛ في هذه الساعات يُنسب لليوم التشغيلي السابق.
+  if (hour >= 4) return today;
   const [y, m, d] = today.split("-").map(Number);
   const prev = new Date(y, m - 1, d);
   prev.setDate(prev.getDate() - 1);
