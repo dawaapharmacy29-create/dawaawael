@@ -123,26 +123,33 @@ export default function ShiftDelivery() {
 
       {/* Content */}
       <div className="p-4 md:p-6 space-y-4">
-        {activeTab === "new" && <ShiftDeliveryForm initialDraft={selectedDraft} onSaved={() => { setSelectedDraft(null); canViewAll && setActiveTab("history"); }} />}
-        {activeTab === "history" && canViewAll && (
+        {!hasHistoryScope && !fullFinancial && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            يمكنك تسجيل تسليم جديد، لكن عرض سجل التسليمات متوقف حتى يحدد المدير فرع الحساب من «المستخدمين والصلاحيات». لن يعرض النظام كل الفروع تلقائيًا عند غياب نطاق واضح.
+          </div>
+        )}
+        {activeTab === "new" && <ShiftDeliveryForm initialDraft={selectedDraft} onSaved={() => { setSelectedDraft(null); hasHistoryScope && setActiveTab("history"); }} />}
+        {activeTab === "history" && hasHistoryScope && (
           <>
-            <div className="flex justify-end">
-              <button type="button" onClick={() => setShowFullHistory((v) => !v)} className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                {showFullHistory ? "العودة للدورة الحالية 26→25" : "تحميل كل سجل الشيفتات"}
-              </button>
-            </div>
-            <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} />
+            {fullFinancial && (
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setShowFullHistory((v) => !v)} className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                  {showFullHistory ? "العودة للدورة الحالية 26→25" : "تحميل كل سجل الشيفتات"}
+                </button>
+              </div>
+            )}
+            <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} />
           </>
         )}
-        {activeTab === "duplicates" && canViewAll && (
-          <ShiftDeliveryHistory deliveries={deliveries} onNewShift={() => setActiveTab("new")} duplicateOnly />
+        {activeTab === "duplicates" && canReviewOperationally && hasHistoryScope && (
+          <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />
         )}
-        {activeTab === "recovery" && canViewAll && (
+        {activeTab === "recovery" && canReviewOperationally && hasHistoryScope && (
           <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />
         )}
-        {activeTab === "stats" && canViewAll && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
-        {activeTab === "report" && canViewAll && <ShiftDeliveryReport deliveries={activeDeliveries} />}
-        {activeTab === "items" && canViewAll && <ExpenseItemsTab />}
+        {activeTab === "stats" && fullFinancial && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
+        {activeTab === "report" && fullFinancial && <ShiftDeliveryReport deliveries={activeDeliveries} />}
+        {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
       </div>
     </div>
   );
