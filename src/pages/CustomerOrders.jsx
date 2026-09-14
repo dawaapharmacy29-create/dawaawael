@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
@@ -9,11 +9,11 @@ import { Plus, Search, ShoppingBag, Download, PieChart, LayoutList, LayoutGrid, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import OrderOperationsBar, { matchesOrderQueue } from "@/components/orders/OrderOperationsBar";
 import OrderTable from "@/components/orders/OrderTable";
-import OrderFormDialog from "@/components/orders/OrderFormDialog";
-import OrderDetailDialog from "@/components/orders/OrderDetailDialog";
-import OrderAnalytics from "@/components/orders/OrderAnalytics";
+const OrderFormDialog = lazy(() => import("@/components/orders/OrderFormDialog"));
+const OrderDetailDialog = lazy(() => import("@/components/orders/OrderDetailDialog"));
+const OrderAnalytics = lazy(() => import("@/components/orders/OrderAnalytics"));
 import OrderAlerts from "@/components/orders/OrderAlerts";
-import BranchEfficiencyCard from "@/components/orders/BranchEfficiencyCard";
+const BranchEfficiencyCard = lazy(() => import("@/components/orders/BranchEfficiencyCard"));
 import OrderBranchOverview from "@/components/orders/OrderBranchOverview";
 import { logActivity } from "@/lib/activityLogger";
 import { syncCustomerOrdersSnapshot } from "@/lib/customerOrderSync";
@@ -360,7 +360,9 @@ export default function CustomerOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <OrderAnalytics orders={operationalBranchOrders} />
+        <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل الإحصائيات...</div>}>
+          <OrderAnalytics orders={operationalBranchOrders} />
+        </Suspense>
       ) : (
         <>
           {/* Search and view controls */}
@@ -412,7 +414,7 @@ export default function CustomerOrders() {
           <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {activeSourceOrders.length} طلب {activeQueue === "archived" ? "في الأرشيف" : "في الدورة الحالية"}</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
-          {showEfficiency && <BranchEfficiencyCard orders={filteredOrders.filter((o) => o.is_archived !== true)} />}
+          {showEfficiency && <Suspense fallback={<div className="rounded-xl border bg-white p-4 text-center text-xs text-gray-400">جاري تحميل كفاءة الفروع...</div>}><BranchEfficiencyCard orders={filteredOrders.filter((o) => o.is_archived !== true)} /></Suspense>}
 
           {/* Table */}
           <OrderTable
@@ -429,29 +431,31 @@ export default function CustomerOrders() {
         </>
       )}
 
-      {showForm && (
-        <OrderFormDialog
-          open={showForm}
-          onOpenChange={setShowForm}
-          teamMembers={teamMembers}
-          allowedBranches={isAdmin || !hasExplicitBranchAccess ? BRANCHES : branchAccess}
-          onSaved={() => qc.invalidateQueries({ queryKey: ["customer-orders"] })}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showForm && (
+          <OrderFormDialog
+            open={showForm}
+            onOpenChange={setShowForm}
+            teamMembers={teamMembers}
+            allowedBranches={isAdmin || !hasExplicitBranchAccess ? BRANCHES : branchAccess}
+            onSaved={() => qc.invalidateQueries({ queryKey: ["customer-orders"] })}
+          />
+        )}
 
-      {selectedOrder && (
-        <OrderDetailDialog
-          open={!!selectedOrder}
-          onOpenChange={(v) => !v && setSelectedOrder(null)}
-          order={selectedOrder}
-          teamMembers={teamMembers}
-          isManager={isManager}
-          onUpdated={(updated) => {
-            setSelectedOrder(updated);
-            qc.invalidateQueries({ queryKey: ["customer-orders"] });
-          }}
-        />
-      )}
+        {selectedOrder && (
+          <OrderDetailDialog
+            open={!!selectedOrder}
+            onOpenChange={(v) => !v && setSelectedOrder(null)}
+            order={selectedOrder}
+            teamMembers={teamMembers}
+            isManager={isManager}
+            onUpdated={(updated) => {
+              setSelectedOrder(updated);
+              qc.invalidateQueries({ queryKey: ["customer-orders"] });
+            }}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
