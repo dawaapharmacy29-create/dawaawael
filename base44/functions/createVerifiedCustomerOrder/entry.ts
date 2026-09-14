@@ -138,12 +138,30 @@ export default async function(req: Request): Promise<Response> {
     const order = sanitizeDirectOrder(body?.order || {});
     const adminStaffId = clean(body?.admin_staff_id);
     const credential = String(body?.credential ?? '');
+    const idempotencyKey = clean(body?.idempotency_key);
 
     if (!order.customer_name || !order.phone || !order.product_name || !order.branch) {
       return Response.json({ error: 'بيانات العميل والفرع والصنف مطلوبة' }, { status: 400 });
     }
     if (!VALID_BRANCHES.has(order.branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
     if (!adminStaffId || !credential) return Response.json({ error: 'بيانات التحقق من مُسجِّل الطلب مطلوبة' }, { status: 400 });
+
+    const explicitBranches = Array.isArray((user as any)?.branch_access)
+      ? (user as any).branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
+      : Array.isArray((user as any)?.data?.branch_access)
+        ? (user as any).data.branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
+        : [];
+    const legacyBranch = clean((user as any)?.branch || (user as any)?.data?.branch);
+    const allowedBranches = explicitBranches.length ? explicitBranches : (VALID_BRANCHES.has(legacyBranch) ? [legacyBranch] : []);
+    if (String((user as any).role || '') !== 'admin' && allowedBranches.length && !allowedBranches.includes(order.branch)) {
+      return Response.json({ error: 'هذا الحساب غير مصرح له بالتسجيل لهذا الفرع' }, { status: 403 });
+    }
+
+    if (idempotencyKey) {
+      const prior = await base44.asServiceRole.entities.CustomerOrder.filter({ idempotency_key: idempotencyKey });
+      const existingAttempt = prior.find((item: any) => item?.is_archived !== true);
+      if (existingAttempt) return Response.json({ success: true, record: existingAttempt, idempotent: true });
+    }
 
     const mappings = await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true });
     const mapping = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === order.branch);
@@ -174,6 +192,7 @@ export default async function(req: Request): Promise<Response> {
       identity_verified_at: clean(verification.result?.verified_at) || now,
       identity_verification_source: clean(verification.result?.source) || 'DawaaManagement',
       creation_source: 'direct_customer_order',
+      idempotency_key: idempotencyKey,
       requested_at: now,
       added_at: new Date().toLocaleString('ar-EG', {
         timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
