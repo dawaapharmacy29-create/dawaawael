@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,7 @@ export default function PurchaseInvoices() {
   const [filterManualException, setFilterManualException] = useState(false);
   const [filterReviewNeeded, setFilterReviewNeeded] = useState(false);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const [dateFrom, setDateFrom] = useState(() => monthRange(0).from);
   const [dateTo, setDateTo] = useState(() => monthRange(0).to);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -414,9 +415,16 @@ export default function PurchaseInvoices() {
   const handleEdit = (inv) => { setEditingInvoice(inv); setDialogOpen(true); };
   const handleSingleDelete = (id) => { setSingleDeleteId(id); setConfirmDelete(true); };
 
-  const uniqueSuppliers = [...new Set(invoices.map((i) => i.supplier_name).filter(Boolean))];
+  const uniqueSuppliers = useMemo(() => [...new Set(invoices.map((i) => i.supplier_name).filter(Boolean))], [invoices]);
+  const supplierById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
+  const supplierByName = useMemo(() => new Map(suppliers.map((s) => [s.name, s])), [suppliers]);
+  const invoiceSearchBlob = useMemo(() => {
+    const map = new Map();
+    invoices.forEach((i) => map.set(i.id, [i.system_invoice_number, i.supplier_invoice_number, i.supplier_name, i.transfer_authorization_number].filter(Boolean).join(" ").toLowerCase()));
+    return map;
+  }, [invoices]);
 
-  const filtered = invoices.filter((i) => {
+  const filtered = useMemo(() => invoices.filter((i) => {
     const branchMatch = filterBranch === "الكل" || i.branch === filterBranch;
     const supplierMatch = filterSupplier === "الكل" || i.supplier_name === filterSupplier;
     const categoryMatch = filterCategory === "الكل" || (i.purchase_category || "unclassified") === filterCategory;
@@ -426,19 +434,18 @@ export default function PurchaseInvoices() {
     const sourceBranchMatch = filterSourceBranch === "الكل" || i.source_branch === filterSourceBranch;
     const destBranchMatch = filterDestBranch === "الكل" || i.destination_branch === filterDestBranch;
     const manualExceptionMatch = !filterManualException || i.purchase_category_source === "manual";
-    // review needed: source=dest, or incomplete transfer, or mixed supplier unclassified
-    const supplier = (i.supplier_id && suppliers.find((s) => s.id === i.supplier_id)) || suppliers.find((s) => s.name === i.supplier_name);
+    const supplier = (i.supplier_id && supplierById.get(i.supplier_id)) || supplierByName.get(i.supplier_name);
     const reviewNeeded = (i.source_branch && i.destination_branch && i.source_branch === i.destination_branch)
       || (i.transaction_type === "internal_transfer" && (!i.source_branch || !i.destination_branch))
       || (supplier?.default_purchase_category === "mixed" && (!i.purchase_category || i.purchase_category === "unclassified"))
       || (!i.supplier_id || !supplier);
     const reviewNeededMatch = !filterReviewNeeded || reviewNeeded;
-    const searchMatch = !search || i.system_invoice_number?.includes(search) || i.supplier_name?.includes(search) || i.supplier_invoice_number?.includes(search);
+    const searchMatch = !deferredSearch || (invoiceSearchBlob.get(i.id) || "").includes(deferredSearch);
     const dateKey = i.invoice_date || i.created_date?.split("T")[0];
     const fromMatch = !dateFrom || (dateKey && dateKey >= dateFrom);
     const toMatch = !dateTo || (dateKey && dateKey <= dateTo);
     return branchMatch && supplierMatch && categoryMatch && transactionMatch && netModeMatch && sourceBranchMatch && destBranchMatch && manualExceptionMatch && reviewNeededMatch && searchMatch && fromMatch && toMatch;
-  });
+  }), [invoices, filterBranch, filterSupplier, filterCategory, filterTransactionType, filterNetMode, filterSourceBranch, filterDestBranch, filterManualException, filterReviewNeeded, deferredSearch, dateFrom, dateTo, suppliers, supplierById, supplierByName, invoiceSearchBlob]);
 
   const hasFilters = filterBranch !== "الكل" || filterSupplier !== "الكل" || filterCategory !== "الكل" || filterTransactionType !== "الكل" || filterNetMode !== "الكل" || filterSourceBranch !== "الكل" || filterDestBranch !== "الكل" || filterManualException || filterReviewNeeded || search || dateFrom || dateTo;
 
