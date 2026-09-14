@@ -136,8 +136,9 @@ export default function SupplierBalances() {
       const newDebt = round2(newInvoices.reduce((s, inv) => s + inv.remaining, 0));
       const oldDebt = round2(initialDebt + oldInvoicesRemaining);
 
-      // الدفعات العامة غير المخصصة على فاتورة تُخصم من الإجمالي مباشرة
-      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && (!p.branch || p.branch === branch));
+      // كل فرع يخصم فقط الدفعات العامة المنسوبة له صراحة.
+      // الدفعات القديمة بلا فرع تُخصم مرة واحدة فقط لاحقًا من إجمالي المورد، حتى لا تتكرر بين الفرعين.
+      const generalPayments = payments.filter(p => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && p.branch === branch);
       const unallocatedPayments = round2(generalPayments.reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
 
       const calculatedDebt = round2(oldDebt + newDebt - unallocatedPayments);
@@ -172,7 +173,11 @@ export default function SupplierBalances() {
       const initialDebt = round2(shownResults.reduce((s, r) => s + (r.initialDebt || 0), 0));
       const adjustment = round2(shownResults.reduce((s, r) => s + (r.adjustment || 0), 0));
       const oldInvoicesRemaining = round2(shownResults.reduce((s, r) => s + r.oldInvoicesRemaining, 0));
-      const unallocatedPayments = round2(shownResults.reduce((s, r) => s + r.unallocatedPayments, 0));
+      const branchPayments = round2(shownResults.reduce((s, r) => s + r.unallocatedPayments, 0));
+      const globalUnassignedPayments = round2(payments
+        .filter((p) => p.supplier_name === name && !p.invoice_id && p.allocation_type !== "multi_invoice" && !p.branch)
+        .reduce((s, p) => s + (p.status === "reversed" ? 0 : (p.transaction_type === "reversal" ? -1 : 1) * (p.amount || 0)), 0));
+      const unallocatedPayments = round2(branchPayments + globalUnassignedPayments);
 
       const calculatedDebt = round2(oldDebt + newDebt - unallocatedPayments);
       const totalNet = round2(calculatedDebt + adjustment);
@@ -188,6 +193,7 @@ export default function SupplierBalances() {
         adjustment,
         oldInvoicesRemaining,
         unallocatedPayments,
+        globalUnassignedPayments,
         calculatedDebt,
         oldDebt,
         newDebt,
