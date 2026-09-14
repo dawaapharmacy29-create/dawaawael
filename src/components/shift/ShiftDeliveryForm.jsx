@@ -489,34 +489,56 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
               <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر في قائمة التسليم.</p>
             </div>
           </div>
-          <div className="mt-5 space-y-3 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-            <div>
-              <h4 className="text-sm font-bold text-blue-900">تفصيل المبيعات حسب وسيلة التحصيل *</h4>
-              <p className="text-[11px] text-blue-700 mt-1">إنستا / فيزا / فودافون ليست مصروفات. إجمالي المبيعات يُحسب تلقائيًا من القيم التالية.</p>
+          <div className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2"><CircleDollarSign className="w-5 h-5 text-indigo-600" /> خزينة الشيفت ووسائل التحصيل</h4>
+                <p className="text-[11px] text-slate-500 mt-1">كل وسيلة تحصيل تدخل بالكامل ضمن المبيعات. المصروفات منفصلة تمامًا وتخصم فقط من القناة التي دُفعت منها.</p>
+              </div>
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-left">
+                <p className="text-[10px] text-indigo-500">إجمالي المبيعات الفعلية</p>
+                <p className="text-xl font-black text-indigo-700">{fmt(paymentTotal)} ج.م</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               {[
-                ["cash", "كاش"], ["visa", "فيزا"], ["insta", "إنستا"], ["vodafone", "فودافون كاش"], ["other", "أخرى"],
-              ].map(([key, label]) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-xs">{label}</Label>
-                  <Input type="number" min="0" value={payments[key]} onChange={(e) => setPayments((p) => ({ ...p, [key]: e.target.value }))} placeholder="0" className="h-9" />
+                { key:"cash", label:"كاش", Icon:Banknote, cls:"border-emerald-200 bg-emerald-50/60 text-emerald-700" },
+                { key:"visa", label:"فيزا / POS", Icon:CreditCard, cls:"border-blue-200 bg-blue-50/60 text-blue-700" },
+                { key:"insta", label:"إنستا باي", Icon:Landmark, cls:"border-violet-200 bg-violet-50/60 text-violet-700" },
+                { key:"vodafone", label:"فودافون كاش", Icon:Smartphone, cls:"border-rose-200 bg-rose-50/60 text-rose-700" },
+                { key:"other", label:"أخرى", Icon:Wallet, cls:"border-slate-200 bg-slate-50 text-slate-700" },
+              ].map(({key,label,Icon,cls}) => (
+                <div key={key} className={`rounded-xl border p-3 ${cls}`}>
+                  <div className="flex items-center gap-2 mb-2"><Icon className="w-4 h-4"/><Label className="text-xs font-bold">{label}</Label></div>
+                  <Input type="number" min="0" value={payments[key]} onChange={(e) => setPayments((p) => ({ ...p, [key]: e.target.value }))} placeholder="0" className="h-9 bg-white text-gray-900" />
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-blue-100 pt-2">
-              <span className="text-sm font-semibold text-gray-700">إجمالي المبيعات المحسوب</span>
-              <span className="text-xl font-black text-blue-700">{fmt(paymentTotal)} ج.م</span>
-            </div>
+            {(parseFloat(payments.visa) || 0) > 0 && (
+              <div className={`rounded-2xl border p-4 ${Math.abs(visaVariance) <= 1 ? "border-blue-200 bg-blue-50/60" : "border-red-300 bg-red-50"}`}>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+                  <div><h5 className="font-black text-blue-900 flex items-center gap-2"><CreditCard className="w-5 h-5"/> رقابة الفيزا — مطابقة جهاز POS</h5><p className="text-[11px] text-gray-600 mt-1">قيمة الفيزا جزء كامل من المبيعات. المطابقة هنا للرقابة على الجهاز والتسوية فقط.</p></div>
+                  <div className={`rounded-lg px-3 py-2 text-center ${Math.abs(visaVariance)<=1?"bg-emerald-100 text-emerald-800":"bg-red-100 text-red-800"}`}><p className="text-[10px]">الفرق</p><p className="font-black">{fmt(visaVariance)} ج</p></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">إجمالي تقرير POS *</Label><Input type="number" min="0" value={visaControl.terminalAmount} onChange={(e)=>setVisaControl((v)=>({...v,terminalAmount:e.target.value}))} placeholder={payments.visa || "0"} className="bg-white"/></div>
+                  <div className="space-y-1"><Label className="text-xs">عدد العمليات</Label><Input type="number" min="0" value={visaControl.operationCount} onChange={(e)=>setVisaControl((v)=>({...v,operationCount:e.target.value}))} placeholder="0" className="bg-white"/></div>
+                  <div className="space-y-1"><Label className="text-xs">اسم/رقم الجهاز</Label><Input value={visaControl.terminalName} onChange={(e)=>setVisaControl((v)=>({...v,terminalName:e.target.value}))} placeholder="POS 1" className="bg-white"/></div>
+                  <div className="space-y-1"><Label className="text-xs">Batch / مرجع الإقفال</Label><Input value={visaControl.batchReference} onChange={(e)=>setVisaControl((v)=>({...v,batchReference:e.target.value}))} placeholder="اختياري" className="bg-white"/></div>
+                </div>
+                {Math.abs(visaVariance) > 1 && <p className="text-xs font-semibold text-red-700 mt-2">الفيزا غير مطابقة لجهاز POS؛ الشيفت سيدخل مراجعة تلقائيًا ويجب كتابة سبب الفرق.</p>}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Section 2: Expenses during the shift */}
         <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
           <div><h3 className="text-sm font-bold text-amber-900">مصروفات أثناء الشيفت — سجل حركة لحظي</h3><p className="text-[11px] text-amber-700 mt-1">سجل المصروف وقت حدوثه. الحركة تحفظ بوقتها وتفضل موجودة حتى لو الصفحة اتقفلت، ولا تُحذف؛ يمكن إلغاؤها بسبب موثق.</p></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
             <div className="space-y-1"><Label className="text-xs">البند</Label><Select value={liveExpenseForm.category} onValueChange={(v)=>setLiveExpenseForm((f)=>({...f,category:v}))}><SelectTrigger className="bg-white"><SelectValue placeholder="اختر البند"/></SelectTrigger><SelectContent>{activeExpenseItems.map((c)=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label className="text-xs">القيمة</Label><Input type="number" min="0" className="bg-white" value={liveExpenseForm.amount} onChange={(e)=>setLiveExpenseForm((f)=>({...f,amount:e.target.value}))} placeholder="0"/></div>
+            <div className="space-y-1"><Label className="text-xs">اتدفع من</Label><Select value={liveExpenseForm.payment_source} onValueChange={(v)=>setLiveExpenseForm((f)=>({...f,payment_source:v}))}><SelectTrigger className="bg-white"><SelectValue/></SelectTrigger><SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label className="text-xs">ملاحظة</Label><Input className="bg-white" value={liveExpenseForm.note} onChange={(e)=>setLiveExpenseForm((f)=>({...f,note:e.target.value}))} placeholder="مثال: شراء مستلزمات"/></div>
             <Button type="button" onClick={addLiveExpense} disabled={liveExpenseSaving || !form.branch || !form.shift_type} className="bg-amber-600 hover:bg-amber-700 text-white">{liveExpenseSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Plus className="w-4 h-4"/>} تسجيل الآن</Button>
           </div>
@@ -556,6 +578,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                     onChange={(e) => updateExpense(idx, "amount", e.target.value)}
                     className="flex-1 w-1/2"
                   />
+                  <Select value={exp.payment_source || "cash"} onValueChange={(v) => updateExpense(idx, "payment_source", v)}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
                 <Input
                   placeholder="تسجيل ملاحظة"
