@@ -231,12 +231,11 @@ export default function UserManagement() {
                         <SelectTrigger className="w-full md:w-64 h-9 text-xs bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value={FINANCIAL_ACCESS.NONE}>{FINANCIAL_ACCESS_LABELS.none}</SelectItem>
-                          <SelectItem value={FINANCIAL_ACCESS.OPERATIONS}>{FINANCIAL_ACCESS_LABELS.operations}</SelectItem>
-                          <SelectItem value={FINANCIAL_ACCESS.BRANCH}>{FINANCIAL_ACCESS_LABELS.branch_financial}</SelectItem>
+                          <SelectItem value={FINANCIAL_ACCESS.LIMITED}>{FINANCIAL_ACCESS_LABELS.limited}</SelectItem>
                           <SelectItem value={FINANCIAL_ACCESS.FULL}>{FINANCIAL_ACCESS_LABELS.full}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-[10px] text-indigo-700 mt-2">«مالي حسب الفرع» يحتاج تحديد نطاق الفروع أدناه. «تشغيل مالي محدود» يسمح بالشغل اليومي بدون إجماليات أو ذمم أو تارجتات.</p>
+                      <p className="text-[10px] text-indigo-700 mt-2">التشغيل اليومي (الشيفتات، الفواتير، المراجعة والطلبات) متاح بشكل مستقل. «مالي محدود» يعرض فقط ملخص المبيعات والمشتريات للدورة الحالية والسابقة. «مالي كامل» يفتح التقارير والذمم والتفاصيل الحساسة.</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {PERMISSIONS.map((p) => {
