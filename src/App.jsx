@@ -52,8 +52,10 @@ const DailyClose = lazy(() => import('./pages/DailyClose'));
 import { setNumbersHidden } from "@/lib/westernDigits";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
 
+const UnifiedLogin = lazy(() => import('./pages/UnifiedLogin'));
+
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
+  const { isAuthenticated, isLoadingAuth, isLoadingPublicSettings, authError, user } = useAuth();
 
   // دور "مشاهد" (viewer): يتصفح التطبيق كاملًا بدون رؤية أي رقم
   const isViewerRole = !!user && (user.role || "viewer") === "viewer";
@@ -72,13 +74,16 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
-    }
+  if (authError?.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
+  }
+
+  if (!isAuthenticated || authError?.type === 'auth_required') {
+    return (
+      <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center"><div className="w-8 h-8 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin" /></div>}>
+        <UnifiedLogin />
+      </Suspense>
+    );
   }
 
   return (
