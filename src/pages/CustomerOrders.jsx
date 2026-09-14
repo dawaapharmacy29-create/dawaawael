@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
@@ -92,6 +92,7 @@ export default function CustomerOrders() {
   const currentCycle = getCurrentOrderCycle();
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const [filterBranch, setFilterBranch] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterEmployee, setFilterEmployee] = useState("");
@@ -234,15 +235,20 @@ export default function CustomerOrders() {
 
   // Branch access is backward-compatible: users without an explicit branch_access
   // keep their current visibility; once configured, only allowed branches are shown.
-  const accessibleCurrentOrders = currentOrders.filter((o) => canAccessBranch(o.branch));
-  const currentCycleOrders = accessibleCurrentOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle));
-  const accessibleArchiveSource = archiveSourceOrders.filter((o) => canAccessBranch(o.branch));
-  const archivedOrders = accessibleArchiveSource.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle));
+  const accessibleCurrentOrders = useMemo(() => currentOrders.filter((o) => canAccessBranch(o.branch)), [currentOrders, canAccessBranch]);
+  const currentCycleOrders = useMemo(() => accessibleCurrentOrders.filter((o) => o.is_archived !== true && isOrderInCycle(o, currentCycle)), [accessibleCurrentOrders, currentCycle]);
+  const accessibleArchiveSource = useMemo(() => archiveSourceOrders.filter((o) => canAccessBranch(o.branch)), [archiveSourceOrders, canAccessBranch]);
+  const archivedOrders = useMemo(() => accessibleArchiveSource.filter((o) => o.is_archived === true || !isOrderInCycle(o, currentCycle)), [accessibleArchiveSource, currentCycle]);
   const activeSourceOrders = activeQueue === "archived" ? archivedOrders : currentCycleOrders;
-  const branchOrders = filterBranch === "all" ? activeSourceOrders : activeSourceOrders.filter((o) => o.branch === filterBranch);
+  const branchOrders = useMemo(() => filterBranch === "all" ? activeSourceOrders : activeSourceOrders.filter((o) => o.branch === filterBranch), [activeSourceOrders, filterBranch]);
   const operationalAccessibleOrders = currentCycleOrders;
-  const operationalBranchOrders = filterBranch === "all" ? currentCycleOrders : currentCycleOrders.filter((o) => o.branch === filterBranch);
-  const filteredOrders = activeSourceOrders.filter((o) => {
+  const operationalBranchOrders = useMemo(() => filterBranch === "all" ? currentCycleOrders : currentCycleOrders.filter((o) => o.branch === filterBranch), [currentCycleOrders, filterBranch]);
+  const orderSearchBlob = useMemo(() => {
+    const map = new Map();
+    activeSourceOrders.forEach((o) => map.set(o.id, [o.customer_name, o.phone, o.product_name, o.order_number, o.customer_code, o.supplier_found].filter(Boolean).join(" ").toLowerCase()));
+    return map;
+  }, [activeSourceOrders]);
+  const filteredOrders = useMemo(() => activeSourceOrders.filter((o) => {
     if (filterBranch !== "all" && o.branch !== filterBranch) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (filterEmployee && o.assigned_employee !== filterEmployee) return false;
@@ -253,18 +259,9 @@ export default function CustomerOrders() {
     if (!matchesOrderQueue(o, activeQueue)) return false;
     if (filterDateFrom && o.request_date < filterDateFrom) return false;
     if (filterDateTo && o.request_date > filterDateTo) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        o.customer_name?.toLowerCase().includes(q) ||
-        o.phone?.includes(q) ||
-        o.product_name?.toLowerCase().includes(q) ||
-        o.order_number?.toLowerCase().includes(q) ||
-        o.customer_code?.toLowerCase().includes(q)
-      );
-    }
+    if (deferredSearch && !(orderSearchBlob.get(o.id) || "").includes(deferredSearch)) return false;
     return true;
-  });
+  }), [activeSourceOrders, filterBranch, filterStatus, filterEmployee, filterPriority, filterSource, filterRequestType, filterCustomerType, activeQueue, filterDateFrom, filterDateTo, deferredSearch, orderSearchBlob]);
 
   const hasActiveFilters = filterStatus !== "all" || filterBranch !== "all" || filterEmployee || filterPriority !== "all" || filterSource !== "all" || filterRequestType !== "all" || filterCustomerType !== "all" || filterDateFrom || filterDateTo || search || activeQueue !== "active";
   const clearFilters = () => {
