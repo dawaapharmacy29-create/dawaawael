@@ -27,13 +27,13 @@ function statusBadge(status) {
 
 export default function DailyClose() {
   const qc = useQueryClient();
-  const { isManager, user, canAccessBranch } = useUserRole();
+  const { isManager, user, canAccessFinancialBranch } = useUserRole();
   const [businessDate, setBusinessDate] = useState(cairoTodayKey());
   const [branch, setBranch] = useState("دواء شكري");
   const [notes, setNotes] = useState("");
 
   const actor = user?.full_name || user?.name || user?.email || "مستخدم الإدارة";
-  const canUseBranch = canAccessBranch(branch);
+  const canUseBranch = canAccessFinancialBranch(branch);
   const enabled = Boolean(businessDate && branch && canUseBranch);
 
   const { data: shifts = [], isLoading: shiftsLoading, refetch: refetchShifts } = useQuery({
