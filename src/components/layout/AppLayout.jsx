@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity, LockKeyhole } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity, LockKeyhole, TrendingUp } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
@@ -23,6 +23,7 @@ const navItems = [
   { path: "/supplier-balances", label: "أرصدة الموردين (إجمالي)", icon: HandCoins, section: "suppliers" },
   { path: "/supplier-balances-branch", label: "أرصدة دواء شكري", icon: HandCoins, indent: true, section: "suppliers" },
   { path: "/supplier-balances-branch?branch=دواء الشامي", label: "أرصدة دواء الشامي", icon: HandCoins, indent: true, section: "suppliers" },
+  { path: "/supplier-intelligence", label: "تحليل الموردين والتفاوض", icon: TrendingUp, section: "suppliers" },
   // الواجهة المعتمدة للتقارير: أربع صفحات فقط. الصفحات القديمة تظل موجودة كمسارات احتياطية بدون إظهارها في القائمة.
   { path: "/financial-reports", label: "التقارير المالية", icon: Landmark, section: "reports" },
   { path: "/smart-commerce-analytics", label: "تحليلات المبيعات والمشتريات", icon: Activity, section: "reports" },
@@ -66,6 +67,7 @@ const ROUTE_PREFETCHERS = {
   "/daily-close": () => import("@/pages/DailyClose"),
   "/system-health": () => import("@/pages/SystemHealth"),
   "/shift-delivery": () => import("@/pages/ShiftDelivery"),
+  "/supplier-intelligence": () => import("@/pages/SupplierIntelligence"),
 };
 
 const prefetchRoute = (path) => {
