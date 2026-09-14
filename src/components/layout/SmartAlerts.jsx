@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
 import { Bell, X, FileText, RotateCcw, Receipt, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useUserRole } from "@/lib/useUserRole";
 
 function daysDiff(dateStr) {
   if (!dateStr) return 0;
@@ -13,6 +14,7 @@ function daysDiff(dateStr) {
 }
 
 export default function SmartAlerts() {
+  const { canUseFinancialOperations, canViewExpenseTotals } = useUserRole();
   const [open, setOpen] = useState(false);
   const [primaryAlertsEnabled, setPrimaryAlertsEnabled] = useState(false);
   const [secondaryAlertsEnabled, setSecondaryAlertsEnabled] = useState(false);
@@ -24,7 +26,7 @@ export default function SmartAlerts() {
     // نفس المفتاح المستخدم في القائمة الجانبية لتجنب طلب الشبكة المكرر لنفس البيانات.
     queryKey: ["pending-invoices-count"],
     queryFn: () => loadAllEntityFiltered(base44.entities.PurchaseInvoice, { status: "انتظار المراجعة" }, "-created_date"),
-    enabled: primaryAlertsEnabled,
+    enabled: primaryAlertsEnabled && canUseFinancialOperations,
     staleTime: 120000,
   });
 
@@ -56,7 +58,7 @@ export default function SmartAlerts() {
     queryFn: () => loadAllEntityFiltered(base44.entities.Expense, {
       created_date: { $gte: expenseCutoff },
     }, "-created_date", 5000),
-    enabled: secondaryAlertsEnabled,
+    enabled: secondaryAlertsEnabled && canViewExpenseTotals,
     staleTime: 180000,
   });
 
