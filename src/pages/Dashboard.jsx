@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Clock, ShoppingBag, ClipboardList, FileText, FlaskConical, ShieldCheck } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
+import { FINANCIAL_ACCESS_LABELS } from "@/lib/financialAccess";
 import FinancialDashboard from "./FinancialDashboard";
 import LimitedFinancialDashboard from "./LimitedFinancialDashboard";
 
@@ -25,7 +26,7 @@ function OperationalDashboard() {
       <Card className="p-4 border-teal-200 bg-teal-50">
         <div className="flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-teal-700 mt-0.5" />
-          <div><p className="font-bold text-teal-900">الوضع التشغيلي الآمن</p><p className="text-xs text-teal-800 mt-1">التفاصيل المالية الإجمالية، أرصدة الموردين، التارجتات والتقارير الحساسة غير محملة على هذا الحساب. مستوى الوصول الحالي: {financialAccessLevel}.</p></div>
+          <div><p className="font-bold text-teal-900">الوضع التشغيلي الآمن</p><p className="text-xs text-teal-800 mt-1">التفاصيل المالية الإجمالية، أرصدة الموردين، التارجتات والتقارير الحساسة غير محملة على هذا الحساب. مستوى الوصول الحالي: {FINANCIAL_ACCESS_LABELS[financialAccessLevel] || "تشغيلي فقط"}.</p></div>
         </div>
       </Card>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
