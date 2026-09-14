@@ -19,6 +19,7 @@ import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
+import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 
@@ -193,7 +194,7 @@ export default function PurchaseInvoices() {
         const duplicate = candidates.some((inv) => inv.id !== id && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber && getInvoiceEffectiveDate(inv) === effectiveDate);
         if (duplicate) throw new Error(`لا يمكن حفظ التعديل: الفاتورة "${nextIdentity.system_invoice_number}" موجودة بالفعل في ${nextIdentity.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
       }
-      await base44.entities.PurchaseInvoice.update(id, data);
+      await updatePurchaseInvoiceSafe(id, data);
       const trackedFields = ["total_value", "paid_value", "returned_value", "supplier_name", "branch", "payment_type", "purchase_category", "net_purchase_mode", "exclusion_reason", "status"];
       const changes = trackedFields.filter(f => data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(oldInv[f]));
       if (changes.length > 0) {
