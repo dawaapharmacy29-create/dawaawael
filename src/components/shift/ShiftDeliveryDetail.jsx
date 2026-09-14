@@ -22,8 +22,24 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
   const financial = shiftFinancialView(item);
   const { isAdmin, isManager } = useUserRole();
 
+  const workflowMutation = useMutation({
+    mutationFn: async (nextStatus) => {
+      await assertDailyCloseOpen(item.branch, item.shift_date, "تغيير حالة دورة الشيفت");
+      if (nextStatus === "approved" && Math.abs(financial.cashVariance) > 1 && !(item.notes || "").trim()) throw new Error("لا يمكن اعتماد شيفت به فرق كاش بدون سبب موثق");
+      const res = await base44.functions.invoke("updateShiftDeliveryAdmin", { id: item.id, action: "update", updates: { workflow_status: nextStatus } });
+      const result = res?.data || {};
+      if (!result.success) throw new Error(result.error || "تعذر تحديث مرحلة الشيفت");
+      return result;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
+      onClose();
+    },
+  });
+
   // ترحيل الشيفت لليوم السابق (احتساب لليوم السابق)
-  const moveToPrevDay = useMutation({
+  const moveToPrevDay = useMutation({ 
     mutationFn: async (it) => {
       await assertDailyCloseOpen(it.branch, it.shift_date, "ترحيل تاريخ احتساب الشيفت");
       const baseDate = it.calculation_date || it.shift_date;
@@ -68,6 +84,10 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
             <div>
               <p className="text-gray-500 text-xs">الحالة</p>
               <p className="font-medium">{item.status || "—"}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">مرحلة الشيفت</p>
+              <Badge className={item.workflow_status === "closed" ? "bg-emerald-100 text-emerald-800" : item.workflow_status === "approved" ? "bg-blue-100 text-blue-800" : item.workflow_status === "under_review" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}>{({submitted:"تم التسليم",under_review:"تحت المراجعة",approved:"معتمد",closed:"مقفول"})[item.workflow_status || "submitted"]}</Badge>
             </div>
             <div>
               <p className="text-gray-500 text-xs">وقت التسجيل</p>
@@ -134,6 +154,14 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-1">ملاحظات</p>
               <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{item.notes}</p>
+            </div>
+          )}
+
+          {isManager && item.workflow_status !== "closed" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {item.workflow_status !== "approved" && <Button variant="outline" className="text-blue-700 border-blue-300" onClick={() => workflowMutation.mutate("approved")} disabled={workflowMutation.isPending}>اعتماد الشيفت</Button>}
+              {item.workflow_status === "approved" && <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => workflowMutation.mutate("closed")} disabled={workflowMutation.isPending}>إقفال الشيفت</Button>}
+              {item.workflow_status === "under_review" && <Button variant="outline" className="text-amber-700 border-amber-300" onClick={() => workflowMutation.mutate("submitted")} disabled={workflowMutation.isPending}>إرجاعه كمسلم للمراجعة</Button>}
             </div>
           )}
 
