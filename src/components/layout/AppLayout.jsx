@@ -3,6 +3,7 @@ import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, 
 import { Suspense, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/useUserRole";
+import { FINANCIAL_ACCESS_LABELS } from "@/lib/financialAccess";
 import SmartAlerts from "@/components/layout/SmartAlerts";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -91,7 +92,7 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
-  const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials } = useUserRole();
+  const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials, financialAccessLevel, user } = useUserRole();
   const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager) && (!item.financialOnly || canViewFinancialReports) && (!item.fullFinancialOnly || canViewAllBranchesFinancials));
 
   const groupedNavItems = useMemo(
@@ -198,6 +199,10 @@ export default function AppLayout() {
         <div className="p-4 border-b bg-teal-600">
           <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
+          <div className="mt-2 rounded-lg bg-white/10 px-2 py-1.5">
+            <p className="text-[11px] text-white font-semibold truncate">{user?.management_display_name || user?.full_name || "حساب النظام"}</p>
+            <p className="text-[10px] text-teal-100 mt-0.5">{FINANCIAL_ACCESS_LABELS[financialAccessLevel] || "تشغيلي فقط"}</p>
+          </div>
         </div>
         <nav className="flex-1 p-2 overflow-y-auto">
           {renderNavSections(false)}
@@ -217,6 +222,10 @@ export default function AppLayout() {
           <div className="p-4 border-b bg-teal-600">
             <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
             <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
+            <div className="mt-2 rounded-lg bg-white/10 px-2 py-1.5">
+              <p className="text-[11px] text-white font-semibold truncate">{user?.management_display_name || user?.full_name || "حساب النظام"}</p>
+              <p className="text-[10px] text-teal-100 mt-0.5">{FINANCIAL_ACCESS_LABELS[financialAccessLevel] || "تشغيلي فقط"}</p>
+            </div>
           </div>
           <nav className="flex-1 overflow-y-auto p-3 h-[calc(100vh-64px)]">
             {renderNavSections(true)}
