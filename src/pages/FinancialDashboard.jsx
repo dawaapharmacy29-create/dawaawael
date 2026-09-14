@@ -12,8 +12,8 @@ import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import PurchaseDashboard from "@/components/dashboard/PurchaseDashboard";
 import BranchSelector from "@/components/dashboard/BranchSelector";
 import { getInvoiceNetAmount, getInvoiceCashAmount, isInvoiceExcluded, isInvoiceFinanciallyApproved } from "@/lib/purchaseCalculations";
-import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadAllEntityFiltered } from "@/lib/entityPagination";
+import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
 import { cycleRangeFor, previousComparableRange, cairoTodayKey, daysInclusive } from "@/lib/smart-commerce-analytics";
 import { useSearchParams } from "react-router-dom";
 import { useUserRole } from "@/lib/useUserRole";
@@ -106,16 +106,14 @@ export default function FinancialDashboard() {
 
   // فلترة الفواتير من الخادم حسب الفترة المختارة — يجيب فقط فواتير الشهر بدل 4000+ فاتورة
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
-    queryKey: ["purchase-invoices", "byDate", dateFilter.from, dateFilter.to],
-    queryFn: async () =>
-      fetchAllParallel(base44.entities.PurchaseInvoice, {
-        query: {
-          $or: [
-            { invoice_date: { $gte: dateFilter.from, $lte: dateFilter.to } },
-            { created_date: { $gte: `${dateFilter.from}T00:00:00`, $lte: `${dateFilter.to}T23:59:59` } },
-          ],
-        },
-      }),
+    queryKey: ["purchase-invoices", "byDate", dateFilter.from, dateFilter.to, branch],
+    queryFn: async () => loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
+      from: dateFilter.from,
+      to: dateFilter.to,
+      extraFilter: branch === "all" ? {} : { branch },
+      sort: "-invoice_date",
+      maxRows: 20000,
+    }),
     staleTime: 60000,
     refetchOnWindowFocus: false,
   });
@@ -145,9 +143,10 @@ export default function FinancialDashboard() {
     staleTime: 120000,
   });
   const { data: shiftDeliveries = [] } = useQuery({
-    queryKey: ["dashboard-shift-deliveries", dateFilter.from, dateFilter.to],
+    queryKey: ["dashboard-shift-deliveries", dateFilter.from, dateFilter.to, branch],
     queryFn: () => loadAllEntityFiltered(base44.entities.ShiftDelivery, {
       shift_date: { $gte: dateFilter.from, $lte: dateFilter.to },
+      ...(branch === "all" ? {} : { branch }),
     }, "-shift_date"),
     staleTime: 120000,
   });
@@ -184,8 +183,9 @@ export default function FinancialDashboard() {
 
   // التارجت يُنسب لشهر نهاية دورة 26→25 المختارة، مثل 26-08 → 25-09 = 2026-09.
   const { data: targetGoals = [] } = useQuery({
-    queryKey: ["target-goals"],
-    queryFn: () => base44.entities.TargetGoal.list(),
+    queryKey: ["target-goals", currentMonth],
+    queryFn: () => base44.entities.TargetGoal.filter({ month: currentMonth }, "branch"),
+    staleTime: 300000,
   });
   const branchTargets = BRANCHES.map((b) => ({
     branch: b,
