@@ -6,7 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from './components/layout/AppLayout';
-import { lazy, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import FinancialRouteGuard from "@/components/security/FinancialRouteGuard";
 import RoleRouteGuard from "@/components/security/RoleRouteGuard";
 import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
