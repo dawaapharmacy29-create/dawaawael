@@ -542,7 +542,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             <div className="space-y-1"><Label className="text-xs">ملاحظة</Label><Input className="bg-white" value={liveExpenseForm.note} onChange={(e)=>setLiveExpenseForm((f)=>({...f,note:e.target.value}))} placeholder="مثال: شراء مستلزمات"/></div>
             <Button type="button" onClick={addLiveExpense} disabled={liveExpenseSaving || !form.branch || !form.shift_type} className="bg-amber-600 hover:bg-amber-700 text-white">{liveExpenseSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Plus className="w-4 h-4"/>} تسجيل الآن</Button>
           </div>
-          {liveExpenseEvents.length > 0 && <div className="space-y-2"><div className="flex justify-between text-sm"><span className="font-semibold text-gray-700">الحركات المسجلة ({liveExpenseEvents.length})</span><b className="text-amber-800">{fmt(liveExpenseTotal)} ج.م</b></div>{liveExpenseEvents.map((e)=><div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border p-2 text-xs"><div><b>{e.category}</b><span className="text-gray-500 mr-2">{fmt(e.amount)} ج</span>{e.note && <span className="text-gray-400 mr-2">— {e.note}</span>}<p className="text-[10px] text-gray-400 mt-0.5">{e.occurred_at ? new Date(e.occurred_at).toLocaleString("ar-EG") : ""}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>voidLiveExpense(e)} className="text-red-600">إلغاء</Button></div>)}</div>}
+          {liveExpenseEvents.length > 0 && <div className="space-y-2"><div className="flex justify-between text-sm"><span className="font-semibold text-gray-700">الحركات المسجلة ({liveExpenseEvents.length})</span><b className="text-amber-800">{fmt(liveExpenseTotal)} ج.م</b></div>{liveExpenseEvents.map((e)=><div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border p-2 text-xs"><div><b>{e.category}</b><span className="text-gray-500 mr-2">{fmt(e.amount)} ج</span><span className="mr-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">من {EXPENSE_SOURCES.find(([k])=>k===(e.payment_source||"cash"))?.[1] || "كاش"}</span>{e.note && <span className="text-gray-400 mr-2">— {e.note}</span>}<p className="text-[10px] text-gray-400 mt-0.5">{e.occurred_at ? new Date(e.occurred_at).toLocaleString("ar-EG") : ""}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>voidLiveExpense(e)} className="text-red-600">إلغاء</Button></div>)}</div>}
         </div>
 
         {/* Section 3: Closing expenses */}
@@ -614,20 +614,16 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           {Math.abs(cashVariance) > 1 && <p className="text-xs text-red-700">يوجد فرق كاش؛ يجب كتابة سبب الفرق في الملاحظات قبل الحفظ.</p>}
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">إجمالي المبيعات</span>
-            <span className="text-lg font-bold text-blue-700">{fmt(paymentTotal)} ج.م</span>
+        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-white p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-xs text-gray-500">إجمالي المبيعات الفعلية</p><p className="text-[11px] text-gray-400">كاش + فيزا + إنستا + فودافون + أخرى</p></div><span className="text-xl font-black text-blue-700">{fmt(paymentTotal)} ج.م</span></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي الكاش المتوقع</p><b className="text-emerald-700">{fmt(expectedCashHandover)} ج</b></div>
+            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي إنستا</p><b className="text-violet-700">{fmt((parseFloat(payments.insta)||0)-instaFundedExpenses)} ج</b></div>
+            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي فودافون</p><b className="text-rose-700">{fmt((parseFloat(payments.vodafone)||0)-vodafoneFundedExpenses)} ج</b></div>
+            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">الفيزا</p><b className="text-blue-700">{fmt(payments.visa)} ج</b></div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">إجمالي المصروفات الفعلية</span>
-            <span className="text-lg font-bold text-red-600">{fmt(totalExpenses)} ج.م</span>
-            <span className="text-[10px] text-gray-400 mr-2">({fmt(liveExpenseTotal)} أثناء الشيفت + {fmt(closingExpenseTotal)} عند التقفيل)</span>
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t">
-            <span className="text-sm font-semibold text-gray-700">صافي الشيفت</span>
-            <span className="text-2xl font-bold text-indigo-600">{fmt(netAmount)} ج.م</span>
-          </div>
+          <div className="flex justify-between items-center border-t pt-2"><div><span className="text-sm text-gray-600">إجمالي المصروفات الحقيقية</span><p className="text-[10px] text-gray-400">{fmt(liveExpenseTotal)} أثناء الشيفت + {fmt(closingExpenseTotal)} عند التقفيل</p></div><span className="text-lg font-bold text-red-600">{fmt(totalExpenses)} ج.م</span></div>
+          <div className="flex justify-between items-center pt-2 border-t border-indigo-100"><div><span className="text-sm font-black text-gray-800">صافي الخزينة / التشغيل</span><p className="text-[10px] text-gray-500">كل وسائل التحصيل داخلة في الرقم، ثم نخصم المصروفات الحقيقية فقط</p></div><span className="text-2xl font-black text-indigo-700">{fmt(treasuryNet)} ج.م</span></div>
         </div>
 
         <div className="space-y-1.5">
