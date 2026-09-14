@@ -35,6 +35,16 @@ export default async function(req: Request): Promise<Response> {
     const role = String(user.role || '');
     const actor = clean(user.full_name) || clean(user.email) || 'مستخدم النظام';
     const isManagement = ['admin', 'manager'].includes(role);
+    const explicitBranches = Array.isArray((user as any)?.branch_access)
+      ? (user as any).branch_access.map(clean).filter(Boolean)
+      : Array.isArray((user as any)?.data?.branch_access)
+        ? (user as any).data.branch_access.map(clean).filter(Boolean)
+        : [];
+    const legacyBranch = clean((user as any)?.branch || (user as any)?.data?.branch);
+    const allowedBranches = explicitBranches.length ? explicitBranches : (legacyBranch ? [legacyBranch] : []);
+    if (role !== 'admin' && allowedBranches.length && item.branch && !allowedBranches.includes(clean(item.branch))) {
+      return Response.json({ error: 'الحساب غير مصرح له بتعديل طلب تابع لفرع آخر' }, { status: 403 });
+    }
     const ownsLegacyRecord = clean(item.created_by_id) === clean(user.id);
     const ownsVerifiedRecord = clean(item.registered_by_user_id) === clean(user.id);
 
