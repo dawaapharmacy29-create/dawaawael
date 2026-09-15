@@ -603,10 +603,12 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                     onChange={(e) => updateExpense(idx, "amount", e.target.value)}
                     className="flex-1 w-1/2"
                   />
-                  <Select value={exp.payment_source || "cash"} onValueChange={(v) => updateExpense(idx, "payment_source", v)}>
-                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-                  </Select>
+                  {advancedCollection && (
+                    <Select value={exp.payment_source || "cash"} onValueChange={(v) => updateExpense(idx, "payment_source", v)}>
+                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <Input
                   placeholder="تسجيل ملاحظة"
