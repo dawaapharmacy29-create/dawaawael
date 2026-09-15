@@ -27,10 +27,12 @@ export default function ShiftDelivery() {
   const [activeTab, setActiveTab] = useState("new");
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [reviewMode, setReviewMode] = useState("duplicates");
+  const [reportMode, setReportMode] = useState("stats");
   const currentCycle = cycleRangeFor(cairoTodayKey());
 
-  const needsHistoryData = ["history", "duplicates", "stats", "report"].includes(activeTab) && hasHistoryScope;
-  const historyRange = activeTab === "duplicates"
+  const needsHistoryData = ["history", "review", "reports"].includes(activeTab) && hasHistoryScope;
+  const historyRange = activeTab === "review"
     ? { from: dateDaysAgo(120), to: cairoTodayKey() }
     : fullFinancial && showFullHistory && activeTab === "history"
       ? null
@@ -70,7 +72,7 @@ export default function ShiftDelivery() {
       const groups = await Promise.all(scopedBranches.map((branch) => base44.entities.ShiftDraft.filter({ branch, status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500)));
       return groups.flat();
     },
-    enabled: activeTab === "recovery" && canReviewOperationally && hasHistoryScope,
+    enabled: activeTab === "review" && canReviewOperationally && hasHistoryScope,
     staleTime: 15000,
     refetchOnWindowFocus: true,
   });
@@ -96,16 +98,10 @@ export default function ShiftDelivery() {
 
   const tabs = [
     { key: "new", label: "تسليم جديد", icon: PlusCircle },
-    ...(hasHistoryScope ? [{ key: "history", label: "تسليمات الفرع — الدورة الحالية", icon: List }] : []),
-    ...(canReviewOperationally && hasHistoryScope ? [
-      { key: "duplicates", label: "مراجعة التكرارات", icon: AlertTriangle, count: duplicateCount },
-      { key: "recovery", label: "استعادة الشيفتات", icon: RotateCcw, count: activeDrafts.length },
-    ] : []),
-    ...(fullFinancial ? [
-      { key: "stats", label: "لوحة الشيفتات المتقدمة", icon: BarChart3 },
-      { key: "report", label: "تفاصيل المصروفات والتصدير", icon: PieIcon },
-    ] : []),
-    ...(isAdmin ? [{ key: "items", label: "بنود المصروفات", icon: Settings2 }] : []),
+    ...(hasHistoryScope ? [{ key: "history", label: "سجل الشيفتات", icon: List }] : []),
+    ...(canReviewOperationally && hasHistoryScope ? [{ key: "review", label: "مراجعة", icon: AlertTriangle, count: duplicateCount + activeDrafts.length }] : []),
+    ...(fullFinancial ? [{ key: "reports", label: "تقارير وتحليلات", icon: BarChart3 }] : []),
+    ...(isAdmin ? [{ key: "items", label: "إعدادات", icon: Settings2 }] : []),
   ];
 
   return (
