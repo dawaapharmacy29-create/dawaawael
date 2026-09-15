@@ -321,12 +321,15 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
       <div className="space-y-4" dir="rtl">
         <div>
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600" /> تنبيهات التكرار
+            <AlertTriangle className="w-5 h-5 text-amber-600" /> مراجعة التكرارات
           </h2>
-          <p className="text-xs text-gray-500 mt-1">مراجعة الشيفتات التي لها نفس الفرع والتاريخ ونوع الشيفت، بدون حذف أو استبعاد تلقائي.</p>
+          <p className="text-sm text-gray-600 mt-1">كل بطاقة هنا معناها إن النظام لقى أكثر من تسليم لنفس <b>الفرع + التاريخ + نوع الشيفت</b>. الرقم اللي فوق هو عدد مجموعات التكرار، مش عدد شيفتات ناقصة.</p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
-          <span className="text-sm font-bold text-amber-800">حالات تحتاج مراجعة</span>
+          <div>
+            <span className="block text-sm font-bold text-amber-800">مجموعات مكررة تحتاج مراجعة</span>
+            <span className="block text-[11px] text-amber-700 mt-1">اختار السجل الصحيح فقط، وسيب الزائد للأرشفة</span>
+          </div>
           <span className="text-2xl font-black text-amber-700">{duplicateShiftGroups.length.toLocaleString("ar-EG")}</span>
         </div>
         {duplicateShiftGroups.length === 0 ? (
