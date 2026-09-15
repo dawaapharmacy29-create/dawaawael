@@ -535,51 +535,44 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
               <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر في قائمة التسليم.</p>
             </div>
           </div>
-          <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <h4 className="text-sm font-black text-slate-900">إجمالي مبيعات الشيفت</h4>
-                <p className="text-[11px] text-slate-500 mt-1">اكتب إجمالي المبيعات فقط. تفاصيل وسائل التحصيل اختيارية.</p>
-              </div>
-              <button type="button" onClick={() => setAdvancedCollection((v) => !v)} className="text-xs font-bold text-indigo-700 underline">
-                {advancedCollection ? "إخفاء تفاصيل التحصيل" : "تفاصيل التحصيل المتقدمة"}
-              </button>
-            </div>
-            {!advancedCollection ? (
-              <div className="max-w-sm space-y-1.5">
-                <Label className="text-sm">إجمالي المبيعات *</Label>
+          <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="flex-1 min-w-[220px] space-y-1.5">
+                <Label className="text-sm font-bold text-slate-800">إجمالي مبيعات الشيفت *</Label>
                 <Input type="number" min="0" step="0.01" value={form.total_sales} onChange={(e) => setForm((f) => ({ ...f, total_sales: e.target.value }))} placeholder="0.00" className="h-12 bg-white text-lg font-bold" />
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <Button type="button" variant="outline" onClick={() => setAdvancedCollection((v) => !v)} className="h-12 border-indigo-200 text-indigo-700 bg-white">
+                <Plus className={`w-4 h-4 transition-transform ${advancedCollection ? "rotate-45" : ""}`} />
+                {advancedCollection ? "إخفاء التفاصيل" : "إضافة تفاصيل"}
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500">إجمالي المبيعات هو الرقم الأساسي. تفاصيل التحصيل اختيارية وتُخصم منه تلقائيًا لإظهار الصافي المتبقي.</p>
+
+            {advancedCollection && (
+              <div className="space-y-3 border-t border-indigo-100 pt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { key:"cash", label:"كاش", Icon:Banknote, cls:"border-emerald-200 bg-emerald-50/60 text-emerald-700" },
-                    { key:"visa", label:"فيزا / POS", Icon:CreditCard, cls:"border-blue-200 bg-blue-50/60 text-blue-700" },
-                    { key:"insta", label:"إنستا باي", Icon:Landmark, cls:"border-violet-200 bg-violet-50/60 text-violet-700" },
-                    { key:"vodafone", label:"فودافون كاش", Icon:Smartphone, cls:"border-rose-200 bg-rose-50/60 text-rose-700" },
-                    { key:"other", label:"أخرى", Icon:Wallet, cls:"border-slate-200 bg-slate-50 text-slate-700" },
-                  ].map(({key,label,Icon,cls}) => (
-                    <div key={key} className={`rounded-xl border p-3 ${cls}`}>
-                      <div className="flex items-center gap-2 mb-2"><Icon className="w-4 h-4"/><Label className="text-xs font-bold">{label}</Label></div>
-                      <Input type="number" min="0" value={payments[key]} onChange={(e) => setPayments((p) => ({ ...p, [key]: e.target.value }))} placeholder="0" className="h-9 bg-white text-gray-900" />
+                    { key:"insta", label:"إنستا باي", Icon:Landmark },
+                    { key:"vodafone", label:"فودافون كاش", Icon:Smartphone },
+                    { key:"visa", label:"فيزا", Icon:CreditCard },
+                    { key:"other", label:"تحويل", Icon:Wallet },
+                  ].map(({key,label,Icon}) => (
+                    <div key={key} className="rounded-xl border bg-white p-3">
+                      <div className="flex items-center gap-2 mb-2 text-slate-600"><Icon className="w-4 h-4"/><Label className="text-xs font-bold">{label}</Label></div>
+                      <Input type="number" min="0" value={payments[key]} onChange={(e) => setPayments((p) => ({ ...p, [key]: e.target.value }))} placeholder="0" className="h-10 bg-white" />
                     </div>
                   ))}
                 </div>
-                <div className="text-sm font-bold text-indigo-700">الإجمالي: {fmt(paymentTotal)} ج.م</div>
-                {(parseFloat(payments.visa) || 0) > 0 && (
-                  <div className={`rounded-2xl border p-4 ${Math.abs(visaVariance) <= 1 ? "border-blue-200 bg-blue-50/60" : "border-red-300 bg-red-50"}`}>
-                    <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-                      <div><h5 className="font-black text-blue-900 flex items-center gap-2"><CreditCard className="w-5 h-5"/> مطابقة جهاز POS</h5><p className="text-[11px] text-gray-600 mt-1">تظهر فقط عند استخدام الفيزا.</p></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                      <div className="space-y-1"><Label className="text-xs">إجمالي تقرير POS *</Label><Input type="number" min="0" value={visaControl.terminalAmount} onChange={(e)=>setVisaControl((v)=>({...v,terminalAmount:e.target.value}))} placeholder={payments.visa || "0"} className="bg-white"/></div>
-                      <div className="space-y-1"><Label className="text-xs">عدد العمليات</Label><Input type="number" min="0" value={visaControl.operationCount} onChange={(e)=>setVisaControl((v)=>({...v,operationCount:e.target.value}))} placeholder="0" className="bg-white"/></div>
-                      <div className="space-y-1"><Label className="text-xs">اسم/رقم الجهاز</Label><Input value={visaControl.terminalName} onChange={(e)=>setVisaControl((v)=>({...v,terminalName:e.target.value}))} placeholder="POS 1" className="bg-white"/></div>
-                      <div className="space-y-1"><Label className="text-xs">Batch / مرجع الإقفال</Label><Input value={visaControl.batchReference} onChange={(e)=>setVisaControl((v)=>({...v,batchReference:e.target.value}))} placeholder="اختياري" className="bg-white"/></div>
-                    </div>
+                <div className={`rounded-xl border p-3 flex items-center justify-between gap-3 ${collectionDetailsTotal > paymentTotal ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
+                  <div>
+                    <p className="text-xs text-gray-500">إجمالي التفاصيل</p>
+                    <p className="font-bold text-gray-800">{fmt(collectionDetailsTotal)} ج</p>
                   </div>
-                )}
+                  <div className="text-left">
+                    <p className="text-xs text-gray-500">الصافي قبل المصروفات</p>
+                    <p className={`text-xl font-black ${collectionDetailsTotal > paymentTotal ? "text-red-600" : "text-emerald-700"}`}>{fmt(paymentTotal - collectionDetailsTotal)} ج</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
