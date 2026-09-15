@@ -578,21 +578,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           </div>
         </div>
 
-        {/* Section 2: Expenses during the shift — advanced only */}
-        {advancedCollection && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
-          <div><h3 className="text-sm font-bold text-amber-900">مصروفات أثناء الشيفت — سجل حركة لحظي</h3><p className="text-[11px] text-amber-700 mt-1">سجل المصروف وقت حدوثه. الحركة تحفظ بوقتها وتفضل موجودة حتى لو الصفحة اتقفلت، ولا تُحذف؛ يمكن إلغاؤها بسبب موثق.</p></div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-            <div className="space-y-1"><Label className="text-xs">البند</Label><Select value={liveExpenseForm.category} onValueChange={(v)=>setLiveExpenseForm((f)=>({...f,category:v}))}><SelectTrigger className="bg-white"><SelectValue placeholder="اختر البند"/></SelectTrigger><SelectContent>{activeExpenseItems.map((c)=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="text-xs">القيمة</Label><Input type="number" min="0" className="bg-white" value={liveExpenseForm.amount} onChange={(e)=>setLiveExpenseForm((f)=>({...f,amount:e.target.value}))} placeholder="0"/></div>
-            <div className="space-y-1"><Label className="text-xs">اتدفع من</Label><Select value={liveExpenseForm.payment_source} onValueChange={(v)=>setLiveExpenseForm((f)=>({...f,payment_source:v}))}><SelectTrigger className="bg-white"><SelectValue/></SelectTrigger><SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="text-xs">ملاحظة</Label><Input className="bg-white" value={liveExpenseForm.note} onChange={(e)=>setLiveExpenseForm((f)=>({...f,note:e.target.value}))} placeholder="مثال: شراء مستلزمات"/></div>
-            <Button type="button" onClick={addLiveExpense} disabled={liveExpenseSaving || !form.branch || !form.shift_type} className="bg-amber-600 hover:bg-amber-700 text-white">{liveExpenseSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Plus className="w-4 h-4"/>} تسجيل الآن</Button>
-          </div>
-          {liveExpenseEvents.length > 0 && <div className="space-y-2"><div className="flex justify-between text-sm"><span className="font-semibold text-gray-700">الحركات المسجلة ({liveExpenseEvents.length})</span><b className="text-amber-800">{fmt(liveExpenseTotal)} ج.م</b></div>{liveExpenseEvents.map((e)=><div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border p-2 text-xs"><div><b>{e.category}</b><span className="text-gray-500 mr-2">{fmt(e.amount)} ج</span><span className="mr-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">من {EXPENSE_SOURCES.find(([k])=>k===(e.payment_source||"cash"))?.[1] || "كاش"}</span>{e.note && <span className="text-gray-400 mr-2">— {e.note}</span>}<p className="text-[10px] text-gray-400 mt-0.5">{e.occurred_at ? new Date(e.occurred_at).toLocaleString("ar-EG") : ""}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>voidLiveExpense(e)} className="text-red-600">إلغاء</Button></div>)}</div>}
-        </div>
-        )}
-
         {/* Section 3: Expenses */}
         <div>
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
@@ -602,6 +587,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </Button>
           </div>
           <div className="space-y-3">
+            {expenses.length === 0 && <p className="text-xs text-gray-400 py-1">لا توجد مصروفات — إضافة المصروفات اختيارية.</p>}
             {expenses.map((exp, idx) => (
               <div key={idx} className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -609,7 +595,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                     type="button"
                     onClick={() => removeExpense(idx)}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg flex-shrink-0"
-                    disabled={expenses.length === 1}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -626,12 +611,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                     onChange={(e) => updateExpense(idx, "amount", e.target.value)}
                     className="flex-1 w-1/2"
                   />
-                  {advancedCollection && (
-                    <Select value={exp.payment_source || "cash"} onValueChange={(v) => updateExpense(idx, "payment_source", v)}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{EXPENSE_SOURCES.map(([k,l])=><SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )}
+
                 </div>
                 <Input
                   placeholder="تسجيل ملاحظة"
@@ -644,44 +624,17 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           </div>
         </div>
 
-        {advancedCollection && (<>
-        {/* Cash reconciliation + Summary */}
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
-          <h3 className="text-sm font-bold text-emerald-900">مطابقة الكاش</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg bg-white p-3 border">
-              <p className="text-xs text-gray-500">الكاش المتوقع بعد المصروفات</p>
-              <p className="text-lg font-bold text-gray-800">{fmt(expectedCashHandover)} ج.م</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">الكاش الفعلي المسلم</Label>
-              <Input type="number" min="0" value={cashHandover} onChange={(e) => setCashHandover(e.target.value)} placeholder="0" className="h-10 bg-white" />
-            </div>
-            <div className={`rounded-lg p-3 border ${Math.abs(cashVariance) <= 1 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
-              <p className="text-xs text-gray-500">فرق الكاش</p>
-              <p className={`text-lg font-black ${Math.abs(cashVariance) <= 1 ? "text-emerald-700" : "text-red-700"}`}>{fmt(cashVariance)} ج.م</p>
-            </div>
-          </div>
-          {Math.abs(cashVariance) > 1 && <p className="text-xs text-red-700">يوجد فرق كاش؛ يجب كتابة سبب الفرق في الملاحظات قبل الحفظ.</p>}
-        </div>
-
-        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-white p-4 space-y-3">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-xs text-gray-500">إجمالي المبيعات الفعلية</p><p className="text-[11px] text-gray-400">كاش + فيزا + إنستا + فودافون + أخرى</p></div><span className="text-xl font-black text-blue-700">{fmt(paymentTotal)} ج.م</span></div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي الكاش المتوقع</p><b className="text-emerald-700">{fmt(expectedCashHandover)} ج</b></div>
-            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي إنستا</p><b className="text-violet-700">{fmt((parseFloat(payments.insta)||0)-instaFundedExpenses)} ج</b></div>
-            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">صافي فودافون</p><b className="text-rose-700">{fmt((parseFloat(payments.vodafone)||0)-vodafoneFundedExpenses)} ج</b></div>
-            <div className="rounded-lg bg-white border p-2"><p className="text-[10px] text-gray-400">الفيزا</p><b className="text-blue-700">{fmt(payments.visa)} ج</b></div>
-          </div>
-          <div className="flex justify-between items-center border-t pt-2"><div><span className="text-sm text-gray-600">إجمالي المصروفات الحقيقية</span><p className="text-[10px] text-gray-400">{fmt(liveExpenseTotal)} أثناء الشيفت + {fmt(closingExpenseTotal)} عند التقفيل</p></div><span className="text-lg font-bold text-red-600">{fmt(totalExpenses)} ج.م</span></div>
-          <div className="flex justify-between items-center pt-2 border-t border-indigo-100"><div><span className="text-sm font-black text-gray-800">صافي الخزينة / التشغيل</span><p className="text-[10px] text-gray-500">كل وسائل التحصيل داخلة في الرقم، ثم نخصم المصروفات الحقيقية فقط</p></div><span className="text-2xl font-black text-indigo-700">{fmt(treasuryNet)} ج.م</span></div>
-        </div>
-
-        </>)}
-
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex items-center justify-between gap-3">
-          <div><p className="text-xs text-gray-500">الإجمالي بعد المصروفات</p><p className="text-[11px] text-gray-400">المبيعات − المصروفات</p></div>
-          <div className="text-left"><p className="text-sm font-bold text-gray-800">{fmt(paymentTotal)} ج مبيعات</p><p className="text-sm text-red-600">− {fmt(totalExpenses)} ج مصروفات</p><p className="text-lg font-black text-indigo-700">= {fmt(treasuryNet)} ج</p></div>
+          <div>
+            <p className="text-xs font-bold text-gray-700">الصافي</p>
+            <p className="text-[11px] text-gray-400">إجمالي المبيعات − تفاصيل التحصيل − المصروفات</p>
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-bold text-gray-800">{fmt(paymentTotal)} ج مبيعات</p>
+            {collectionDetailsTotal > 0 && <p className="text-sm text-blue-600">− {fmt(collectionDetailsTotal)} ج تفاصيل تحصيل</p>}
+            {totalExpenses > 0 && <p className="text-sm text-red-600">− {fmt(totalExpenses)} ج مصروفات</p>}
+            <p className="text-xl font-black text-indigo-700">= {fmt(paymentTotal - collectionDetailsTotal - totalExpenses)} ج</p>
+          </div>
         </div>
 
         <div className="space-y-1.5">
