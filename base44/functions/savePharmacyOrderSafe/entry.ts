@@ -77,6 +77,20 @@ export default async function(req: Request): Promise<Response> {
         added_at: new Date().toLocaleString('ar-EG', { timeZone:'Africa/Cairo', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
         timeline: [{ status:'طلب جديد', by:actor, at:now, note:'تم إنشاء الطلب' }],
       });
+      try {
+        await base44.asServiceRole.entities.ActivityLog.create({
+          action_type: 'create',
+          entity_type: 'pharmacy_order',
+          entity_id: created?.id || '',
+          record_id: created?.id || '',
+          entity_label: orderNumber,
+          user_email: clean(user.email),
+          user_name: actor,
+          user_role: clean(user.role),
+          status: 'success',
+          details: `إنشاء طلب صيدلية ${orderNumber} | الفرع: ${clean(data.branch)} | الصيدلية: ${clean(data.customer_name)}`,
+        });
+      } catch (_) {}
       return Response.json({ success:true, record:created });
     }
 
@@ -106,6 +120,20 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const updated = await base44.asServiceRole.entities.PharmacyOrder.update(id, updates);
+    try {
+      await base44.asServiceRole.entities.ActivityLog.create({
+        action_type: 'update',
+        entity_type: 'pharmacy_order',
+        entity_id: id,
+        record_id: id,
+        entity_label: clean(current.order_number) || id,
+        user_email: clean(user.email),
+        user_name: actor,
+        user_role: clean(user.role),
+        status: 'success',
+        details: `تعديل طلب صيدلية ${clean(current.order_number) || id}: ${Object.keys(updates).join(', ')}`,
+      });
+    } catch (_) {}
     return Response.json({ success:true, record:updated });
   } catch (error) {
     return Response.json({ success:false, error:error instanceof Error ? error.message : 'تعذر حفظ طلب الصيدلية' }, { status:500 });
