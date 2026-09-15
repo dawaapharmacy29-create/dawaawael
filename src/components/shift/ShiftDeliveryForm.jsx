@@ -194,6 +194,13 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
 
   useEffect(() => {
     if (!form.branch || !form.shift_type || !form.employee_map_id) return;
+    const hasMeaningfulDraftData =
+      (parseFloat(form.total_sales) || 0) > 0 ||
+      collectionDetailsTotal > 0 ||
+      expenses.some((e) => (parseFloat(e.amount) || 0) > 0 || (e.category || "").trim() || (e.description || "").trim()) ||
+      (form.notes || "").trim().length > 0;
+    // لا ننشئ مسودة لمجرد اختيار الفرع/الشيفت/الاسم؛ لازم يكون المستخدم بدأ إدخال بيانات فعلية.
+    if (!hasMeaningfulDraftData && !draftIdRef.current) return;
     const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
     const draftKey = `${form.branch}|${businessDate}|${form.shift_type}|${form.employee_map_id}`;
     if (draftKeyRef.current !== draftKey) {
