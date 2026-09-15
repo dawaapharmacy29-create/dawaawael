@@ -92,15 +92,23 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       total_sales: initialDraft.total_sales || "",
       notes: initialDraft.notes || "",
     });
-    const savedBreakdown = Number(initialDraft.cash_sales || 0) + Number(initialDraft.visa_sales || 0) + Number(initialDraft.insta_sales || 0) + Number(initialDraft.vodafone_sales || 0) + Number(initialDraft.other_sales || 0);
-    const hasDetailedBreakdown = Number(initialDraft.visa_sales || 0) > 0 || Number(initialDraft.insta_sales || 0) > 0 || Number(initialDraft.vodafone_sales || 0) > 0 || Number(initialDraft.other_sales || 0) > 0;
+    const draftTotal = Number(initialDraft.total_sales || 0);
+    const draftOther = Number(initialDraft.other_sales || 0);
+    const legacySimpleOtherOnly =
+      Number(initialDraft.cash_sales || 0) === 0 &&
+      Number(initialDraft.visa_sales || 0) === 0 &&
+      Number(initialDraft.insta_sales || 0) === 0 &&
+      Number(initialDraft.vodafone_sales || 0) === 0 &&
+      draftOther > 0 &&
+      Math.abs(draftOther - draftTotal) <= 0.01;
+    const hasDetailedBreakdown = Number(initialDraft.visa_sales || 0) > 0 || Number(initialDraft.insta_sales || 0) > 0 || Number(initialDraft.vodafone_sales || 0) > 0 || (draftOther > 0 && !legacySimpleOtherOnly);
     setAdvancedCollection(hasDetailedBreakdown);
     setPayments({
       cash: initialDraft.cash_sales || "",
       visa: initialDraft.visa_sales || "",
       insta: initialDraft.insta_sales || "",
       vodafone: initialDraft.vodafone_sales || "",
-      other: initialDraft.other_sales || (savedBreakdown <= 0 && Number(initialDraft.total_sales || 0) > 0 ? initialDraft.total_sales : ""),
+      other: legacySimpleOtherOnly ? "" : (initialDraft.other_sales || ""),
     });
     setVisaControl({
       terminalAmount: initialDraft.visa_terminal_amount || "",
