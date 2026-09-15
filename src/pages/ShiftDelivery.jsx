@@ -98,7 +98,7 @@ export default function ShiftDelivery() {
     { key: "new", label: "تسليم جديد", icon: PlusCircle },
     ...(hasHistoryScope ? [{ key: "history", label: "تسليمات الفرع — الدورة الحالية", icon: List }] : []),
     ...(canReviewOperationally && hasHistoryScope ? [
-      { key: "duplicates", label: "تنبيهات التكرار", icon: AlertTriangle, count: duplicateCount },
+      { key: "duplicates", label: "مراجعة التكرارات", icon: AlertTriangle, count: duplicateCount },
       { key: "recovery", label: "استعادة الشيفتات", icon: RotateCcw, count: activeDrafts.length },
     ] : []),
     ...(fullFinancial ? [
