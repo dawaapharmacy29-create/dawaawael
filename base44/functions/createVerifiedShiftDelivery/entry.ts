@@ -93,6 +93,7 @@ export default async function(req: Request): Promise<Response> {
     const delivery = body?.delivery || {};
     const branch = clean(delivery.branch);
     const shiftType = clean(delivery.shift_type);
+    const requestedBusinessDate = clean(delivery.business_date);
     const totalSales = Number(delivery.total_sales || 0);
     const cashSales = Math.max(0, Number(delivery.cash_sales || 0));
     const visaSales = Math.max(0, Number(delivery.visa_sales || 0));
@@ -125,7 +126,11 @@ export default async function(req: Request): Promise<Response> {
     const staff = verification.result?.staff || {};
     const now = new Date();
     const recordedAt = now.toISOString();
-    const shiftDate = businessDateForShift(shiftType, now);
+    // عند استكمال مسودة قديمة نلتزم بتاريخها التشغيلي بدل إجبارها على تاريخ اليوم الحالي.
+    // لو لم يأتِ تاريخ صالح من الواجهة نرجع للسلوك المعتاد ونحسبه من وقت التنفيذ.
+    const shiftDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedBusinessDate)
+      ? requestedBusinessDate
+      : businessDateForShift(shiftType, now);
     const expenses = Array.isArray(delivery.expenses)
       ? delivery.expenses
           .map((e: any) => ({
