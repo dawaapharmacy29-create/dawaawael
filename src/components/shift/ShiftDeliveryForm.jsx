@@ -14,6 +14,23 @@ import { getSmartShiftSuggestion, getTimeBasedShiftSuggestion, isShiftOverride }
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SHIFT_TYPES = ["صباحي", "مسائي", "ليلي"];
+const normalizeShiftEmployeeName = (value = "") => String(value).trim().replace(/[\/\\]/g, " ").replace(/\s+/g, " ");
+const SHIFT_DELIVERY_EXCLUDED_EMPLOYEES = new Set([
+  "احمد وجيه",
+  "محمود الغباري",
+  "محمود",
+  "يوسف ماهر",
+  "احمد السيد",
+  "محمد الالفي",
+  "محمد الديب",
+  "محمد حافظ",
+  "عبد الرحمن",
+  "حسين",
+  "مصطفي",
+  "عم محمد سالم",
+  "يوسف عيد",
+  "اسلام السبع",
+].map(normalizeShiftEmployeeName));
 const PAYMENT_EXPENSE_NAMES = new Set(["انستا", "فيزا", "فودافون كاش", "فودافون", "Visa", "Insta"]);
 const EXPENSE_SOURCES = [
   ["cash", "كاش"],
@@ -489,7 +506,14 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                 <SelectTrigger><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
                 <SelectContent>
                   {employeeNameMap
-                    .filter((m) => (m.identity_verification_enabled !== false && !!m.admin_staff_id) && (!form.branch || m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim()))
+                    .filter((m) => {
+                      const canonical = normalizeShiftEmployeeName(m.canonical_name);
+                      const aliases = Array.isArray(m.aliases) ? m.aliases.map(normalizeShiftEmployeeName) : [];
+                      const isDeliveryExcluded = SHIFT_DELIVERY_EXCLUDED_EMPLOYEES.has(canonical) || aliases.some((name) => SHIFT_DELIVERY_EXCLUDED_EMPLOYEES.has(name));
+                      return !isDeliveryExcluded &&
+                        (m.identity_verification_enabled !== false && !!m.admin_staff_id) &&
+                        (!form.branch || m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
+                    })
                     .map((m) => <SelectItem key={m.id} value={m.id}>{m.canonical_name}</SelectItem>)}
                 </SelectContent>
               </Select>
