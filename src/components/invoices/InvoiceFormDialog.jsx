@@ -114,8 +114,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     queryKey: ["employee-name-map"],
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
   });
-  const branchMembers = employeeNameMap.filter((m) => m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim());
-  const memberOptions = [...new Set(branchMembers.map((m) => m.canonical_name).filter(Boolean))];
+  // مدخل الفاتورة قد يعمل مؤقتًا في أي فرع، لذلك نعرض كل العاملين النشطين
+  // بغض النظر عن فرعهم الأساسي. فرع الفاتورة يظل مستقلًا عن فرع الموظف.
+  const memberOptions = [...new Set(employeeNameMap.map((m) => m.canonical_name).filter(Boolean))];
 
   useEffect(() => {
     if (invoice) {
@@ -322,8 +323,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     }
 
     const enteredByMap = employeeNameMap.find(
-      (m) => m.canonical_name === form.entered_by &&
-        (m.branch === "كل الفروع" || m.branch?.trim() === form.branch?.trim())
+      (m) => m.canonical_name === form.entered_by
     );
 
     onSubmit({
@@ -379,7 +379,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الفرع *</Label>
-              <Select value={form.branch} onValueChange={(v) => { setForm((prev) => ({ ...prev, branch: v, entered_by: "" })); setDupError(""); }} required>
+              <Select value={form.branch} onValueChange={(v) => { setForm((prev) => ({ ...prev, branch: v })); setDupError(""); }} required>
                 <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
