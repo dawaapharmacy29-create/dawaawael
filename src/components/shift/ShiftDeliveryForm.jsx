@@ -152,9 +152,15 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     return () => { cancelled = true; };
   }, [form.branch, manualShiftOverride, initialDraft?.id, shiftDetectionBucket]);
 
-  const detailedPaymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
   const simpleTotal = parseFloat(form.total_sales) || 0;
-  const paymentTotal = advancedCollection ? detailedPaymentTotal : simpleTotal;
+  const collectionDetailsTotal = useMemo(() =>
+    (parseFloat(payments.visa) || 0) +
+    (parseFloat(payments.insta) || 0) +
+    (parseFloat(payments.vodafone) || 0) +
+    (parseFloat(payments.other) || 0),
+  [payments.visa, payments.insta, payments.vodafone, payments.other]);
+  const derivedCashSales = Math.max(0, simpleTotal - collectionDetailsTotal);
+  const paymentTotal = simpleTotal;
   const liveBusinessDate = draftBusinessDate || (form.shift_type ? currentShiftBusinessDate(form.shift_type) : "");
   const { data: liveExpenseEvents = [] } = useQuery({
     queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type],
@@ -169,9 +175,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const cashFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => (e.payment_source || "cash") === "cash").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => (e.payment_source || "cash") === "cash").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
   const instaFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => e.payment_source === "insta").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => e.payment_source === "insta").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
   const vodafoneFundedExpenses = useMemo(() => liveExpenseEvents.filter((e) => e.payment_source === "vodafone").reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + expenses.filter((e) => e.payment_source === "vodafone").reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [liveExpenseEvents, expenses]);
-  const expectedCashHandover = Math.max(0, (parseFloat(payments.cash) || 0) - cashFundedExpenses);
-  const actualCashHandover = parseFloat(cashHandover) || 0;
-  const cashVariance = actualCashHandover - expectedCashHandover;
+  const expectedCashHandover = Math.max(0, derivedCashSales - cashFundedExpenses);
+  // في الواجهة المبسطة الصافي النقدي يُحسب تلقائيًا من الإجمالي والتفاصيل والمصروفات.
+  const actualCashHandover = expectedCashHandover;
+  const cashVariance = 0;
   const visaTerminalAmount = parseFloat(visaControl.terminalAmount) || 0;
   const visaVariance = visaTerminalAmount - (parseFloat(payments.visa) || 0);
   const netAmount = paymentTotal - totalExpenses;
@@ -196,11 +203,11 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           employee_map_id: form.employee_map_id,
           employee_name: employeeNameMap.find((m) => m.id === form.employee_map_id)?.canonical_name || "",
           total_sales: paymentTotal,
-          cash_sales: advancedCollection ? (parseFloat(payments.cash) || 0) : 0,
-          visa_sales: advancedCollection ? (parseFloat(payments.visa) || 0) : 0,
-          insta_sales: advancedCollection ? (parseFloat(payments.insta) || 0) : 0,
-          vodafone_sales: advancedCollection ? (parseFloat(payments.vodafone) || 0) : 0,
-          other_sales: advancedCollection ? (parseFloat(payments.other) || 0) : paymentTotal,
+          cash_sales: derivedCashSales,
+          visa_sales: parseFloat(payments.visa) || 0,
+          insta_sales: parseFloat(payments.insta) || 0,
+          vodafone_sales: parseFloat(payments.vodafone) || 0,
+          other_sales: parseFloat(payments.other) || 0,
           cash_handover: actualCashHandover,
           cash_variance: cashVariance,
           visa_terminal_amount: visaTerminalAmount,
@@ -298,9 +305,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       if (!proceed) return;
     }
     if (paymentTotal <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
-    if (advancedCollection && (parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
-    if (advancedCollection && (parseFloat(payments.visa) || 0) > 0 && visaControl.terminalAmount === "") return setError("يوجد تحصيل فيزا — أدخل قيمة تقرير إقفال جهاز POS لمطابقة الفيزا");
-    if (advancedCollection && (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) && !(form.notes || "").trim()) return setError(`يوجد فرق يحتاج مراجعة${Math.abs(cashVariance) > 1 ? ` — فرق كاش ${cashVariance.toFixed(2)} ج` : ""}${Math.abs(visaVariance) > 1 ? ` — فرق فيزا ${visaVariance.toFixed(2)} ج` : ""}. اكتب السبب في الملاحظات قبل الحفظ`);
+    if (collectionDetailsTotal > paymentTotal + 0.01) return setError("تفاصيل التحصيل لا يمكن أن تكون أكبر من إجمالي المبيعات");
 
     const liveExpenses = liveExpenseEvents.map((e) => ({
       description: `${e.note || ""}${e.note ? " — " : ""}مسجل أثناء الشيفت ${e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : ""}`.trim(),
@@ -341,16 +346,16 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           branch: form.branch,
           shift_type: form.shift_type,
           total_sales: paymentTotal,
-          cash_sales: advancedCollection ? (parseFloat(payments.cash) || 0) : 0,
-          visa_sales: advancedCollection ? (parseFloat(payments.visa) || 0) : 0,
-          insta_sales: advancedCollection ? (parseFloat(payments.insta) || 0) : 0,
-          vodafone_sales: advancedCollection ? (parseFloat(payments.vodafone) || 0) : 0,
-          other_sales: advancedCollection ? (parseFloat(payments.other) || 0) : paymentTotal,
+          cash_sales: derivedCashSales,
+          visa_sales: parseFloat(payments.visa) || 0,
+          insta_sales: parseFloat(payments.insta) || 0,
+          vodafone_sales: parseFloat(payments.vodafone) || 0,
+          other_sales: parseFloat(payments.other) || 0,
           payment_breakdown_total: paymentTotal,
           cash_handover: actualCashHandover,
-          cash_variance: cashVariance,
+          cash_variance: 0,
           idempotency_key: submissionTokenRef.current,
-          workflow_status: advancedCollection && (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) ? "under_review" : "submitted",
+          workflow_status: "submitted",
           expenses: validExpenses,
           notes: form.notes,
         },
@@ -379,7 +384,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         qc.invalidateQueries({ queryKey: ["shift-expense-events"] });
       }
       let visaTrackingWarning = "";
-      if (advancedCollection && (parseFloat(payments.visa) || 0) > 0) {
+      if (visaControl.terminalAmount !== "" && (parseFloat(payments.visa) || 0) > 0) {
         try {
           const payload = {
             shift_id: savedShiftId,
@@ -425,7 +430,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       setAdvancedCollection(false);
       setVisaControl({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
       setCashHandover("");
-      setExpenses([{ description: "", amount: "", category: "", payment_source: "cash" }]);
+      setExpenses([]);
       setLiveExpenseForm({ category: "", amount: "", note: "", payment_source: "cash" });
       setDraftState("");
       setDraftBusinessDate("");
