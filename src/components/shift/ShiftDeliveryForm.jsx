@@ -360,6 +360,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         delivery: {
           branch: form.branch,
           shift_type: form.shift_type,
+          business_date: businessDate,
           total_sales: paymentTotal,
           cash_sales: derivedCashSales,
           visa_sales: parseFloat(payments.visa) || 0,
