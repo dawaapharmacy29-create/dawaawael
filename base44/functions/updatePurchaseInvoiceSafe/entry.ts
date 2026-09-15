@@ -116,8 +116,9 @@ export default async function(req: Request): Promise<Response> {
 
     if (updates.entered_by !== undefined || updates.branch !== undefined) {
       const mappings: any[] = await base44.asServiceRole.entities.EmployeeNameMap.filter({ canonical_name: enteredBy, is_active: true });
-      const employee = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === branch);
-      if (!employee) return Response.json({ success: false, error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين لهذا الفرع' }, { status: 400 });
+      // فرع الموظف الأساسي لا يقيّد إدخال أو تعديل الفاتورة؛ الموظف قد ينتقل بين الفرعين.
+      const employee = mappings.find((m: any) => clean(m.admin_staff_id)) || mappings[0];
+      if (!employee) return Response.json({ success: false, error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين والنشطين' }, { status: 400 });
       updates.entered_by = clean(employee.canonical_name);
       updates.entered_by_staff_id = clean(employee.admin_staff_id);
     }
