@@ -68,11 +68,13 @@ function dateVariant(dateStr) {
  * هيدر ملخّص باللون المناسب لليوم + بطاقة منفصلة لكل فرع بداخلها التسليمات.
  */
 function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView, onEdit, onDelete, onRestore }) {
+  const [expandedPayments, setExpandedPayments] = useState(null);
   const accent = ACCENTS[dateVariant(dateStr)];
   const financialTotals = aggregateShiftFinancials(records);
   const totalSales = financialTotals.sales;
   const totalExpenses = financialTotals.expenses;
-  const netAmount = financialTotals.net;
+  const totalElectronic = financialTotals.visa + financialTotals.insta + financialTotals.vodafone + financialTotals.other;
+  const cashToAccountant = financialTotals.expectedCash;
 
   return (
     <div className="mb-6">
@@ -85,18 +87,22 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
         <span className="text-xs text-gray-400">({records.length} تسليم)</span>
       </div>
 
-      <div className={`bg-gradient-to-l ${accent.gradient} rounded-xl border ${accent.border} p-3 mb-3 grid grid-cols-3 gap-2 text-center`}>
+      <div className={`bg-gradient-to-l ${accent.gradient} rounded-xl border ${accent.border} p-3 mb-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-center`}>
         <div>
           <p className="text-[10px] text-gray-500">إجمالي المبيعات</p>
-          <p className="text-sm font-bold text-blue-600">{fmt(totalSales)}</p>
+          <p className="text-sm font-bold text-blue-600">{fmt(totalSales)} ج</p>
         </div>
         <div>
-          <p className="text-[10px] text-gray-500">إجمالي المصروفات</p>
-          <p className="text-sm font-bold text-red-600">{fmt(totalExpenses)}</p>
+          <p className="text-[10px] text-gray-500">النقدي المطلوب للمحاسب</p>
+          <p className="text-sm font-black text-emerald-700">{fmt(cashToAccountant)} ج</p>
         </div>
         <div>
-          <p className="text-[10px] text-gray-500">الصافي</p>
-          <p className="text-sm font-bold text-green-600">{fmt(netAmount)}</p>
+          <p className="text-[10px] text-gray-500">إجمالي التحويلات</p>
+          <p className="text-sm font-bold text-violet-700">{fmt(totalElectronic)} ج</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-500">مصروفات الشيفت</p>
+          <p className="text-sm font-bold text-red-600">{fmt(totalExpenses)} ج</p>
         </div>
       </div>
 
@@ -118,8 +124,8 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
             );
           }
           const branchFinancial = aggregateShiftFinancials(branchRecords);
-          const bNet = branchFinancial.net;
           const bSales = branchFinancial.sales;
+          const bCash = branchFinancial.expectedCash;
           return (
             <div key={branch} className={`bg-white rounded-xl border border-r-4 ${colors.accent} overflow-hidden`}>
               <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
@@ -130,16 +136,19 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                 <span className="text-xs text-gray-400">{branchRecords.length} تسليم</span>
               </div>
               <div className="divide-y">
-                {branchRecords.map((r) => (
+                {branchRecords.map((r) => {
+                  const f = shiftFinancialView(r);
+                  const isExpanded = expandedPayments === r.id;
+                  return (
                   <div key={r.id} className="px-3 py-2 hover:bg-gray-50">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${SHIFT_BADGE[r.shift_type] || "bg-gray-100"}`}>{r.shift_type}</span>
                         <span className="text-xs font-medium text-gray-700">{r.submitted_by || "—"}</span>
                         {r.recorded_at && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-gray-400" title="وقت التسليم">
+                          <span className="flex items-center gap-1 text-[10px] text-gray-400" title="وقت التسليم">
                             <Clock className="w-3 h-3" />
-                            {r.recorded_at.slice(11, 16)}
+                            وقت التسليم {r.recorded_at.slice(11, 16)}
                           </span>
                         )}
                       </div>
@@ -164,12 +173,31 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center justify-end text-xs gap-2">
-                      <span className="text-gray-500">مبيعات: <span className="font-medium">{fmt(r.total_sales)}</span></span>
-                      <span className="text-green-600 font-bold">صافي: {fmt(shiftFinancialView(r).operationalNet)}</span>
+                    <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+                      <div className="rounded-lg bg-slate-50 border px-2 py-1.5 text-center">
+                        <p className="text-[10px] text-gray-400">إجمالي المبيعات</p>
+                        <b className="text-blue-700">{fmt(f.totalSales)} ج</b>
+                      </div>
+                      <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-2 py-1.5 text-center">
+                        <p className="text-[10px] text-gray-500">نقدي للمحاسب</p>
+                        <b className="text-emerald-700">{fmt(f.expectedCash)} ج</b>
+                      </div>
+                      <button type="button" onClick={() => setExpandedPayments(isExpanded ? null : r.id)} className="rounded-lg bg-violet-50 border border-violet-100 px-2 py-1.5 text-center hover:bg-violet-100 transition-colors">
+                        <p className="text-[10px] text-gray-500">التحويلات</p>
+                        <b className="text-violet-700">{fmt(f.electronicTotal)} ج</b>
+                      </button>
                     </div>
+                    {isExpanded && (
+                      <div className="mt-2 rounded-lg border bg-white p-2 grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px]">
+                        <div><span className="text-gray-400">إنستا باي</span><p className="font-bold text-violet-700">{fmt(f.payments.insta)} ج</p></div>
+                        <div><span className="text-gray-400">فودافون كاش</span><p className="font-bold text-rose-700">{fmt(f.payments.vodafone)} ج</p></div>
+                        <div><span className="text-gray-400">فيزا</span><p className="font-bold text-blue-700">{fmt(f.payments.visa)} ج</p></div>
+                        <div><span className="text-gray-400">تحويلات أخرى</span><p className="font-bold text-slate-700">{fmt(f.payments.other)} ج</p></div>
+                        <div><span className="text-gray-400">مصروفات الشيفت</span><p className="font-bold text-red-600">{fmt(f.realExpenseTotal)} ج</p></div>
+                      </div>
+                    )}
                   </div>
-                ))}
+                );})}
               </div>
               <div className="px-3 py-1.5 bg-gray-50 border-t flex justify-between text-xs gap-2">
                 <div className="flex items-center gap-1.5">
@@ -177,8 +205,8 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                   <span className="font-bold text-blue-600">{fmt(bSales)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-gray-500">صافي الفرع</span>
-                  <span className="font-bold text-green-600">{fmt(bNet)} ج.م</span>
+                  <span className="text-gray-500">نقدي للمحاسب</span>
+                  <span className="font-bold text-emerald-700">{fmt(bCash)} ج.م</span>
                 </div>
               </div>
             </div>
