@@ -2,9 +2,9 @@ import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
-import { PlusCircle, List, BarChart3, PieChart as PieIcon, Settings2, AlertTriangle, RotateCcw } from "lucide-react";
+import { PlusCircle, List, BarChart3, Settings2, AlertTriangle } from "lucide-react";
 import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
-import ShiftDeliveryHistory from "@/components/shift/ShiftDeliveryHistory";
+const ShiftDeliveryHistory = lazy(() => import("@/components/shift/ShiftDeliveryHistory"));
 const ShiftOperationsAnalytics = lazy(() => import("@/components/shift/ShiftOperationsAnalytics"));
 const ShiftDeliveryReport = lazy(() => import("@/components/shift/ShiftDeliveryReport"));
 const ExpenseItemsTab = lazy(() => import("@/components/shift/ExpenseItemsTab"));
@@ -143,7 +143,9 @@ export default function ShiftDelivery() {
                 </button>
               </div>
             )}
-            <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} />
+            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل السجل...</div>}>
+              <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} />
+            </Suspense>
           </>
         )}
         {activeTab === "review" && canReviewOperationally && hasHistoryScope && (
@@ -156,7 +158,11 @@ export default function ShiftDelivery() {
                 الاستعادة {activeDrafts.length > 0 ? `(${activeDrafts.length.toLocaleString("ar-EG")})` : ""}
               </button>
             </div>
-            {reviewMode === "duplicates" && <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />}
+            {reviewMode === "duplicates" && (
+              <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل التكرارات...</div>}>
+                <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />
+              </Suspense>
+            )}
             <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري التحميل...</div>}>
               {reviewMode === "recovery" && <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />}
             </Suspense>
