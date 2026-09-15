@@ -63,7 +63,7 @@ export default function ShiftDelivery() {
     staleTime: 120000,
   });
 
-  const { data: activeDrafts = [] } = useQuery({
+  const { data: rawActiveDrafts = [] } = useQuery({
     queryKey: ["shift-drafts-active", scopedBranches.join("|")],
     queryFn: async () => {
       if (fullFinancial) return base44.entities.ShiftDraft.filter({ status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500);
@@ -73,6 +73,15 @@ export default function ShiftDelivery() {
     enabled: activeTab === "recovery" && canReviewOperationally && hasHistoryScope,
     staleTime: 15000,
     refetchOnWindowFocus: true,
+  });
+
+  const activeDrafts = rawActiveDrafts.filter((d) => {
+    const hasSales = Number(d.total_sales || 0) > 0;
+    const hasPaymentDetails = Number(d.visa_sales || 0) > 0 || Number(d.insta_sales || 0) > 0 || Number(d.vodafone_sales || 0) > 0 || Number(d.other_sales || 0) > 0;
+    const hasExpenses = Array.isArray(d.expenses) && d.expenses.some((e) => Number(e?.amount || 0) > 0 || String(e?.category || "").trim() || String(e?.description || "").trim());
+    const hasNotes = String(d.notes || "").trim().length > 0;
+    const hasFailure = Boolean(d.last_error) || d.status === "submitting";
+    return hasSales || hasPaymentDetails || hasExpenses || hasNotes || hasFailure;
   });
 
   const activeDeliveries = deliveries.filter((d) => d.is_archived !== true);
