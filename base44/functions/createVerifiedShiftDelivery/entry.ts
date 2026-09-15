@@ -4,6 +4,23 @@ import { secrets } from 'base44:runtime';
 const VERIFY_ENDPOINT = 'https://jkjqeqkshllustwlzzbf.supabase.co/functions/v1/dawaawael-verify-staff';
 const VALID_BRANCHES = new Set(['دواء شكري', 'دواء الشامي']);
 const VALID_SHIFTS = new Set(['صباحي', 'مسائي', 'ليلي']);
+const normalizeEmployeeName = (value: unknown) => String(value ?? '').trim().replace(/[\\/]/g, ' ').replace(/\s+/g, ' ');
+const SHIFT_DELIVERY_EXCLUDED_EMPLOYEES = new Set([
+  'احمد وجيه',
+  'محمود الغباري',
+  'محمود',
+  'يوسف ماهر',
+  'احمد السيد',
+  'محمد الالفي',
+  'محمد الديب',
+  'محمد حافظ',
+  'عبد الرحمن',
+  'حسين',
+  'مصطفي',
+  'عم محمد سالم',
+  'يوسف عيد',
+  'اسلام السبع',
+].map(normalizeEmployeeName));
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
@@ -96,6 +113,11 @@ export default async function(req: Request): Promise<Response> {
     const mappings = await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true });
     const mapping = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === branch);
     if (!mapping) return Response.json({ error: 'الموظف غير مربوط بهذا الفرع في سجل الأسماء الرسمي' }, { status: 403 });
+    const canonicalName = normalizeEmployeeName(mapping.canonical_name);
+    const aliases = Array.isArray(mapping.aliases) ? mapping.aliases.map(normalizeEmployeeName) : [];
+    if (SHIFT_DELIVERY_EXCLUDED_EMPLOYEES.has(canonicalName) || aliases.some((name: string) => SHIFT_DELIVERY_EXCLUDED_EMPLOYEES.has(name))) {
+      return Response.json({ error: 'هذا الموظف من فريق الدليفري وغير مسموح له بتسليم شيفت الصيدلية' }, { status: 403 });
+    }
 
     const verification: any = await verifyStaff(adminStaffId, credential);
     if (!verification.ok) return Response.json({ error: verification.error }, { status: verification.status });
