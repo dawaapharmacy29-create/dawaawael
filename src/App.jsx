@@ -105,10 +105,10 @@ const AuthenticatedApp = () => {
         <Route path="/pending-invoices" element={<PendingInvoices />} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
-        <Route path="/inventory" element={<InventoryManagement />} />
+        <Route path="/inventory" element={<RoleRouteGuard adminOnly><InventoryManagement /></RoleRouteGuard>} />
         <Route path="/customer-orders" element={<CustomerOrders />} />
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
-        <Route path="/inventory-count" element={<InventoryCount />} />
+        <Route path="/inventory-count" element={<RoleRouteGuard adminOnly><InventoryCount /></RoleRouteGuard>} />
         <Route path="/reports-branch" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><ReportsBranch /></FinancialRouteGuard>} />
         <Route path="/supplier-balances-branch" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierBalancesBranch /></FinancialRouteGuard>} />
         <Route path="/supplier-intelligence" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SupplierIntelligence /></FinancialRouteGuard>} />
