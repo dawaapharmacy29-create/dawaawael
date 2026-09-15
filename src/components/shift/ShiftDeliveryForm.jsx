@@ -18,7 +18,6 @@ const normalizeShiftEmployeeName = (value = "") => String(value).trim().replace(
 const SHIFT_DELIVERY_EXCLUDED_EMPLOYEES = new Set([
   "احمد وجيه",
   "محمود الغباري",
-  "محمود",
   "يوسف ماهر",
   "احمد السيد",
   "محمد الالفي",
