@@ -146,15 +146,39 @@ export default function ShiftDelivery() {
             <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} />
           </>
         )}
-        {activeTab === "duplicates" && canReviewOperationally && hasHistoryScope && (
-          <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />
+        {activeTab === "review" && canReviewOperationally && hasHistoryScope && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-xl border bg-white p-2 w-fit">
+              <button type="button" onClick={() => setReviewMode("duplicates")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reviewMode === "duplicates" ? "bg-amber-100 text-amber-800" : "text-gray-500 hover:bg-gray-50")}>
+                التكرارات {duplicateCount > 0 ? `(${duplicateCount.toLocaleString("ar-EG")})` : ""}
+              </button>
+              <button type="button" onClick={() => setReviewMode("recovery")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reviewMode === "recovery" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
+                الاستعادة {activeDrafts.length > 0 ? `(${activeDrafts.length.toLocaleString("ar-EG")})` : ""}
+              </button>
+            </div>
+            {reviewMode === "duplicates" && <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />}
+            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري التحميل...</div>}>
+              {reviewMode === "recovery" && <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />}
+            </Suspense>
+          </div>
         )}
-        <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل الجزء المطلوب...</div>}>
-          {activeTab === "recovery" && canReviewOperationally && hasHistoryScope && (
-            <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />
-          )}
-          {activeTab === "stats" && fullFinancial && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
-          {activeTab === "report" && fullFinancial && <ShiftDeliveryReport deliveries={activeDeliveries} />}
+        {activeTab === "reports" && fullFinancial && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-xl border bg-white p-2 w-fit">
+              <button type="button" onClick={() => setReportMode("stats")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reportMode === "stats" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
+                ملخص وتحليلات
+              </button>
+              <button type="button" onClick={() => setReportMode("report")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reportMode === "report" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
+                المصروفات والتصدير
+              </button>
+            </div>
+            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل التقرير...</div>}>
+              {reportMode === "stats" && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
+              {reportMode === "report" && <ShiftDeliveryReport deliveries={activeDeliveries} />}
+            </Suspense>
+          </div>
+        )}
+        <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل الإعدادات...</div>}>
           {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
         </Suspense>
       </div>
