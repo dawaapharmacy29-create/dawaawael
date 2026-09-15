@@ -51,6 +51,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const [manualShiftOverride, setManualShiftOverride] = useState(false);
   const [shiftDetecting, setShiftDetecting] = useState(false);
   const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+  const [advancedCollection, setAdvancedCollection] = useState(false);
   const [visaControl, setVisaControl] = useState({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
   const [cashHandover, setCashHandover] = useState("");
   const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "", payment_source: "cash" }]);
@@ -133,7 +134,9 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     return () => { cancelled = true; };
   }, [form.branch, manualShiftOverride, initialDraft?.id, shiftDetectionBucket]);
 
-  const paymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
+  const detailedPaymentTotal = useMemo(() => Object.values(payments).reduce((sum, value) => sum + (parseFloat(value) || 0), 0), [payments]);
+  const simpleTotal = parseFloat(form.total_sales) || 0;
+  const paymentTotal = advancedCollection ? detailedPaymentTotal : simpleTotal;
   const liveBusinessDate = draftBusinessDate || (form.shift_type ? currentShiftBusinessDate(form.shift_type) : "");
   const { data: liveExpenseEvents = [] } = useQuery({
     queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type],
@@ -276,10 +279,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       const proceed = window.confirm(`الوقت الحالي يرجح أن الشيفت هو «${shiftSuggestion.shiftType}» وليس «${form.shift_type}».\n${shiftSuggestion.reason || ""}\n\nهل تريد الاستمرار بالاختيار اليدوي؟`);
       if (!proceed) return;
     }
-    if (paymentTotal <= 0) return setError("الرجاء إدخال تفصيل المبيعات حسب وسيلة الدفع");
-    if ((parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
-    if ((parseFloat(payments.visa) || 0) > 0 && visaControl.terminalAmount === "") return setError("يوجد تحصيل فيزا — أدخل قيمة تقرير إقفال جهاز POS لمطابقة الفيزا");
-    if ((Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) && !(form.notes || "").trim()) return setError(`يوجد فرق يحتاج مراجعة${Math.abs(cashVariance) > 1 ? ` — فرق كاش ${cashVariance.toFixed(2)} ج` : ""}${Math.abs(visaVariance) > 1 ? ` — فرق فيزا ${visaVariance.toFixed(2)} ج` : ""}. اكتب السبب في الملاحظات قبل الحفظ`);
+    if (paymentTotal <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
+    if (advancedCollection && (parseFloat(payments.cash) || 0) > 0 && cashHandover === "") return setError("الرجاء إدخال الكاش الفعلي المسلم");
+    if (advancedCollection && (parseFloat(payments.visa) || 0) > 0 && visaControl.terminalAmount === "") return setError("يوجد تحصيل فيزا — أدخل قيمة تقرير إقفال جهاز POS لمطابقة الفيزا");
+    if (advancedCollection && (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) && !(form.notes || "").trim()) return setError(`يوجد فرق يحتاج مراجعة${Math.abs(cashVariance) > 1 ? ` — فرق كاش ${cashVariance.toFixed(2)} ج` : ""}${Math.abs(visaVariance) > 1 ? ` — فرق فيزا ${visaVariance.toFixed(2)} ج` : ""}. اكتب السبب في الملاحظات قبل الحفظ`);
 
     const liveExpenses = liveExpenseEvents.map((e) => ({
       description: `${e.note || ""}${e.note ? " — " : ""}مسجل أثناء الشيفت ${e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : ""}`.trim(),
@@ -329,7 +332,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           cash_handover: actualCashHandover,
           cash_variance: cashVariance,
           idempotency_key: submissionTokenRef.current,
-          workflow_status: (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) ? "under_review" : "submitted",
+          workflow_status: advancedCollection && (Math.abs(cashVariance) > 1 || Math.abs(visaVariance) > 1) ? "under_review" : "submitted",
           expenses: validExpenses,
           notes: form.notes,
         },
@@ -358,7 +361,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         qc.invalidateQueries({ queryKey: ["shift-expense-events"] });
       }
       let visaTrackingWarning = "";
-      if ((parseFloat(payments.visa) || 0) > 0) {
+      if (advancedCollection && (parseFloat(payments.visa) || 0) > 0) {
         try {
           const payload = {
             shift_id: savedShiftId,
@@ -401,6 +404,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         notes: "",
       });
       setPayments({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
+      setAdvancedCollection(false);
       setVisaControl({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
       setCashHandover("");
       setExpenses([{ description: "", amount: "", category: "", payment_source: "cash" }]);
