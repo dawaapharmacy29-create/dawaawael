@@ -340,7 +340,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       const existingShift = await base44.entities.ShiftDelivery.filter({ branch: form.branch, shift_date: businessDate, shift_type: form.shift_type }, "-created_date", 20);
       const activeDuplicate = existingShift.find((s) => s.is_archived !== true);
       if (activeDuplicate) {
-        setError(`تم إيقاف الحفظ: يوجد بالفعل شيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate}. راجع تنبيهات التكرار بدل إنشاء سجل جديد.`);
+        setError(`الشيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate} متسجل بالفعل. افتح «سجل الشيفتات» أو «مراجعة» بدل إعادة تسجيله.`);
         return;
       }
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
@@ -456,10 +456,33 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       if (visaTrackingWarning) window.alert(visaTrackingWarning);
       if (onSaved) onSaved();
     } catch (e) {
-      const message = e.message || "حدث خطأ أثناء الحفظ";
+      const status = e?.response?.status || e?.status;
+      const serverError = e?.response?.data?.error || e?.data?.error;
+      const isDuplicate = status === 409 || e?.response?.data?.code === "duplicate_shift_delivery";
+      const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
+      const message = isDuplicate
+        ? `الشيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate} متسجل بالفعل، لذلك لم يتم إنشاء نسخة ثانية. راجع «سجل الشيفتات» أو «مراجعة» لو محتاج تشوف السجل الموجود.`
+        : (serverError || e?.message || "حدث خطأ أثناء الحفظ");
+
       if (draftIdRef.current) {
-        retryCountRef.current += 1;
-        try { await base44.entities.ShiftDraft.update(draftIdRef.current, { status: "draft", last_error: message, retry_count: retryCountRef.current, last_saved_at: new Date().toISOString() }); qc.invalidateQueries({ queryKey: ["shift-drafts-active"] }); } catch {}
+        try {
+          if (isDuplicate) {
+            await base44.entities.ShiftDraft.update(draftIdRef.current, {
+              status: "abandoned",
+              last_error: "تم إغلاق المسودة لأن الشيفت موجود بالفعل",
+              last_saved_at: new Date().toISOString(),
+            });
+          } else {
+            retryCountRef.current += 1;
+            await base44.entities.ShiftDraft.update(draftIdRef.current, {
+              status: "draft",
+              last_error: message,
+              retry_count: retryCountRef.current,
+              last_saved_at: new Date().toISOString(),
+            });
+          }
+          qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
+        } catch {}
       }
       setError(message);
     } finally {
