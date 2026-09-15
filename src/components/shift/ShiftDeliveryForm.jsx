@@ -70,7 +70,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const [advancedCollection, setAdvancedCollection] = useState(false);
   const [visaControl, setVisaControl] = useState({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
   const [cashHandover, setCashHandover] = useState("");
-  const [expenses, setExpenses] = useState([{ description: "", amount: "", category: "", payment_source: "cash" }]);
+  const [expenses, setExpenses] = useState([]);
   const [liveExpenseForm, setLiveExpenseForm] = useState({ category: "", amount: "", note: "", payment_source: "cash" });
   const [liveExpenseSaving, setLiveExpenseSaving] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -93,7 +93,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       notes: initialDraft.notes || "",
     });
     const savedBreakdown = Number(initialDraft.cash_sales || 0) + Number(initialDraft.visa_sales || 0) + Number(initialDraft.insta_sales || 0) + Number(initialDraft.vodafone_sales || 0) + Number(initialDraft.other_sales || 0);
-    const hasDetailedBreakdown = Number(initialDraft.cash_sales || 0) > 0 || Number(initialDraft.visa_sales || 0) > 0 || Number(initialDraft.insta_sales || 0) > 0 || Number(initialDraft.vodafone_sales || 0) > 0;
+    const hasDetailedBreakdown = Number(initialDraft.visa_sales || 0) > 0 || Number(initialDraft.insta_sales || 0) > 0 || Number(initialDraft.vodafone_sales || 0) > 0 || Number(initialDraft.other_sales || 0) > 0;
     setAdvancedCollection(hasDetailedBreakdown);
     setPayments({
       cash: initialDraft.cash_sales || "",
@@ -109,7 +109,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       batchReference: initialDraft.visa_batch_reference || "",
     });
     setCashHandover(initialDraft.cash_handover ?? "");
-    setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses.map((e) => ({ ...e, payment_source: e.payment_source || "cash" })) : [{ description: "", amount: "", category: "", payment_source: "cash" }]);
+    setExpenses(Array.isArray(initialDraft.expenses) && initialDraft.expenses.length > 0 ? initialDraft.expenses.map((e) => ({ ...e, payment_source: e.payment_source || "cash" })) : []);
     setDraftBusinessDate(initialDraft.business_date || "");
     draftIdRef.current = initialDraft.id;
     draftKeyRef.current = initialDraft.draft_key || "";
