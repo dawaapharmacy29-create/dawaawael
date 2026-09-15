@@ -77,6 +77,8 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       notes: initialDraft.notes || "",
     });
     const savedBreakdown = Number(initialDraft.cash_sales || 0) + Number(initialDraft.visa_sales || 0) + Number(initialDraft.insta_sales || 0) + Number(initialDraft.vodafone_sales || 0) + Number(initialDraft.other_sales || 0);
+    const hasDetailedBreakdown = Number(initialDraft.cash_sales || 0) > 0 || Number(initialDraft.visa_sales || 0) > 0 || Number(initialDraft.insta_sales || 0) > 0 || Number(initialDraft.vodafone_sales || 0) > 0;
+    setAdvancedCollection(hasDetailedBreakdown);
     setPayments({
       cash: initialDraft.cash_sales || "",
       visa: initialDraft.visa_sales || "",
