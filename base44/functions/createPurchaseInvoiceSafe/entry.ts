@@ -66,9 +66,11 @@ export default async function(req: Request): Promise<Response> {
       canonical_name: enteredBy,
       is_active: true,
     });
-    const employee = employeeMappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === branch);
+    // الموظف يمكنه إدخال فاتورة لأي فرع لأنه قد يكون منقولًا أو يعمل مؤقتًا في الفرع الآخر.
+    // نتحقق فقط أنه موظف نشط ومعتمد، بينما فرع الفاتورة يظل مستقلًا عن فرعه الأساسي.
+    const employee = employeeMappings.find((m: any) => clean(m.admin_staff_id)) || employeeMappings[0];
     if (!employee) {
-      return Response.json({ error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين لهذا الفرع' }, { status: 400 });
+      return Response.json({ error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين والنشطين' }, { status: 400 });
     }
 
     const supplierId = clean(invoice.supplier_id);
