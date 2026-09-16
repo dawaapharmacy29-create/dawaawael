@@ -1,6 +1,6 @@
 import { useAuth } from "@/lib/AuthContext";
 import { buildFinancialPermissions } from "@/lib/financialAccess";
-import { canUseCoreOperationalEntry, isDeliveryStaffUser, operationalBranchesForUser } from "@/lib/operationalAccess";
+import { canUseCoreOperationalEntry as canUseCoreOperationalEntryForUser, isDeliveryStaffUser, operationalBranchesForUser } from "@/lib/operationalAccess";
 
 export function useUserRole() {
   // المستخدم تم تحميله بالفعل مرة واحدة داخل AuthContext عند بدء التطبيق.
@@ -13,7 +13,7 @@ export function useUserRole() {
   const isViewer = role === "viewer";
 
   const isDeliveryStaff = isDeliveryStaffUser(user);
-  const canUseCoreOperationalEntry = canUseCoreOperationalEntry(user);
+  const canUseCoreOperationalEntry = canUseCoreOperationalEntryForUser(user);
   const canDeleteInvoice = isAdmin || !!user?.can_delete_invoice;
   // تسجيل الفواتير تشغيل يومي للعاملين بالصيدلية فقط؛ فريق الدليفري مستبعد من المسار التشغيلي الأساسي.
   const canSaveInvoice = canUseCoreOperationalEntry;
