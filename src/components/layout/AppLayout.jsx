@@ -9,15 +9,15 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard, section: "main" },
-  { path: "/invoices", label: "فواتير الشراء", icon: FileText, section: "main" },
+  { path: "/invoices", label: "تسجيل فواتير الشراء", icon: FileText, section: "main", nonDeliveryOnly: true },
   { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main" },
   { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, section: "main" },
   { path: "/expenses", label: "المصروفات", icon: Receipt, section: "operations", fullFinancialOnly: true },
   { path: "/returns", label: "المرتجعات", icon: RotateCcw, pink: true, section: "operations" },
   { path: "/inventory", label: "الراكد والأكسبير", icon: PackageX, dark: true, hidden: true, section: "operations" },
   { path: "/inventory-count", label: "الجرد الدوري", icon: PackageSearch, cyan: true, hidden: true, section: "operations" },
-  { path: "/shift-delivery", label: "تسليم الشيفت", icon: Clock, purple: true, section: "operations" },
-  { path: "/customer-orders", label: "طلبات العملاء", icon: ShoppingBag, teal: true, section: "requests" },
+  { path: "/shift-delivery", label: "تسليم الشيفت", icon: Clock, purple: true, section: "operations", nonDeliveryOnly: true },
+  { path: "/customer-orders", label: "تسجيل طلب عميل", icon: ShoppingBag, teal: true, section: "requests", nonDeliveryOnly: true },
   { path: "/pharmacy-orders", label: "طلبات الصيدليات", icon: FlaskConical, violet: true, section: "requests" },
   { path: "/replenishment", label: "قائمة الأصناف المطلوبة", icon: PackageSearch, emerald: true, section: "requests" },
   { path: "/suppliers", label: "الموردين", icon: Users, section: "suppliers", fullFinancialOnly: true },
@@ -92,8 +92,15 @@ export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
-  const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials, financialAccessLevel, user } = useUserRole();
-  const visibleNavItems = navItems.filter((item) => !item.hidden && (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager) && (!item.financialOnly || canViewFinancialReports) && (!item.fullFinancialOnly || canViewAllBranchesFinancials));
+  const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials, financialAccessLevel, user, canUseCoreOperationalEntry } = useUserRole();
+  const visibleNavItems = navItems.filter((item) =>
+    !item.hidden &&
+    (!item.adminOnly || isAdmin) &&
+    (!item.managerOnly || isManager) &&
+    (!item.financialOnly || canViewFinancialReports) &&
+    (!item.fullFinancialOnly || canViewAllBranchesFinancials) &&
+    (!item.nonDeliveryOnly || canUseCoreOperationalEntry)
+  );
 
   const groupedNavItems = useMemo(
     () => NAV_SECTIONS
