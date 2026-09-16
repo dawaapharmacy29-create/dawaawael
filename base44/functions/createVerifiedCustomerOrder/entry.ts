@@ -8,6 +8,19 @@ function clean(value: unknown) {
   return String(value ?? '').trim();
 }
 
+function normalizeStaffName(value: unknown) {
+  return clean(value).toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ');
+}
+
+const DELIVERY_NAMES = new Set([
+  'احمد وجيه','محمود الغباري','يوسف ماهر','احمد السيد','محمد الالفي','محمد الديب','محمد حافظ',
+  'عبد الرحمن','حسين','مصطفي','عم محمد سالم','يوسف عيد','اسلام السبع',
+].map(normalizeStaffName));
+
+function isDeliveryName(value: unknown) {
+  return DELIVERY_NAMES.has(normalizeStaffName(value));
+}
+
 async function verifyStaff(adminStaffId: string, credential: string) {
   const secret = secrets.get('DAWAA_PHARMACY_SYNC_SECRET') || '';
   if (!secret) return { ok: false, status: 503, error: 'إعداد التحقق مع تطبيق الإدارة غير مكتمل' };
@@ -61,6 +74,15 @@ export default async function(req: Request): Promise<Response> {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
+    const userText = [
+      (user as any).management_job_title,
+      (user as any).management_role,
+      (user as any).full_name,
+      (user as any).name,
+    ].map(normalizeStaffName).join(' | ');
+    if (isDeliveryName((user as any).full_name) || isDeliveryName((user as any).management_display_name) || ['delivery','driver','courier','مندوب','دليفري','توصيل'].some((k) => userText.includes(normalizeStaffName(k)))) {
+      return Response.json({ error: 'تسجيل طلبات العملاء غير متاح لحسابات فريق الدليفري' }, { status: 403 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const mode = clean(body?.mode) || 'direct_verified';
@@ -151,8 +173,13 @@ export default async function(req: Request): Promise<Response> {
       : Array.isArray((user as any)?.data?.branch_access)
         ? (user as any).data.branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
         : [];
+    const managementBranch = clean((user as any)?.management_branch || (user as any)?.data?.management_branch);
     const legacyBranch = clean((user as any)?.branch || (user as any)?.data?.branch);
-    const allowedBranches = explicitBranches.length ? explicitBranches : (VALID_BRANCHES.has(legacyBranch) ? [legacyBranch] : []);
+    const allowedBranches = explicitBranches.length
+      ? explicitBranches
+      : VALID_BRANCHES.has(managementBranch)
+        ? [managementBranch]
+        : (VALID_BRANCHES.has(legacyBranch) ? [legacyBranch] : []);
     if (String((user as any).role || '') !== 'admin' && allowedBranches.length && !allowedBranches.includes(order.branch)) {
       return Response.json({ error: 'هذا الحساب غير مصرح له بالتسجيل لهذا الفرع' }, { status: 403 });
     }
@@ -166,6 +193,9 @@ export default async function(req: Request): Promise<Response> {
     const mappings = await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true });
     const mapping = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === order.branch);
     if (!mapping) return Response.json({ error: 'الموظف غير مربوط بهذا الفرع في سجل الأسماء الرسمي' }, { status: 403 });
+    if (isDeliveryName(mapping.canonical_name) || (Array.isArray(mapping.aliases) && mapping.aliases.some(isDeliveryName))) {
+      return Response.json({ error: 'موظفو الدليفري غير مسموح لهم بتسجيل طلب عميل من هذا المسار' }, { status: 403 });
+    }
 
     const verification: any = await verifyStaff(adminStaffId, credential);
     // Expected identity-validation failures are returned as a normal function payload
