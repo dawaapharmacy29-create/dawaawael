@@ -7,13 +7,15 @@ import FinancialDashboard from "./FinancialDashboard";
 import LimitedFinancialDashboard from "./LimitedFinancialDashboard";
 
 function OperationalDashboard() {
-  const { user, financialAccessLevel } = useUserRole();
+  const { user, financialAccessLevel, canUseCoreOperationalEntry } = useUserRole();
   const name = user?.full_name || user?.name || "";
   const cards = [
-    { to: "/shift-delivery", label: "تسليم الشيفت", desc: "تسجيل الشيفت ومراجعة تسليمات فرعك في الدورة الحالية", icon: Clock },
-    { to: "/invoices", label: "فواتير الشراء", desc: "تسجيل ومتابعة الفواتير التشغيلية", icon: FileText },
-    { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة واعتماد الفواتير التشغيلية", icon: ClipboardList },
-    { to: "/customer-orders", label: "طلبات العملاء", desc: "تسجيل ومتابعة طلبات العملاء", icon: ShoppingBag },
+    ...(canUseCoreOperationalEntry ? [
+      { to: "/shift-delivery", label: "تسليم الشيفت", desc: "تسجيل الشيفت ومراجعة تسليمات فرعك في الدورة الحالية", icon: Clock },
+      { to: "/invoices", label: "تسجيل فواتير الشراء", desc: "إضافة ومتابعة فواتير الفرع المسموح لك به", icon: FileText },
+      { to: "/pending-invoices", label: "انتظار المراجعة", desc: "مراجعة واعتماد الفواتير التشغيلية", icon: ClipboardList },
+      { to: "/customer-orders", label: "تسجيل طلب عميل", desc: "تسجيل ومتابعة طلبات العملاء في نطاق فرعك", icon: ShoppingBag },
+    ] : []),
     { to: "/pharmacy-orders", label: "طلبات الصيدليات", desc: "تسجيل ومتابعة طلبات الصيدليات", icon: FlaskConical },
   ];
 
