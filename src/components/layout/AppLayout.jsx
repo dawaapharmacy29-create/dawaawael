@@ -10,7 +10,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 const navItems = [
   { path: "/", label: "الرئيسية", icon: LayoutDashboard, section: "main" },
   { path: "/invoices", label: "تسجيل فواتير الشراء", icon: FileText, section: "main", nonDeliveryOnly: true },
-  { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main" },
+  { path: "/pending-invoices", label: "انتظار المراجعة", icon: ClipboardList, badge: true, section: "main", nonDeliveryOnly: true },
   { path: "/medicine-list", label: "أدوية اللسته", icon: FlaskConical, gold: true, section: "main" },
   { path: "/expenses", label: "المصروفات", icon: Receipt, section: "operations", fullFinancialOnly: true },
   { path: "/returns", label: "المرتجعات", icon: RotateCcw, pink: true, section: "operations" },
@@ -38,7 +38,7 @@ const navItems = [
   { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, fullFinancialOnly: true, section: "operations" },
   { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, fullFinancialOnly: true, section: "operations" },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, managerOnly: true, section: "management" },
-  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main" },
+  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main", nonDeliveryOnly: true }
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
   { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, fullFinancialOnly: true, section: "reports" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
