@@ -7,6 +7,22 @@ const DELIVERY_KEYWORDS = [
   "توصيل",
 ];
 
+const DELIVERY_EMPLOYEE_NAMES = new Set([
+  "احمد وجيه",
+  "محمود الغباري",
+  "يوسف ماهر",
+  "احمد السيد",
+  "محمد الالفي",
+  "محمد الديب",
+  "محمد حافظ",
+  "عبد الرحمن",
+  "حسين",
+  "مصطفي",
+  "عم محمد سالم",
+  "يوسف عيد",
+  "اسلام السبع",
+].map((name) => String(name).trim().toLowerCase().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s+/g, " ")));
+
 const normalize = (value = "") => String(value)
   .trim()
   .toLowerCase()
@@ -14,6 +30,10 @@ const normalize = (value = "") => String(value)
   .replace(/ة/g, "ه")
   .replace(/ى/g, "ي")
   .replace(/\s+/g, " ");
+
+export function isDeliveryStaffName(name) {
+  return DELIVERY_EMPLOYEE_NAMES.has(normalize(name));
+}
 
 export function isDeliveryStaffUser(user) {
   if (!user) return false;
@@ -27,7 +47,8 @@ export function isDeliveryStaffUser(user) {
     user.management_display_name,
   ].map(normalize).filter(Boolean).join(" | ");
 
-  return DELIVERY_KEYWORDS.some((keyword) => haystack.includes(normalize(keyword)));
+  const namedAsDelivery = [user.full_name, user.management_display_name, user.name].some((name) => isDeliveryStaffName(name));
+  return namedAsDelivery || DELIVERY_KEYWORDS.some((keyword) => haystack.includes(normalize(keyword)));
 }
 
 export function canUseCoreOperationalEntry(user) {
