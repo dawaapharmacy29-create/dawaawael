@@ -11,6 +11,28 @@ function clean(value: unknown) {
   return String(value ?? '').trim();
 }
 
+function normalizeStaffText(value: unknown) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ');
+}
+
+const DELIVERY_KEYWORDS = ['delivery', 'driver', 'courier', 'مندوب', 'دليفري', 'توصيل'];
+const DELIVERY_NAMES = new Set([
+  'احمد وجيه','محمود الغباري','يوسف ماهر','احمد السيد','محمد الالفي','محمد الديب','محمد حافظ',
+  'عبد الرحمن','حسين','مصطفي','عم محمد سالم','يوسف عيد','اسلام السبع',
+].map(normalizeStaffText));
+
+function isDeliveryIdentity(...values: unknown[]) {
+  const normalized = values.map(normalizeStaffText).filter(Boolean);
+  if (normalized.some((v) => DELIVERY_NAMES.has(v))) return true;
+  const haystack = normalized.join(' | ');
+  return DELIVERY_KEYWORDS.some((keyword) => haystack.includes(normalizeStaffText(keyword)));
+}
+
 function numberOrZero(value: unknown) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
@@ -37,7 +59,21 @@ export default async function(req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
 
     const role = String(user.role || '');
-    // تسجيل الفواتير عملية تشغيلية أساسية لكل حساب مسجل.
+    const linkedProfiles: any[] = clean(user.email)
+      ? await base44.asServiceRole.entities.ManagementLoginDirectory.filter({ base44_email: clean(user.email), is_active: true }).catch(() => [])
+      : [];
+    const linkedProfile = linkedProfiles[0] || null;
+    if (isDeliveryIdentity(
+      user.management_job_title,
+      user.management_role,
+      user.full_name,
+      user.name,
+      linkedProfile?.management_role,
+      linkedProfile?.display_name,
+    )) {
+      return Response.json({ error: 'تسجيل فواتير الشراء غير متاح لحسابات فريق الدليفري' }, { status: 403 });
+    }
+    // تسجيل الفواتير عملية تشغيلية أساسية للعاملين بالصيدلية.
     // الصلاحيات المالية الحساسة (الإجماليات/الذمم/التقارير) منفصلة تمامًا عن هذا المسار.
 
     const body = await req.json().catch(() => ({}));
@@ -56,6 +92,7 @@ export default async function(req: Request): Promise<Response> {
     // نطاق الفرع يقيّد عرض البيانات المالية والتقارير، وليس اختيار الفرع أثناء التسجيل.
     if (!systemInvoiceNumber) return Response.json({ error: 'رقم الفاتورة على البرنامج مطلوب' }, { status: 400 });
     if (!enteredBy) return Response.json({ error: 'يجب تحديد مدخل الفاتورة' }, { status: 400 });
+    if (isDeliveryIdentity(enteredBy)) return Response.json({ error: 'لا يمكن اختيار موظف دليفري كمدخل لفاتورة شراء' }, { status: 400 });
     if (!VALID_PAYMENT_TYPES.has(paymentType)) return Response.json({ error: 'طريقة الدفع غير صالحة' }, { status: 400 });
     if (!VALID_STATUSES.has(status)) return Response.json({ error: 'حالة الفاتورة غير صالحة' }, { status: 400 });
     if (!VALID_CATEGORIES.has(purchaseCategory)) return Response.json({ error: 'تصنيف الفاتورة غير صالح' }, { status: 400 });
