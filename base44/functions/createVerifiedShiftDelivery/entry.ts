@@ -103,7 +103,7 @@ export default async function(req: Request): Promise<Response> {
     const paymentBreakdownTotal = cashSales + visaSales + instaSales + vodafoneSales + otherSales;
     const idempotencyKey = clean(delivery.idempotency_key);
 
-    if (!adminStaffId || !credential) return Response.json({ error: 'بيانات التحقق مطلوبة' }, { status: 400 });
+    if (!adminStaffId) return Response.json({ error: 'بيانات الموظف مطلوبة' }, { status: 400 });
     if (!VALID_BRANCHES.has(branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
     if (!VALID_SHIFTS.has(shiftType)) return Response.json({ error: 'نوع الشيفت غير صالح' }, { status: 400 });
     if (!Number.isFinite(totalSales) || totalSales <= 0) return Response.json({ error: 'إجمالي المبيعات غير صالح' }, { status: 400 });
@@ -120,10 +120,14 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'هذا الموظف من فريق الدليفري وغير مسموح له بتسليم شيفت الصيدلية' }, { status: 403 });
     }
 
-    const verification: any = await verifyStaff(adminStaffId, credential);
-    if (!verification.ok) return Response.json({ error: verification.error }, { status: verification.status });
+    // خانة الرقم السري أُلغيت من الواجهة؛ التحقق يبقى مفعّلًا فقط إذا وصل credential (توافقًا مع أي استدعاء قديم).
+    let verification: any = null;
+    if (credential) {
+      verification = await verifyStaff(adminStaffId, credential);
+      if (!verification.ok) return Response.json({ error: verification.error }, { status: verification.status });
+    }
 
-    const staff = verification.result?.staff || {};
+    const staff = verification?.result?.staff || {};
     const now = new Date();
     const recordedAt = now.toISOString();
     // عند استكمال مسودة قديمة نلتزم بتاريخها التشغيلي بدل إجبارها على تاريخ اليوم الحالي.
@@ -179,8 +183,8 @@ export default async function(req: Request): Promise<Response> {
       submitted_by: clean(staff.name) || clean(mapping.canonical_name),
       submitted_by_staff_id: clean(staff.staff_id) || adminStaffId,
       submitted_by_admin_staff_id: adminStaffId,
-      identity_verified_at: clean(verification.result?.verified_at) || recordedAt,
-      identity_verification_source: clean(verification.result?.source) || 'DawaaManagement',
+      identity_verified_at: clean(verification?.result?.verified_at) || recordedAt,
+      identity_verification_source: clean(verification?.result?.source) || 'DawaaWaelLogin',
       total_sales: totalSales,
       cash_sales: cashSales,
       visa_sales: visaSales,

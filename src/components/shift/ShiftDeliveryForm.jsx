@@ -59,7 +59,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     branch: "",
     shift_type: initialShiftSuggestion.shiftType,
     employee_map_id: "",
-    pin: "",
     total_sales: "",
     notes: "",
   });
@@ -88,7 +87,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       branch: initialDraft.branch || "",
       shift_type: initialDraft.shift_type || "",
       employee_map_id: initialDraft.employee_map_id || "",
-      pin: "",
       total_sales: initialDraft.total_sales || "",
       notes: initialDraft.notes || "",
     });
@@ -314,7 +312,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
-    if (!form.pin) return setError("الرجاء إدخال الرقم السري الخاص بك");
     if (!initialDraft?.id && isShiftOverride(form.shift_type, shiftSuggestion?.shiftType)) {
       const proceed = window.confirm(`الوقت الحالي يرجح أن الشيفت هو «${shiftSuggestion.shiftType}» وليس «${form.shift_type}».\n${shiftSuggestion.reason || ""}\n\nهل تريد الاستمرار بالاختيار اليدوي؟`);
       if (!proceed) return;
@@ -356,7 +353,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       // الإنشاء نفسه يتم على السيرفر بعد التحقق؛ لا يوجد مسار إنشاء مباشر من الواجهة.
       const saveRes = await base44.functions.invoke("createVerifiedShiftDelivery", {
         admin_staff_id: selectedEmployee.admin_staff_id,
-        credential: form.pin,
         delivery: {
           branch: form.branch,
           shift_type: form.shift_type,
@@ -438,7 +434,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         branch: "",
         shift_type: nextSuggestion.shiftType,
         employee_map_id: "",
-        pin: "",
         total_sales: "",
         notes: "",
       });
@@ -513,7 +508,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(false); setForm({ ...form, branch: v, employee_map_id: "", pin: "" }); }}> 
+              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(false); setForm({ ...form, branch: v, employee_map_id: "" }); }}> 
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -545,7 +540,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">اسم الموظف <span className="text-red-500">*</span></Label>
-              <Select value={form.employee_map_id} disabled={!!initialDraft} onValueChange={(v) => setForm({ ...form, employee_map_id: v, pin: "" })}>
+              <Select value={form.employee_map_id} disabled={!!initialDraft} onValueChange={(v) => setForm({ ...form, employee_map_id: v })}>
                 <SelectTrigger><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
                 <SelectContent>
                   {employeeNameMap
@@ -560,18 +555,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
                     .map((m) => <SelectItem key={m.id} value={m.id}>{m.canonical_name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm text-gray-600">الرقم السري الخاص بك <span className="text-red-500">*</span></Label>
-              <Input
-                type="password"
-                placeholder="أدخل الرقم السري من تطبيق الإدارة"
-                value={form.pin}
-                onChange={(e) => setForm({ ...form, pin: e.target.value })}
-                className="text-lg tracking-widest"
-                autoComplete="current-password"
-              />
-              <p className="text-[11px] text-gray-400">لن يتم قبول التسليم إلا إذا كان الرقم السري يخص الاسم المختار فعليًا. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر في قائمة التسليم.</p>
             </div>
           </div>
           <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
