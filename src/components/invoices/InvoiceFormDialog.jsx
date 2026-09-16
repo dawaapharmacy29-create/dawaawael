@@ -18,6 +18,7 @@ import {
 import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 import { addDays } from "@/lib/supplierAging";
+import { isDeliveryStaffName } from "@/lib/operationalAccess";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -105,7 +106,7 @@ const emptyForm = {
   cash_amount: "",
 };
 
-export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, externalError = "", allInvoices = [] }) {
+export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, externalError = "", allInvoices = [], allowedBranches = BRANCHES }) {
   const [form, setForm] = useState(emptyForm);
   const [dupError, setDupError] = useState("");
 
@@ -114,9 +115,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     queryKey: ["employee-name-map"],
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
   });
-  // مدخل الفاتورة قد يعمل مؤقتًا في أي فرع، لذلك نعرض كل العاملين النشطين
-  // بغض النظر عن فرعهم الأساسي. فرع الفاتورة يظل مستقلًا عن فرع الموظف.
-  const memberOptions = [...new Set(employeeNameMap.map((m) => m.canonical_name).filter(Boolean))];
+  // مدخل الفاتورة قد يعمل مؤقتًا في أي فرع، لذلك نعرض العاملين النشطين من الصيدلية
+  // مع استبعاد فريق الدليفري من مسار الفواتير التشغيلي بالكامل.
+  const memberOptions = [...new Set(employeeNameMap.map((m) => m.canonical_name).filter((name) => name && !isDeliveryStaffName(name)))];
 
   useEffect(() => {
     if (invoice) {
@@ -382,7 +383,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               <Select value={form.branch} onValueChange={(v) => { setForm((prev) => ({ ...prev, branch: v })); setDupError(""); }} required>
                 <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
-                  {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  {allowedBranches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
