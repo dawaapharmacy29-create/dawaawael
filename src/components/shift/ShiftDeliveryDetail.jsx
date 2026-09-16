@@ -85,62 +85,71 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
 
   return (
     <Dialog open={!!item} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Badge className={SHIFT_BADGE[item.shift_type] || "bg-gray-100"}>{item.shift_type}</Badge>
-            <span>{item.branch}</span>
-            <span className="text-sm text-gray-400 font-normal">{item.shift_date}</span>
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-xl p-0 overflow-hidden">
+        <div className="border-b bg-slate-50/70 px-5 py-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Badge className={SHIFT_BADGE[item.shift_type] || "bg-gray-100"}>{item.shift_type}</Badge>
+                <span className="text-lg font-black text-slate-900">{item.branch}</span>
+              </div>
+              <Badge className={item.workflow_status === "closed" ? "bg-emerald-100 text-emerald-800" : item.workflow_status === "approved" ? "bg-blue-100 text-blue-800" : item.workflow_status === "under_review" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}>
+                {({submitted:"تم التسليم",under_review:"تحت المراجعة",approved:"معتمد",closed:"مقفول"})[item.workflow_status || "submitted"]}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="flex items-center gap-2 rounded-lg bg-white border px-3 py-2">
+              <UserRound className="w-4 h-4 text-slate-400" />
+              <div><p className="text-slate-400">الموظف</p><p className="font-bold text-slate-800">{item.submitted_by || "—"}</p></div>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white border px-3 py-2">
+              <CalendarClock className="w-4 h-4 text-slate-400" />
+              <div><p className="text-slate-400">تاريخ الشيفت</p><p className="font-bold text-slate-800">{formatShiftDate(item.shift_date)}</p></div>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white border px-3 py-2">
+              <Clock3 className="w-4 h-4 text-slate-400" />
+              <div><p className="text-slate-400">وقت التسليم</p><p className="font-black text-slate-900">{formatRecordedTime(item.recorded_at)}</p></div>
+            </div>
+          </div>
+          {isManager && item.calculation_date && item.calculation_date !== item.shift_date && (
+            <p className="mt-2 text-[11px] text-amber-700">يُحتسب محاسبيًا على {formatShiftDate(item.calculation_date)}</p>
+          )}
+        </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-gray-500 text-xs">الموظف</p>
-              <p className="font-medium">{item.submitted_by || "—"}</p>
+        <div className="space-y-4 p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-center">
+              <p className="text-[11px] text-gray-500">إجمالي المبيعات</p>
+              <p className="font-black text-blue-700 text-lg">{fmt(item.total_sales)} ج</p>
             </div>
-            <div>
-              <p className="text-gray-500 text-xs">الحالة</p>
-              <p className="font-medium">{item.status || "—"}</p>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+              <p className="text-[11px] text-gray-500">نقدي للمحاسب</p>
+              <p className="font-black text-emerald-700 text-lg">{fmt(financial.expectedCash)} ج</p>
             </div>
-            <div>
-              <p className="text-gray-500 text-xs">مرحلة الشيفت</p>
-              <Badge className={item.workflow_status === "closed" ? "bg-emerald-100 text-emerald-800" : item.workflow_status === "approved" ? "bg-blue-100 text-blue-800" : item.workflow_status === "under_review" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}>{({submitted:"تم التسليم",under_review:"تحت المراجعة",approved:"معتمد",closed:"مقفول"})[item.workflow_status || "submitted"]}</Badge>
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-3 text-center">
+              <p className="text-[11px] text-gray-500">إجمالي التحويلات</p>
+              <p className="font-black text-violet-700 text-lg">{fmt(financial.electronicTotal)} ج</p>
             </div>
-            <div>
-              <p className="text-gray-500 text-xs">وقت التسجيل</p>
-              <p className="font-medium">{item.recorded_at || item.shift_date || "—"}</p>
+            <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-center">
+              <p className="text-[11px] text-gray-500">مصروفات الشيفت</p>
+              <p className="font-black text-red-600 text-lg">{fmt(financial.realExpenseTotal)} ج</p>
             </div>
-            {isManager && item.calculation_date && (
-              <div>
-                <p className="text-gray-500 text-xs">تاريخ الاحتساب</p>
-                <p className="font-medium">{item.calculation_date}</p>
+          </div>
+
+          <div className="rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2"><WalletCards className="w-4 h-4 text-violet-600"/><p className="text-sm font-bold text-gray-800">تفاصيل التحصيل</p></div>
+              {financial.legacy && <Badge className="bg-amber-100 text-amber-800">بيانات قديمة مستنتجة</Badge>}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+              {[["كاش", financial.payments.cash],["فيزا", financial.payments.visa],["إنستا باي", financial.payments.insta],["فودافون كاش", financial.payments.vodafone],["تحويل", financial.payments.other]].map(([label,value]) => <div key={label} className="rounded-lg bg-slate-50 p-2"><p className="text-gray-400">{label}</p><p className="font-bold text-gray-800">{fmt(value)} ج</p></div>)}
+            </div>
+            {!financial.legacy && Math.abs(financial.cashVariance) > 1 && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700 flex items-center justify-between">
+                <span>فرق الكاش المسجل</span><b>{fmt(financial.cashVariance)} ج</b>
               </div>
             )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">المبيعات</p>
-              <p className="font-bold text-blue-700 text-sm">{fmt(item.total_sales)}</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">المصروفات</p>
-              <p className="font-bold text-red-600 text-sm">{fmt(financial.realExpenseTotal)}</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">الصافي</p>
-              <p className="font-bold text-green-600 text-sm">{fmt(financial.operationalNet)}</p>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2"><p className="text-sm font-semibold text-gray-700">وسائل التحصيل</p>{financial.legacy && <Badge className="bg-amber-100 text-amber-800">بيانات قديمة مستنتجة</Badge>}</div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
-              {[["كاش", financial.payments.cash],["فيزا", financial.payments.visa],["إنستا", financial.payments.insta],["فودافون", financial.payments.vodafone],["أخرى", financial.payments.other]].map(([label,value]) => <div key={label} className="rounded-lg border bg-gray-50 p-2"><p className="text-gray-400">{label}</p><p className="font-bold text-gray-800">{fmt(value)}</p></div>)}
-            </div>
-            {!financial.legacy && <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs"><div className="rounded-lg border p-2"><p className="text-gray-400">الكاش المتوقع</p><b>{fmt(financial.expectedCash)}</b></div><div className="rounded-lg border p-2"><p className="text-gray-400">الكاش المسلم</p><b>{fmt(financial.actualCash)}</b></div><div className={`rounded-lg border p-2 ${Math.abs(financial.cashVariance)>1?"bg-red-50":"bg-emerald-50"}`}><p className="text-gray-400">الفرق</p><b>{fmt(financial.cashVariance)}</b></div></div>}
           </div>
 
           {financial.realExpenses.length > 0 && (
