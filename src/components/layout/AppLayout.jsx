@@ -38,7 +38,7 @@ const navItems = [
   { path: "/admin-expenses-shokry", label: "المصروفات الإدارية — دواء شكري", icon: Wallet, fullFinancialOnly: true, section: "operations" },
   { path: "/admin-expenses-shami", label: "المصروفات الإدارية — دواء الشامي", icon: Wallet, fullFinancialOnly: true, section: "operations" },
   { path: "/activity-log", label: "سجل العمليات", icon: ClipboardList, managerOnly: true, section: "management" },
-  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main", nonDeliveryOnly: true }
+  { path: "/review-needed-invoices", label: "فواتير تحتاج مراجعة", icon: AlertTriangle, amber: true, section: "main", nonDeliveryOnly: true },
   { path: "/security-audit", label: "سجل الأمان", icon: ShieldCheck, adminOnly: true, section: "management" },
   { path: "/financial-archive", label: "الأرشيف المالي الآمن", icon: ArchiveRestore, fullFinancialOnly: true, section: "reports" },
   { path: "/supplier-rules-backfill", label: "تطبيق قواعد الموردين", icon: FileSearch, adminOnly: true, section: "management" },
