@@ -4,12 +4,31 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Clock3, UserRound, WalletCards, Banknote } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
+
+const formatShiftDate = (value) => {
+  if (!value) return "—";
+  const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "long", year: "numeric" }).format(d);
+};
+
+const formatRecordedTime = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("ar-EG", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Africa/Cairo",
+  }).format(d);
+};
 
 const SHIFT_BADGE = {
   "صباحي": "bg-amber-100 text-amber-700",
