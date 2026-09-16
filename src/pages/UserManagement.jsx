@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShieldCheck, UserPlus, Mail, Check, X, Lock, Link2, Unlink, RefreshCw } from "lucide-react";
+import { ShieldCheck, UserPlus, Mail, Check, X, Lock, Link2, Unlink, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserRole } from "@/lib/useUserRole";
 import { useAuth } from "@/lib/AuthContext";
@@ -69,6 +69,8 @@ export default function UserManagement() {
     paramPrefix: "usr",
   });
   const sortedUsers = useMemo(() => sortData(users), [users, sortData]);
+  const duplicateIssues = unifiedDirectory.duplicate_issues || [];
+  const linkedUserIds = useMemo(() => new Set((unifiedDirectory.directory || []).map((entry) => entry.base44_user_id).filter(Boolean)), [unifiedDirectory.directory]);
 
   const updateRole = useMutation({
     mutationFn: async ({ id, role, oldRole, userEmail }) => {
@@ -159,6 +161,17 @@ export default function UserManagement() {
   }
 
   const handleInvite = async () => {
+    const normalizedEmail = inviteForm.email.trim().toLowerCase();
+    const existingUser = users.find((u) => String(u.email || "").trim().toLowerCase() === normalizedEmail);
+    if (existingUser) {
+      toast({ title: "المستخدم موجود بالفعل", description: `البريد ${inviteForm.email} مسجل بالفعل باسم ${existingUser.full_name || existingUser.email}.`, variant: "destructive" });
+      return;
+    }
+    const linkedEntry = (unifiedDirectory.directory || []).find((entry) => String(entry.base44_email || "").trim().toLowerCase() === normalizedEmail);
+    if (linkedEntry) {
+      toast({ title: "البريد مربوط بموظف بالفعل", description: `البريد ده مربوط حاليًا بـ ${linkedEntry.display_name}. راجع الربط بدل إنشاء مستخدم جديد.`, variant: "destructive" });
+      return;
+    }
     await base44.users.inviteUser(inviteForm.email, inviteForm.role === "admin" ? "admin" : "user");
     toast({ title: "تم إرسال الدعوة", description: `تم إرسال دعوة إلى ${inviteForm.email}` });
     setInviteDialog(false);
@@ -203,6 +216,33 @@ export default function UserManagement() {
           </Card>
         ))}
       </div>
+
+      {/* Duplicate audit — يمنع إن موظف واحد يتحول لأكثر من هوية داخل النظام */}
+      {isAdmin && !unifiedLoading && (
+        <Card className={`p-4 ${duplicateIssues.length ? "border-amber-300 bg-amber-50" : "border-emerald-200 bg-emerald-50/50"}`}>
+          <div className="flex items-start gap-3">
+            {duplicateIssues.length ? <AlertTriangle className="w-5 h-5 text-amber-700 mt-0.5" /> : <ShieldCheck className="w-5 h-5 text-emerald-700 mt-0.5" />}
+            <div className="flex-1 min-w-0">
+              <p className={`font-bold ${duplicateIssues.length ? "text-amber-900" : "text-emerald-900"}`}>
+                {duplicateIssues.length ? `مراجعة التكرار — ${duplicateIssues.length} حالة` : "لا يوجد تكرار في هويات الموظفين"}
+              </p>
+              <p className="text-xs text-gray-600 mt-1">المراجعة تشمل رقم الموظف في الإدارة، يوزر الدخول، حساب Base44، البريد، وسجل الأسماء الرسمي.</p>
+              {duplicateIssues.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {duplicateIssues.map((issue, idx) => (
+                    <div key={`${issue.type}-${issue.key}-${idx}`} className="rounded-lg border border-amber-200 bg-white p-2.5 text-xs">
+                      <p className="font-bold text-amber-900">{issue.label} <span className="text-amber-600">({issue.count})</span></p>
+                      <p className="text-gray-500 mt-1">
+                        {(issue.rows || []).map((row) => row.display_name || row.canonical_name || row.login_username || row.base44_email || row.id).filter(Boolean).join(" — ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Unified login directory — المصدر الموثوق لهوية الإدارة والصلاحية المالية */}
       <Card className="p-4 md:p-5 border-teal-200 bg-teal-50/30">
@@ -251,7 +291,10 @@ export default function UserManagement() {
                       <SelectTrigger className="mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unlinked">غير مربوط</SelectItem>
-                        {(unifiedDirectory.users || []).map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email} — {u.email}</SelectItem>)}
+                        {(unifiedDirectory.users || []).map((u) => {
+                          const linkedElsewhere = linkedUserIds.has(u.id) && u.id !== entry.base44_user_id;
+                          return <SelectItem key={u.id} value={u.id} disabled={linkedElsewhere}>{u.full_name || u.email} — {u.email}{linkedElsewhere ? " — مربوط بموظف آخر" : ""}</SelectItem>;
+                        })}
                       </SelectContent>
                     </Select>
                     <div className="mt-1.5 text-[11px]">
