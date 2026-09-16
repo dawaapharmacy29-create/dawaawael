@@ -1,5 +1,6 @@
 import { useAuth } from "@/lib/AuthContext";
 import { buildFinancialPermissions } from "@/lib/financialAccess";
+import { canUseCoreOperationalEntry, isDeliveryStaffUser, operationalBranchesForUser } from "@/lib/operationalAccess";
 
 export function useUserRole() {
   // المستخدم تم تحميله بالفعل مرة واحدة داخل AuthContext عند بدء التطبيق.
@@ -11,9 +12,11 @@ export function useUserRole() {
   const isManager = role === "admin" || role === "manager";
   const isViewer = role === "viewer";
 
+  const isDeliveryStaff = isDeliveryStaffUser(user);
+  const canUseCoreOperationalEntry = canUseCoreOperationalEntry(user);
   const canDeleteInvoice = isAdmin || !!user?.can_delete_invoice;
-  // تسجيل ومراجعة الفواتير تشغيل يومي لكل حساب مسجل؛ لا يعني رؤية أي إجماليات مالية.
-  const canSaveInvoice = !!user;
+  // تسجيل الفواتير تشغيل يومي للعاملين بالصيدلية فقط؛ فريق الدليفري مستبعد من المسار التشغيلي الأساسي.
+  const canSaveInvoice = canUseCoreOperationalEntry;
   const canManageTeam = isAdmin || !!user?.can_manage_team;
   const canSetBudget = isAdmin || !!user?.can_set_budget;
 
@@ -25,11 +28,14 @@ export function useUserRole() {
   const legacyBranch = typeof user?.branch === "string" && user.branch.trim()
     ? user.branch.trim()
     : "";
+  const derivedOperationalBranches = operationalBranchesForUser(user, { allowAdminAll: true });
   const branchAccess = explicitBranchAccess.length > 0
     ? explicitBranchAccess
-    : legacyBranch
-      ? [legacyBranch]
-      : [];
+    : derivedOperationalBranches.length > 0
+      ? derivedOperationalBranches
+      : legacyBranch
+        ? [legacyBranch]
+        : [];
   const hasExplicitBranchAccess = branchAccess.length > 0;
   const canAccessBranch = (branch) => {
     if (isAdmin) return true;
@@ -55,6 +61,8 @@ export function useUserRole() {
     isManager,
     isViewer,
     user,
+    isDeliveryStaff,
+    canUseCoreOperationalEntry,
     canDeleteInvoice,
     canSaveInvoice,
     canManageTeam,
