@@ -9,6 +9,7 @@ import AppLayout from './components/layout/AppLayout';
 import { lazy, Suspense, useEffect } from "react";
 import FinancialRouteGuard from "@/components/security/FinancialRouteGuard";
 import RoleRouteGuard from "@/components/security/RoleRouteGuard";
+import CoreOperationalRouteGuard from "@/components/security/CoreOperationalRouteGuard";
 import { FINANCIAL_ACCESS } from "@/lib/financialAccess";
 
 // تقسيم الصفحات إلى حزم مستقلة: الصفحة لا تُحمّل إلا عند فتحها.
@@ -90,7 +91,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/invoices" element={<PurchaseInvoices />} />
+        <Route path="/invoices" element={<CoreOperationalRouteGuard><PurchaseInvoices /></CoreOperationalRouteGuard>} />
         <Route path="/purchase-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><PurchaseReports /></FinancialRouteGuard>} />
         <Route path="/suppliers" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Suppliers /></FinancialRouteGuard>} />
         <Route path="/expenses" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><Expenses /></FinancialRouteGuard>} />
@@ -106,7 +107,7 @@ const AuthenticatedApp = () => {
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<RoleRouteGuard adminOnly><InventoryManagement /></RoleRouteGuard>} />
-        <Route path="/customer-orders" element={<CustomerOrders />} />
+        <Route path="/customer-orders" element={<CoreOperationalRouteGuard><CustomerOrders /></CoreOperationalRouteGuard>} />
         <Route path="/pharmacy-orders" element={<PharmacyOrders />} />
         <Route path="/inventory-count" element={<RoleRouteGuard adminOnly><InventoryCount /></RoleRouteGuard>} />
         <Route path="/reports-branch" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><ReportsBranch /></FinancialRouteGuard>} />
@@ -116,7 +117,7 @@ const AuthenticatedApp = () => {
         <Route path="/financial-reports" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialReports /></FinancialRouteGuard>} />
         <Route path="/smart-commerce-analytics" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><SmartCommerceAnalytics /></FinancialRouteGuard>} />
         <Route path="/financial-archive" element={<FinancialRouteGuard minimum={FINANCIAL_ACCESS.FULL}><FinancialArchive /></FinancialRouteGuard>} />
-        <Route path="/shift-delivery" element={<ShiftDelivery />} />
+        <Route path="/shift-delivery" element={<CoreOperationalRouteGuard><ShiftDelivery /></CoreOperationalRouteGuard>} />
         <Route path="/security-audit" element={<RoleRouteGuard adminOnly><SecurityAuditPage /></RoleRouteGuard>} />
         <Route path="/supplier-rules-backfill" element={<RoleRouteGuard adminOnly><SupplierRulesBackfill /></RoleRouteGuard>} />
         <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
