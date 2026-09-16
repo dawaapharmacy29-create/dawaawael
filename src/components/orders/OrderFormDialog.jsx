@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
+import { isDeliveryStaffName } from "@/lib/operationalAccess";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Upload, X } from "lucide-react";
 
@@ -52,7 +53,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   });
   const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()));
   const verifiableBranchNames = branchNames.filter((m) => m.identity_verification_enabled !== false && !!m.admin_staff_id);
-  const nameOptions = [...new Set(verifiableBranchNames.map((m) => m.canonical_name).filter(Boolean))];
+  const nameOptions = [...new Set(verifiableBranchNames.map((m) => m.canonical_name).filter((name) => name && !isDeliveryStaffName(name)))];
   const selectedRecorder = nameMap.find((m) =>
     m.canonical_name === form.recorded_by &&
     (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
