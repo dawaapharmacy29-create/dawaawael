@@ -19,7 +19,7 @@ function duplicateGroups(rows: any[], keyFn: (row: any) => string, type: string,
       label,
       key,
       count: items.length,
-      rows: items.map((r) => ({ id: r.id, display_name: r.display_name, login_username: r.login_username, admin_staff_id: r.admin_staff_id, base44_user_id: r.base44_user_id, base44_email: r.base44_email })),
+      rows: items.map((r) => ({ id: r.id, display_name: r.display_name, canonical_name: r.canonical_name, branch: r.branch, login_username: r.login_username, admin_staff_id: r.admin_staff_id, base44_user_id: r.base44_user_id, base44_email: r.base44_email })),
     }));
 }
 
