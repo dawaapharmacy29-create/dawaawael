@@ -103,7 +103,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity-log" element={<RoleRouteGuard managerOnly><ActivityLog /></RoleRouteGuard>} />
         <Route path="/user-management" element={<RoleRouteGuard adminOnly><UserManagement /></RoleRouteGuard>} />
         <Route path="/team-members" element={<RoleRouteGuard managerOnly><TeamMembers /></RoleRouteGuard>} />
-        <Route path="/pending-invoices" element={<PendingInvoices />} />
+        <Route path="/pending-invoices" element={<CoreOperationalRouteGuard><PendingInvoices /></CoreOperationalRouteGuard>} />
         <Route path="/medicine-list" element={<MedicineList />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/inventory" element={<RoleRouteGuard adminOnly><InventoryManagement /></RoleRouteGuard>} />
@@ -120,7 +120,7 @@ const AuthenticatedApp = () => {
         <Route path="/shift-delivery" element={<CoreOperationalRouteGuard><ShiftDelivery /></CoreOperationalRouteGuard>} />
         <Route path="/security-audit" element={<RoleRouteGuard adminOnly><SecurityAuditPage /></RoleRouteGuard>} />
         <Route path="/supplier-rules-backfill" element={<RoleRouteGuard adminOnly><SupplierRulesBackfill /></RoleRouteGuard>} />
-        <Route path="/review-needed-invoices" element={<ReviewNeededInvoices />} />
+        <Route path="/review-needed-invoices" element={<CoreOperationalRouteGuard><ReviewNeededInvoices /></CoreOperationalRouteGuard>} />
         <Route path="/supabase-sync" element={<RoleRouteGuard adminOnly><SupabaseSyncCenter /></RoleRouteGuard>} />
         <Route path="/employee-hr" element={<RoleRouteGuard managerOnly><EmployeeHR /></RoleRouteGuard>} />
         <Route path="/system-health" element={<RoleRouteGuard adminOnly><SystemHealth /></RoleRouteGuard>} />
