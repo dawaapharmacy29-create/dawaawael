@@ -1,6 +1,27 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
 function clean(v: unknown) { return String(v ?? '').trim(); }
+function norm(v: unknown) {
+  return clean(v).toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ');
+}
+
+function duplicateGroups(rows: any[], keyFn: (row: any) => string, type: string, label: string) {
+  const groups = new Map<string, any[]>();
+  for (const row of rows) {
+    const key = keyFn(row);
+    if (!key) continue;
+    groups.set(key, [...(groups.get(key) || []), row]);
+  }
+  return [...groups.entries()]
+    .filter(([, items]) => items.length > 1)
+    .map(([key, items]) => ({
+      type,
+      label,
+      key,
+      count: items.length,
+      rows: items.map((r) => ({ id: r.id, display_name: r.display_name, login_username: r.login_username, admin_staff_id: r.admin_staff_id, base44_user_id: r.base44_user_id, base44_email: r.base44_email })),
+    }));
+}
 
 export default async function(req: Request): Promise<Response> {
   try {
@@ -15,11 +36,19 @@ export default async function(req: Request): Promise<Response> {
 
     if (action === 'list') {
       const [directory, users] = await Promise.all([
-        base44.asServiceRole.entities.ManagementLoginDirectory.filter({ is_active: true }, 'display_name', 100),
-        base44.asServiceRole.entities.User.list('full_name', 100),
+        base44.asServiceRole.entities.ManagementLoginDirectory.filter({ is_active: true }, 'display_name', 500),
+        base44.asServiceRole.entities.User.list('full_name', 500),
       ]);
+      const duplicateIssues = [
+        ...duplicateGroups(directory, (r) => clean(r.admin_staff_id), 'admin_staff_id', 'نفس الموظف مكرر في دليل الدخول'),
+        ...duplicateGroups(directory, (r) => clean(r.management_account_id), 'management_account_id', 'نفس حساب الإدارة مكرر'),
+        ...duplicateGroups(directory, (r) => norm(r.login_username), 'login_username', 'اسم المستخدم مكرر'),
+        ...duplicateGroups(directory, (r) => clean(r.base44_user_id), 'base44_user_id', 'حساب Base44 مربوط بأكثر من موظف'),
+        ...duplicateGroups(directory, (r) => clean(r.base44_email).toLowerCase(), 'base44_email', 'بريد Base44 مربوط بأكثر من موظف'),
+      ];
       return Response.json({
         success: true,
+        duplicate_issues: duplicateIssues,
         directory: directory.map((r: any) => ({
           id: r.id,
           login_username: r.login_username,
@@ -48,11 +77,51 @@ export default async function(req: Request): Promise<Response> {
       if (!directoryRow || directoryRow.is_active === false) return Response.json({ success: false, error: 'سجل موظف الإدارة غير موجود أو غير نشط' }, { status: 404 });
       if (!user) return Response.json({ success: false, error: 'حساب Base44 غير موجود' }, { status: 404 });
 
+      const duplicateEmployee = activeDirectory.find((row: any) =>
+        row.id !== directoryId &&
+        clean(directoryRow.admin_staff_id) &&
+        clean(row.admin_staff_id) === clean(directoryRow.admin_staff_id)
+      );
+      if (duplicateEmployee) {
+        return Response.json({
+          success: false,
+          error: `الموظف ${clean(directoryRow.display_name) || clean(directoryRow.login_username)} موجود بالفعل كسجل نشط آخر في دليل الدخول. أصلح التكرار قبل الربط.`,
+        }, { status: 409 });
+      }
+
+      const duplicateUsername = activeDirectory.find((row: any) =>
+        row.id !== directoryId && norm(row.login_username) && norm(row.login_username) === norm(directoryRow.login_username)
+      );
+      if (duplicateUsername) {
+        return Response.json({
+          success: false,
+          error: `اسم المستخدم ${clean(directoryRow.login_username)} مكرر في دليل الدخول. يجب أن يكون لكل موظف يوزر واحد فقط.`,
+        }, { status: 409 });
+      }
+
+      const currentLinkedUserId = clean(directoryRow.base44_user_id);
+      if (currentLinkedUserId && currentLinkedUserId !== base44UserId) {
+        return Response.json({
+          success: false,
+          error: `الموظف ${clean(directoryRow.display_name) || 'الحالي'} مربوط بالفعل بحساب Base44 آخر. فك الربط القديم أولًا قبل اختيار حساب جديد.`,
+        }, { status: 409 });
+      }
+
       const alreadyLinked = activeDirectory.find((row: any) => row.id !== directoryId && clean(row.base44_user_id) === base44UserId);
       if (alreadyLinked) {
         return Response.json({
           success: false,
           error: `حساب Base44 ده مربوط بالفعل بـ ${clean(alreadyLinked.display_name) || 'موظف آخر'}. لازم تفك الربط القديم أولًا.`,
+        }, { status: 409 });
+      }
+
+      const sameEmailLinked = activeDirectory.find((row: any) =>
+        row.id !== directoryId && clean(row.base44_email).toLowerCase() && clean(row.base44_email).toLowerCase() === clean(user.email).toLowerCase()
+      );
+      if (sameEmailLinked) {
+        return Response.json({
+          success: false,
+          error: `البريد ${clean(user.email)} مربوط بالفعل بـ ${clean(sameEmailLinked.display_name) || 'موظف آخر'}.`,
         }, { status: 409 });
       }
 
