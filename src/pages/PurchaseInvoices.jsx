@@ -119,7 +119,13 @@ export default function PurchaseInvoices() {
       setDateTo(btn.to);
     }
   };
-  const { canSaveInvoice, canDeleteInvoice } = useUserRole();
+  const { canSaveInvoice, canDeleteInvoice, branchAccess, isAdmin, canViewAllBranchesFinancials } = useUserRole();
+  const accessibleBranches = (isAdmin || canViewAllBranchesFinancials || branchAccess.length === 0) ? BRANCHES : BRANCHES.filter((b) => branchAccess.includes(b));
+  const effectiveBranchFilter = filterBranch !== "الكل" && accessibleBranches.includes(filterBranch)
+    ? { branch: filterBranch }
+    : accessibleBranches.length === 1
+      ? { branch: accessibleBranches[0] }
+      : {};
 
   // Real-time: تحديث تلقائي عند أي تغيير
   useEffect(() => {
@@ -137,18 +143,18 @@ export default function PurchaseInvoices() {
 
   // تحميل متوازي بدل التسلسلي — يقلل وقت التحميل من ~10 ثواني لـ ~3 ثواني
   const { data: invoices = [], isLoading, isFetching } = useQuery({
-    queryKey: ["purchase-invoices", "range", dateFrom || "all", dateTo || "all", filterBranch],
+    queryKey: ["purchase-invoices", "range", dateFrom || "all", dateTo || "all", filterBranch, accessibleBranches.join("|")],
     queryFn: async () => dateFrom && dateTo
       ? loadInvoicesByFinancialDate(base44.entities.PurchaseInvoice, {
           from: dateFrom,
           to: dateTo,
-          extraFilter: filterBranch === "الكل" ? {} : { branch: filterBranch },
+          extraFilter: effectiveBranchFilter,
           sort: "-invoice_date",
           maxRows: 20000,
         })
       : fetchAllParallel(base44.entities.PurchaseInvoice, {
           pageSize: 1000,
-          query: filterBranch === "الكل" ? null : { branch: filterBranch },
+          query: Object.keys(effectiveBranchFilter).length ? effectiveBranchFilter : null,
         }),
     staleTime: 120000,
     placeholderData: (prev) => prev,
@@ -558,7 +564,7 @@ export default function PurchaseInvoices() {
 
         {/* Branch Filter */}
         <div className="flex gap-2 flex-wrap">
-          {["الكل", ...BRANCHES].map((b) => (
+          {["الكل", ...accessibleBranches].map((b) => (
             <button key={b} onClick={() => setFilterBranch(b)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterBranch === b ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 border-gray-200 hover:border-teal-300"}`}>
               {b}
@@ -666,6 +672,7 @@ export default function PurchaseInvoices() {
         isLoading={createMutation.isPending || updateMutation.isPending}
         externalError={createMutation.error?.message || updateMutation.error?.message || ""}
         allInvoices={invoices}
+        allowedBranches={accessibleBranches}
       />
 
       <InvoiceViewDialog
