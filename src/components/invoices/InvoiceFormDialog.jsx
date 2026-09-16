@@ -110,10 +110,17 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const [form, setForm] = useState(emptyForm);
   const [dupError, setDupError] = useState("");
 
-  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: () => base44.entities.Supplier.list() });
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => base44.entities.Supplier.list(),
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
+  });
   const { data: employeeNameMap = [], isLoading: isLoadingMembers } = useQuery({
     queryKey: ["employee-name-map"],
     queryFn: () => base44.entities.EmployeeNameMap.filter({ is_active: true }, "canonical_name"),
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
   });
   // مدخل الفاتورة قد يعمل مؤقتًا في أي فرع، لذلك نعرض العاملين النشطين من الصيدلية
   // مع استبعاد فريق الدليفري من مسار الفواتير التشغيلي بالكامل.
