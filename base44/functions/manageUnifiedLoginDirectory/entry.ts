@@ -35,16 +35,25 @@ export default async function(req: Request): Promise<Response> {
     const action = clean(body?.action) || 'list';
 
     if (action === 'list') {
-      const [directory, users] = await Promise.all([
+      const [directory, users, employeeMap] = await Promise.all([
         base44.asServiceRole.entities.ManagementLoginDirectory.filter({ is_active: true }, 'display_name', 500),
         base44.asServiceRole.entities.User.list('full_name', 500),
+        base44.asServiceRole.entities.EmployeeNameMap.filter({ is_active: true }, 'canonical_name', 500),
       ]);
+      const employeeDuplicateIssues = [
+        ...duplicateGroups(employeeMap, (r) => clean(r.admin_staff_id), 'employee_map_admin_staff_id', 'نفس الموظف مكرر في سجل الأسماء'),
+        ...duplicateGroups(employeeMap, (r) => `${norm(r.canonical_name)}|${norm(r.branch)}`, 'employee_map_name_branch', 'نفس اسم الموظف مكرر داخل نفس الفرع'),
+      ].map((issue: any) => ({
+        ...issue,
+        rows: issue.rows.map((row: any) => ({ ...row, source: 'EmployeeNameMap' })),
+      }));
       const duplicateIssues = [
         ...duplicateGroups(directory, (r) => clean(r.admin_staff_id), 'admin_staff_id', 'نفس الموظف مكرر في دليل الدخول'),
         ...duplicateGroups(directory, (r) => clean(r.management_account_id), 'management_account_id', 'نفس حساب الإدارة مكرر'),
         ...duplicateGroups(directory, (r) => norm(r.login_username), 'login_username', 'اسم المستخدم مكرر'),
         ...duplicateGroups(directory, (r) => clean(r.base44_user_id), 'base44_user_id', 'حساب Base44 مربوط بأكثر من موظف'),
         ...duplicateGroups(directory, (r) => clean(r.base44_email).toLowerCase(), 'base44_email', 'بريد Base44 مربوط بأكثر من موظف'),
+        ...employeeDuplicateIssues,
       ];
       return Response.json({
         success: true,
