@@ -6,11 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { base44 } from "@/api/base44Client";
 import { isDeliveryStaffName } from "@/lib/operationalAccess";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Upload, X, Check } from "lucide-react";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
 const SOURCES = ["واتساب", "مكالمة هاتفية", "داخل الصيدلية"];
 const PRIORITIES = ["عاجل", "متوسط", "عادي"];
+const DELIVERY_OPTIONS = [
+  "العميل هيعدي ياخده الصبح",
+  "العميل هيعدي ياخده بالليل",
+  "نوفره ونبلغ العميل ع الواتس",
+  "نوفره ونكلم العميل بالتليفون",
+];
 
 function cairoToday() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -22,7 +28,7 @@ function blankOrder() {
   return {
     customer_name: "", phone: "", customer_code: "", branch: "", request_source: "",
     product_name: "", quantity: 1, customer_type: "عادي", request_type: "عادي",
-    promised_at: "", product_image: "", notes: "", priority: "عادي",
+    delivery_contact_option: "", product_image: "", notes: "", priority: "عادي",
     assigned_employee: "", recorded_by: "", request_date: cairoToday(),
   };
 }
@@ -75,6 +81,10 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       setSaveError("يجب استكمال اسم العميل والهاتف والفرع والصنف واسم مُسجِّل الطلب");
       return;
     }
+    if (!DELIVERY_OPTIONS.includes(form.delivery_contact_option)) {
+      setSaveError("يجب اختيار خيار التسليم / التواصل");
+      return;
+    }
     if (!editOrder && !selectedRecorder?.admin_staff_id) {
       setSaveError("اسم مُسجِّل الطلب غير مربوط بحساب الإدارة");
       return;
@@ -121,7 +131,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           quantity: Math.max(1, Number(form.quantity || 1)),
           customer_type: form.customer_type,
           request_type: form.request_type,
-          promised_at: form.promised_at,
+          delivery_contact_option: form.delivery_contact_option,
         },
         timeline_note: "تعديل بيانات الطلب",
       });
@@ -258,9 +268,26 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">موعد الرد أو التوفير المتوقع</label>
-            <Input type="datetime-local" value={form.promised_at ? String(form.promised_at).slice(0,16) : ""} onChange={(e) => set("promised_at", e.target.value ? new Date(e.target.value).toISOString() : "")} className="h-9 text-sm" />
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+            <label className="text-xs font-semibold text-gray-700">خيارات التسليم / التواصل <span className="text-red-500">*</span></label>
+            <div className="space-y-1">
+              {DELIVERY_OPTIONS.map((option) => {
+                const selected = form.delivery_contact_option === option;
+                return (
+                  <button
+                    type="button"
+                    key={option}
+                    onClick={() => { set("delivery_contact_option", option); setSaveError(""); }}
+                    className="w-full flex items-center gap-2.5 rounded-md px-3 py-2.5 text-right transition-colors hover:bg-white"
+                  >
+                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected ? "border-emerald-600 bg-emerald-600" : "border-emerald-500/50 bg-white"}`}>
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </span>
+                    <span className={`text-sm ${selected ? "font-bold text-emerald-800" : "text-gray-700"}`}>{option}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -277,7 +304,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           {saveError && <p className="text-xs text-red-600 bg-red-50 rounded-md p-2">{saveError}</p>}
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by || (recorderNeedsVerification && !credential)} className="flex-1 bg-teal-600 hover:bg-teal-700">
+            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by || !form.delivery_contact_option || (recorderNeedsVerification && !credential)} className="flex-1 bg-teal-600 hover:bg-teal-700">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editOrder ? "حفظ التعديلات" : "حفظ الطلب")}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>

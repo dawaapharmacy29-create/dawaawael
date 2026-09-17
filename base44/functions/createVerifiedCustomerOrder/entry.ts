@@ -66,6 +66,7 @@ function sanitizeDirectOrder(order: any) {
     customer_type: clean(order.customer_type) || 'عادي',
     request_type: clean(order.request_type) || 'عادي',
     promised_at: clean(order.promised_at),
+    delivery_contact_option: clean(order.delivery_contact_option),
   };
 }
 

@@ -281,6 +281,7 @@ export default function OrderDetailDialog({ open, onOpenChange, order, teamMembe
                 {order.customer_code && <InfoItem label="كود العميل" value={order.customer_code} />}
                 {order.assigned_employee && <InfoItem label="الموظف" value={order.assigned_employee} />}
                 {order.request_date && <InfoItem icon={<Calendar className="w-3.5 h-3.5" />} label="التاريخ" value={order.request_date} />}
+                {order.delivery_contact_option && <InfoItem label="خيار التسليم / التواصل" value={order.delivery_contact_option} />}
               </div>
               {order.notes && (
                 <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-800">

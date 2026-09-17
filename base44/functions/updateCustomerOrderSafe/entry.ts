@@ -10,7 +10,7 @@ const ALLOWED_FIELDS = new Set([
   'purchase_price', 'selling_price', 'search_notes', 'ordered_supplier', 'arrival_notes',
   'expected_availability_date', 'last_followup_date', 'product_available', 'customer_contacted',
   'contact_method', 'followup_notes', 'cancellation_reason', 'quantity', 'customer_type',
-  'request_type', 'promised_at'
+  'request_type', 'promised_at', 'delivery_contact_option'
 ]);
 
 const VALID_STATUSES = new Set([
