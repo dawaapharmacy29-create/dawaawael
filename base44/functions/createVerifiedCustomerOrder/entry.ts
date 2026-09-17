@@ -167,7 +167,7 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'بيانات العميل والفرع والصنف مطلوبة' }, { status: 400 });
     }
     if (!VALID_BRANCHES.has(order.branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
-    if (!adminStaffId || !credential) return Response.json({ error: 'بيانات التحقق من مُسجِّل الطلب مطلوبة' }, { status: 400 });
+    if (!adminStaffId) return Response.json({ error: 'بيانات مُسجِّل الطلب مطلوبة' }, { status: 400 });
 
     const explicitBranches = Array.isArray((user as any)?.branch_access)
       ? (user as any).branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
@@ -198,15 +198,20 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'موظفو الدليفري غير مسموح لهم بتسجيل طلب عميل من هذا المسار' }, { status: 403 });
     }
 
-    const verification: any = await verifyStaff(adminStaffId, credential);
-    // Expected identity-validation failures are returned as a normal function payload
-    // so the Base44 client can show the real Arabic message instead of the generic
-    // "Request failed with status code 400" transport error.
-    if (!verification.ok) {
-      return Response.json({ success: false, error: verification.error, verification_status: verification.status });
+    // خانة الرقم السري أُلغيت من الواجهة؛ التحقق يبقى مفعّلًا فقط إذا وصل credential (توافقًا مع أي استدعاء قديم).
+    let verification: any = null;
+    if (credential) {
+      const result = await verifyStaff(adminStaffId, credential);
+      // Expected identity-validation failures are returned as a normal function payload
+      // so the Base44 client can show the real Arabic message instead of the generic
+      // "Request failed with status code 400" transport error.
+      if (!result.ok) {
+        return Response.json({ success: false, error: result.error, verification_status: result.status });
+      }
+      verification = result;
     }
 
-    const staff = verification.result?.staff || {};
+    const staff = verification?.result?.staff || {};
     const now = new Date().toISOString();
     const recordedBy = clean(mapping.canonical_name) || clean(staff.name);
     const year = new Intl.DateTimeFormat('en', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(new Date());
@@ -220,15 +225,15 @@ export default async function(req: Request): Promise<Response> {
       registered_by_user_id: clean(user.id),
       recorded_by_staff_id: clean(staff.staff_id) || adminStaffId,
       recorded_by_admin_staff_id: adminStaffId,
-      identity_verified_at: clean(verification.result?.verified_at) || now,
-      identity_verification_source: clean(verification.result?.source) || 'DawaaManagement',
+      identity_verified_at: verification ? (clean(verification.result?.verified_at) || now) : '',
+      identity_verification_source: verification ? (clean(verification.result?.source) || 'DawaaManagement') : 'بدون تحقق — أُلغي الرقم السري',
       creation_source: 'direct_customer_order',
       idempotency_key: idempotencyKey,
       requested_at: now,
       added_at: new Date().toLocaleString('ar-EG', {
         timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
       }),
-      timeline: [{ status: 'طلب جديد', by: recordedBy, at: now, note: 'تم إنشاء الطلب بعد التحقق من الهوية' }],
+      timeline: [{ status: 'طلب جديد', by: recordedBy, at: now, note: verification ? 'تم إنشاء الطلب بعد التحقق من الهوية' : 'تم إنشاء الطلب' }],
     });
 
     return Response.json({ success: true, record: created });

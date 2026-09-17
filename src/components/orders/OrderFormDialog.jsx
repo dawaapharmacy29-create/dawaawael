@@ -38,7 +38,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   const idempotencyKey = useRef(crypto.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [credential, setCredential] = useState("");
   const [saveError, setSaveError] = useState("");
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -46,7 +45,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
   useEffect(() => {
     if (!open) return;
     setForm(editOrder ? { ...blankOrder(), ...editOrder } : blankOrder());
-    setCredential("");
     setSaveError("");
     idempotencyKey.current = crypto.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }, [open, editOrder]);
@@ -64,8 +62,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     m.canonical_name === form.recorded_by &&
     (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
   );
-  const recorderNeedsVerification = !editOrder;
-
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,18 +85,12 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       setSaveError("اسم مُسجِّل الطلب غير مربوط بحساب الإدارة");
       return;
     }
-    if (recorderNeedsVerification && !credential) {
-      setSaveError("يجب إدخال الرقم السري الخاص بمُسجِّل الطلب");
-      return;
-    }
-
     setSaving(true);
     try {
       if (!editOrder) {
         const createRes = await base44.functions.invoke("createVerifiedCustomerOrder", {
           mode: "direct_verified",
           admin_staff_id: selectedRecorder.admin_staff_id,
-          credential,
           idempotency_key: idempotencyKey.current,
           order: form,
         });
@@ -109,7 +99,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           setSaveError(created.error || "تعذر التحقق من الهوية أو حفظ الطلب");
           return;
         }
-        setCredential("");
         onSaved?.();
         onOpenChange(false);
         return;
@@ -137,7 +126,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       });
       const updateResult = updateRes?.data || {};
       if (!updateResult.success) throw new Error(updateResult.error || "تعذر تعديل الطلب");
-      setCredential("");
       onSaved?.();
       onOpenChange(false);
     } catch (e) {
@@ -169,7 +157,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">الفرع</label>
-              <Select value={form.branch} disabled={!!editOrder} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setCredential(""); setSaveError(""); }}>
+              <Select value={form.branch} disabled={!!editOrder} onValueChange={(v) => { setForm((p) => ({ ...p, branch: v, recorded_by: "" })); setSaveError(""); }}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>{allowedBranches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
               </Select>
@@ -244,7 +232,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">مُسجِّل الطلب (اسمك الرسمي) <span className="text-red-500">*</span></label>
-            <Select value={form.recorded_by || "none"} disabled={!!editOrder} onValueChange={(v) => { set("recorded_by", v === "none" ? "" : v); setCredential(""); setSaveError(""); }}>
+            <Select value={form.recorded_by || "none"} disabled={!!editOrder} onValueChange={(v) => { set("recorded_by", v === "none" ? "" : v); setSaveError(""); }}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر اسمك الرسمي" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none" disabled>— اختر اسمك —</SelectItem>
@@ -252,21 +240,6 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
               </SelectContent>
             </Select>
           </div>
-
-          {recorderNeedsVerification && form.recorded_by && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">الرقم السري لمُسجِّل الطلب <span className="text-red-500">*</span></label>
-              <Input
-                type="password"
-                value={credential}
-                onChange={(e) => setCredential(e.target.value)}
-                placeholder="أدخل الرقم السري من تطبيق الإدارة"
-                autoComplete="current-password"
-                className="h-9 text-sm"
-              />
-              <p className="text-[11px] text-gray-400">لا يتم حفظ الرقم السري؛ يُستخدم فقط للتحقق من أن الاسم المختار هو الموظف الحقيقي. الموظف غير المرتبط بحساب في تطبيق الإدارة لا يظهر ضمن قائمة مُسجِّل الطلب.</p>
-            </div>
-          )}
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
             <label className="text-xs font-semibold text-gray-700">خيارات التسليم / التواصل <span className="text-red-500">*</span></label>
@@ -304,7 +277,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
           {saveError && <p className="text-xs text-red-600 bg-red-50 rounded-md p-2">{saveError}</p>}
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by || !form.delivery_contact_option || (recorderNeedsVerification && !credential)} className="flex-1 bg-teal-600 hover:bg-teal-700">
+            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch || !form.recorded_by || !form.delivery_contact_option} className="flex-1 bg-teal-600 hover:bg-teal-700">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editOrder ? "حفظ التعديلات" : "حفظ الطلب")}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
