@@ -111,7 +111,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
   const [form, setForm] = useState(emptyForm);
   const [dupError, setDupError] = useState("");
   // تاريخ استحقاق السداد يظهر للمدير المالي الكلي فقط (مالي كامل)
-  const { canViewFinancialDashboard: isGeneralFinancialManager } = useUserRole();
+  const { canViewFinancialDashboard: isGeneralFinancialManager, isManager } = useUserRole();
+  // قسم التصنيف والحسابات يظهر للمدير فقط عند مراجعة/تعديل فاتورة قائمة — مخفي تمامًا عند الإضافة
+  const showClassificationSection = !!invoice && isManager;
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -265,28 +267,29 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       setDupError("يجب اختيار طريقة الدفع");
       return;
     }
-    // التحقق من التصنيف للفواتير الجديدة
-    if (!invoice && !form.purchase_category) {
+    // التحقق من التصنيف وسبب الاستثناء — متاح فقط عند ظهور قسم التصنيف (مراجعة المدير)
+    if (showClassificationSection && !form.purchase_category) {
       setDupError("يجب اختيار تصنيف الفاتورة (أدوية / مستلزمات وإكسسوار)");
       return;
     }
-    // التحقق من سبب الاستثناء
-    if (isExcluded && !form.exclusion_reason) {
+    if (showClassificationSection && isExcluded && !form.exclusion_reason) {
       setDupError("يجب اختيار سبب الاستثناء");
       return;
     }
-    // التحقق من ملاحظة "أخرى"
-    if (isExcluded && isOtherReason && !form.exclusion_note?.trim()) {
+    if (showClassificationSection && isExcluded && isOtherReason && !form.exclusion_note?.trim()) {
       setDupError("يجب كتابة ملاحظة عند اختيار سبب 'أخرى'");
       return;
     }
-    // التحقق من التحويل الداخلي
+    // التحقق من التحويل الداخلي — عند الإضافة القسم مخفي فيُستكمل الفرعان تلقائيًا:
+    // المصدر من الفرع المرتبط بالمورد الداخلي، والمستلم هو فرع الفاتورة نفسه.
+    const finalSourceBranch = isInternalTransfer ? (form.source_branch || selectedSupplier?.linked_branch || "") : form.source_branch;
+    const finalDestinationBranch = isInternalTransfer ? (form.destination_branch || form.branch || "") : form.destination_branch;
     if (isInternalTransfer) {
-      if (!form.source_branch || !form.destination_branch) {
+      if (!finalSourceBranch || !finalDestinationBranch) {
         setDupError("يجب تحديد الفرع المصدر والفرع المستلم للتحويل الداخلي");
         return;
       }
-      if (form.source_branch === form.destination_branch) {
+      if (finalSourceBranch === finalDestinationBranch) {
         setDupError("لا يمكن أن يكون الفرع المصدر هو نفسه الفرع المستلم");
         return;
       }
@@ -350,6 +353,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
 
     onSubmit({
       ...form,
+      source_branch: finalSourceBranch,
+      destination_branch: finalDestinationBranch,
       entered_by_staff_id: enteredByMap?.admin_staff_id || invoice?.entered_by_staff_id || "",
       total_value: totalVal,
       returned_value: returnedVal,
@@ -411,7 +416,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
           </div>
 
           {/* Supplier exclusion warning */}
-          {supplierExcluded && (
+          {supplierExcluded && showClassificationSection && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <p className="text-xs text-amber-700">هذا المورد مستثنى افتراضيًا من صافي المشتريات. يمكنك تجاوز الاستثناء باختيار "محتسبة يدويًا".</p>
@@ -461,7 +466,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
-          {/* ===== قسم التصنيف والحسابات ===== */}
+          {/* ===== قسم التصنيف والحسابات — للمدير عند المراجعة/التعديل فقط ===== */}
+          {showClassificationSection && (
           <div className="border rounded-lg p-3 bg-slate-50/50 space-y-3">
             <p className="text-sm font-bold text-slate-700 border-b pb-1.5">التصنيف والحسابات</p>
 
@@ -618,6 +624,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
               </div>
             )}
           </div>
+          )}
 
           {/* Payment & Status */}
           <div className="grid grid-cols-2 gap-2">
