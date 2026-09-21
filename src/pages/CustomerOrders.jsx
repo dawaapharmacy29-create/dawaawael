@@ -337,8 +337,6 @@ export default function CustomerOrders() {
         </div>
       )}
 
-      <OrderBranchOverview orders={operationalAccessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
-
       <OrderOperationsBar orders={branchOrders} activeQueue={activeQueue} onQueueChange={setActiveQueue} />
 
       {/* Tabs */}
@@ -357,9 +355,12 @@ export default function CustomerOrders() {
       </div>
 
       {activeTab === "analytics" ? (
-        <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل الإحصائيات...</div>}>
-          <OrderAnalytics orders={operationalBranchOrders} />
-        </Suspense>
+        <div className="space-y-3">
+          <OrderBranchOverview orders={operationalAccessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
+          <Suspense fallback={<div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-400">جاري تحميل الإحصائيات...</div>}>
+            <OrderAnalytics orders={operationalBranchOrders} />
+          </Suspense>
+        </div>
       ) : (
         <>
           {/* Search and view controls */}

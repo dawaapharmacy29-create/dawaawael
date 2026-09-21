@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock3, Flame, Inbox, PackageCheck, UserRoundX, CheckCircle2, Archive } from "lucide-react";
+import { AlertTriangle, Clock3, Flame, Inbox, PackageCheck, UserRoundX, CheckCircle2, Archive, Sparkles } from "lucide-react";
 
 const CLOSED = ["تم التوصيل", "تم الإلغاء", "الصنف غير متوفر حاليا"];
 const ACTIVE = ["طلب جديد", "جاري البحث", "تم الطلب", "النواقص", "تم توفير الصنف", "تم توفير بديل"];
@@ -14,6 +14,7 @@ export function matchesOrderQueue(order, queue) {
   if (queue === "all") return true;
   if (queue === "archived") return archived || (!archived && ["تم الإلغاء", "الصنف غير متوفر حاليا"].includes(order.status));
   if (archived) return false;
+  if (queue === "new") return order.status === "طلب جديد";
   if (queue === "active") return ACTIVE.includes(order.status);
   if (queue === "urgent") return order.priority === "عاجل" && !CLOSED.includes(order.status);
   if (queue === "overdue") {
@@ -38,6 +39,7 @@ export function isOrderOverdue(order) {
 }
 
 const QUEUES = [
+  { id: "new", label: "طلب جديد", icon: Sparkles, tone: "blue" },
   { id: "active", label: "قيد التنفيذ", icon: Inbox, tone: "teal" },
   { id: "urgent", label: "عاجلة", icon: Flame, tone: "red" },
   { id: "overdue", label: "متأخرة", icon: AlertTriangle, tone: "amber" },
@@ -53,6 +55,7 @@ const TONES = {
   red: "border-red-200 bg-red-50 text-red-700",
   amber: "border-amber-200 bg-amber-50 text-amber-700",
   violet: "border-violet-200 bg-violet-50 text-violet-700",
+  blue: "border-blue-200 bg-blue-50 text-blue-700",
   cyan: "border-cyan-200 bg-cyan-50 text-cyan-700",
   green: "border-green-200 bg-green-50 text-green-700",
   gray: "border-gray-200 bg-gray-50 text-gray-600",
@@ -69,7 +72,7 @@ export default function OrderOperationsBar({ orders, activeQueue, onQueueChange 
         </div>
         <span className="text-[11px] text-gray-400 hidden sm:block">العاجل يتأخر بعد ساعتين · المتوسط 12 ساعة · العادي 24 ساعة</span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-2">
         {QUEUES.map(({ id, label, icon: Icon, tone }) => {
           const count = orders.filter((order) => matchesOrderQueue(order, id)).length;
           const active = activeQueue === id;
