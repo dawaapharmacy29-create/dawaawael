@@ -215,6 +215,17 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
     const supplier = suppliers.find((s) => s.name === supplierName);
     set("supplier_name", supplierName);
     set("supplier_id", supplier?.id || "");
+    // نوع العملية تلقائي حسب نوع المورد: مورد داخلي (فرع) → تحويل داخلي، مورد خارجي → شراء خارجي
+    if (supplier?.supplier_type === "internal_branch") {
+      set("transaction_type", "internal_transfer");
+      if (supplier.linked_branch) {
+        set("source_branch", supplier.linked_branch);
+      }
+    } else {
+      set("transaction_type", "external_purchase");
+      set("source_branch", "");
+      set("destination_branch", "");
+    }
     if (supplier?.payment_type) {
       set("payment_type", supplier.payment_type);
       if (supplier.payment_type === "آجل" && form.invoice_date) {
@@ -572,9 +583,14 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
                 <SelectContent>
                   <SelectItem value="inherit">اتباع إعداد المورد</SelectItem>
                   <SelectItem value="include">محتسبة يدويًا</SelectItem>
-                  <SelectItem value="exclude">مستثناة يدويًا</SelectItem>
+                  {(isGeneralFinancialManager || form.net_purchase_mode === "exclude") && (
+                    <SelectItem value="exclude">مستثناة يدويًا</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {!isGeneralFinancialManager && (
+                <p className="text-[11px] text-muted-foreground">استثناء الفاتورة يدويًا متاح للمدير المالي الكلي فقط.</p>
+              )}
             </div>
 
             {/* سبب الاستثناء */}
