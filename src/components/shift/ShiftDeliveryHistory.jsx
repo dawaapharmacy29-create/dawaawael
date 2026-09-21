@@ -13,6 +13,7 @@ import { SortControls } from "@/components/table/SortControls";
 import { SHIFT_TYPE_ORDER } from "@/lib/sortUtils";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 import { aggregateShiftFinancials, shiftFinancialView } from "@/lib/shiftFinancials";
+import { getCairoRecordedTime } from "@/lib/shiftUtils";
 
 const SHIFT_SORT_COLUMNS = [
   { field: "shift_type", label: "نوع الشفت", type: "status", statusMap: SHIFT_TYPE_ORDER },
@@ -148,7 +149,7 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                         {r.recorded_at && (
                           <span className="flex items-center gap-1 text-[10px] text-gray-400" title="وقت التسليم">
                             <Clock className="w-3 h-3" />
-                            وقت التسليم {r.recorded_at.slice(11, 16)}
+                            وقت التسليم {getCairoRecordedTime(r.recorded_at)}
                           </span>
                         )}
                       </div>

@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Wallet, Plus, Trash2, Save, Loader2, Banknote, CreditCard, Smartphone, Landmark, CircleDollarSign } from "lucide-react";
 import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyCloseGuard";
-import { getSmartShiftSuggestion, getTimeBasedShiftSuggestion, isShiftOverride } from "@/lib/shiftAutoDetection";
 
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -54,17 +53,13 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   });
   const activeExpenseItems = expenseItems.filter((i) => i.is_active !== false && !PAYMENT_EXPENSE_NAMES.has((i.name || "").trim()));
 
-  const initialShiftSuggestion = useMemo(() => getTimeBasedShiftSuggestion(), []);
   const [form, setForm] = useState({
     branch: "",
-    shift_type: initialShiftSuggestion.shiftType,
+    shift_type: "",
     employee_map_id: "",
     total_sales: "",
     notes: "",
   });
-  const [shiftSuggestion, setShiftSuggestion] = useState(initialShiftSuggestion);
-  const [manualShiftOverride, setManualShiftOverride] = useState(false);
-  const [shiftDetecting, setShiftDetecting] = useState(false);
   const [payments, setPayments] = useState({ cash: "", visa: "", insta: "", vodafone: "", other: "" });
   const [advancedCollection, setAdvancedCollection] = useState(false);
   const [visaControl, setVisaControl] = useState({ terminalAmount: "", operationCount: "", terminalName: "", batchReference: "" });
@@ -130,33 +125,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     const t = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(t);
   }, []);
-
-  const shiftDetectionBucket = Math.floor(now.getTime() / (5 * 60 * 1000));
-  useEffect(() => {
-    if (initialDraft?.id || manualShiftOverride) return;
-    const entryStarted = Boolean(
-      form.employee_map_id ||
-      Object.values(payments).some((v) => Number(v || 0) > 0) ||
-      expenses.some((e) => Number(e.amount || 0) > 0 || e.category || e.description)
-    );
-    // بعد بدء إدخال بيانات الشيفت نثبت النوع حتى لا يتغير تلقائيًا أثناء التقفيل.
-    if (entryStarted) return;
-    let cancelled = false;
-    const detect = async () => {
-      setShiftDetecting(true);
-      try {
-        const suggestion = await getSmartShiftSuggestion(form.branch, now);
-        if (cancelled) return;
-        setShiftSuggestion(suggestion);
-        setForm((prev) => prev.shift_type === suggestion.shiftType ? prev : { ...prev, shift_type: suggestion.shiftType });
-        setDraftBusinessDate("");
-      } finally {
-        if (!cancelled) setShiftDetecting(false);
-      }
-    };
-    detect();
-    return () => { cancelled = true; };
-  }, [form.branch, manualShiftOverride, initialDraft?.id, shiftDetectionBucket]);
 
   const simpleTotal = parseFloat(form.total_sales) || 0;
   const collectionDetailsTotal = useMemo(() =>
@@ -312,10 +280,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
-    if (!initialDraft?.id && isShiftOverride(form.shift_type, shiftSuggestion?.shiftType)) {
-      const proceed = window.confirm(`الوقت الحالي يرجح أن الشيفت هو «${shiftSuggestion.shiftType}» وليس «${form.shift_type}».\n${shiftSuggestion.reason || ""}\n\nهل تريد الاستمرار بالاختيار اليدوي؟`);
-      if (!proceed) return;
-    }
     if (paymentTotal <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
     if (collectionDetailsTotal > paymentTotal + 0.01) return setError("تفاصيل التحصيل لا يمكن أن تكون أكبر من إجمالي المبيعات");
 
@@ -334,12 +298,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     try {
       const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
       await assertDailyCloseOpen(form.branch, businessDate, "تسجيل تسليم شيفت جديد");
-      const existingShift = await base44.entities.ShiftDelivery.filter({ branch: form.branch, shift_date: businessDate, shift_type: form.shift_type }, "-created_date", 20);
-      const activeDuplicate = existingShift.find((s) => s.is_archived !== true);
-      if (activeDuplicate) {
-        setError(`الشيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate} متسجل بالفعل. افتح «سجل الشيفتات» أو «مراجعة» بدل إعادة تسجيله.`);
-        return;
-      }
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
       if (!selectedEmployee?.admin_staff_id) {
         setError("اسم الموظف غير مربوط بحساب الإدارة");
@@ -427,12 +385,9 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       qc.invalidateQueries({ queryKey: ["shift-deliveries"] });
       qc.invalidateQueries({ queryKey: ["daily-close-shifts"] });
       qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
-      const nextSuggestion = getTimeBasedShiftSuggestion();
-      setShiftSuggestion(nextSuggestion);
-      setManualShiftOverride(false);
       setForm({
         branch: "",
-        shift_type: nextSuggestion.shiftType,
+        shift_type: "",
         employee_map_id: "",
         total_sales: "",
         notes: "",
@@ -452,31 +407,18 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       if (visaTrackingWarning) window.alert(visaTrackingWarning);
       if (onSaved) onSaved();
     } catch (e) {
-      const status = e?.response?.status || e?.status;
       const serverError = e?.response?.data?.error || e?.data?.error;
-      const isDuplicate = status === 409 || e?.response?.data?.code === "duplicate_shift_delivery";
-      const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
-      const message = isDuplicate
-        ? `الشيفت ${form.shift_type} لفرع ${form.branch} بتاريخ ${businessDate} متسجل بالفعل، لذلك لم يتم إنشاء نسخة ثانية. راجع «سجل الشيفتات» أو «مراجعة» لو محتاج تشوف السجل الموجود.`
-        : (serverError || e?.message || "حدث خطأ أثناء الحفظ");
+      const message = serverError || e?.message || "حدث خطأ أثناء الحفظ";
 
       if (draftIdRef.current) {
         try {
-          if (isDuplicate) {
-            await base44.entities.ShiftDraft.update(draftIdRef.current, {
-              status: "abandoned",
-              last_error: "تم إغلاق المسودة لأن الشيفت موجود بالفعل",
-              last_saved_at: new Date().toISOString(),
-            });
-          } else {
-            retryCountRef.current += 1;
-            await base44.entities.ShiftDraft.update(draftIdRef.current, {
-              status: "draft",
-              last_error: message,
-              retry_count: retryCountRef.current,
-              last_saved_at: new Date().toISOString(),
-            });
-          }
+          retryCountRef.current += 1;
+          await base44.entities.ShiftDraft.update(draftIdRef.current, {
+            status: "draft",
+            last_error: message,
+            retry_count: retryCountRef.current,
+            last_saved_at: new Date().toISOString(),
+          });
           qc.invalidateQueries({ queryKey: ["shift-drafts-active"] });
         } catch {}
       }
@@ -508,7 +450,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">الفرع <span className="text-red-500">*</span></Label>
-              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(false); setForm({ ...form, branch: v, employee_map_id: "" }); }}> 
+              <Select value={form.branch} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, branch: v, employee_map_id: "" }); }}> 
                 <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>
                   {BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -517,21 +459,14 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-gray-600">نوع الشيفت <span className="text-red-500">*</span></Label>
-              <Select value={form.shift_type} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setManualShiftOverride(v !== shiftSuggestion?.shiftType); setForm({ ...form, shift_type: v }); }}>
+              <Select value={form.shift_type} disabled={!!initialDraft} onValueChange={(v) => { setDraftBusinessDate(""); setForm({ ...form, shift_type: v }); }}>
                 <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
                 <SelectContent>
                   {SHIFT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
               {!initialDraft && (
-                <div className={`rounded-lg border px-2.5 py-2 text-[11px] ${manualShiftOverride ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold">{shiftDetecting ? "جاري تحديد الشيفت تلقائيًا..." : manualShiftOverride ? `اختيار يدوي — المقترح تلقائيًا: ${shiftSuggestion?.shiftType || "—"}` : `تم التحديد تلقائيًا: ${form.shift_type}`}</span>
-                    {manualShiftOverride && <button type="button" className="underline font-bold" onClick={() => { setManualShiftOverride(false); if (shiftSuggestion?.shiftType) { setDraftBusinessDate(""); setForm((f) => ({ ...f, shift_type: shiftSuggestion.shiftType })); } }}>العودة للتلقائي</button>}
-                  </div>
-                  {!shiftDetecting && shiftSuggestion?.reason && <p className="mt-1 opacity-80">{shiftSuggestion.reason}</p>}
-                  <p className="mt-1 opacity-70">يمكن تغييره يدويًا عند الحاجة، وسيطلب النظام تأكيدًا لو الاختيار مختلف عن المعتاد.</p>
-                </div>
+                <p className="text-[11px] text-gray-500">اختر نوع الشيفت يدويًا. يمكن تسجيل نفس النوع أكثر من مرة لنفس اليوم عند الحاجة لتصحيح خطأ.</p>
               )}
             </div>
             <div className="space-y-1.5">

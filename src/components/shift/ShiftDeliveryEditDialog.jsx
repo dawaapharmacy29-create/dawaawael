@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Save, Loader2, CalendarClock } from "lucide-react";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
+import { getCairoRecordedAt } from "@/lib/shiftUtils";
 import { shiftFinancialView } from "@/lib/shiftFinancials";
 
 const BRANCHES = ["دواء شكري", "دواء الشامي"];
@@ -159,7 +160,7 @@ export default function ShiftDeliveryEditDialog({ item, onClose }) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">تاريخ وساعة التسجيل (تلقائي — غير قابل للتعديل)</Label>
-                <Input value={item.recorded_at || item.shift_date || ""} disabled className="bg-gray-50 text-gray-500" />
+                <Input value={getCairoRecordedAt(item.recorded_at) || item.shift_date || ""} disabled className="bg-gray-50 text-gray-500" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-gray-600">تاريخ الاحتساب</Label>
