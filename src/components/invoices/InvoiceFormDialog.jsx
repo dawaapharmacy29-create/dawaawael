@@ -19,6 +19,7 @@ import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
 import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 import { addDays } from "@/lib/supplierAging";
 import { isDeliveryStaffName } from "@/lib/operationalAccess";
+import { useUserRole } from "@/lib/useUserRole";
 
 function SearchableSelect({ value, onChange, options, placeholder, className = "" }) {
   const [search, setSearch] = useState("");
@@ -109,6 +110,8 @@ const emptyForm = {
 export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoice, isLoading, externalError = "", allInvoices = [], allowedBranches = BRANCHES }) {
   const [form, setForm] = useState(emptyForm);
   const [dupError, setDupError] = useState("");
+  // تاريخ استحقاق السداد يظهر للمدير المالي الكلي فقط (مالي كامل)
+  const { canViewFinancialDashboard: isGeneralFinancialManager } = useUserRole();
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -636,7 +639,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
             </div>
           </div>
 
-          {form.payment_type === "آجل" && (
+          {form.payment_type === "آجل" && isGeneralFinancialManager && (
             <div className="grid grid-cols-2 gap-2 bg-orange-50/60 border border-orange-100 rounded-md p-2">
               <div className="space-y-1">
                 <Label className="text-xs">تاريخ استحقاق السداد</Label>
