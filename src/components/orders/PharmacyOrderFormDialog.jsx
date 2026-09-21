@@ -28,6 +28,7 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -35,14 +36,21 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    set("product_image", file_url);
-    setUploading(false);
+    setError("");
+    try {
+      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+      set("product_image", file_url);
+    } catch (err) {
+      setError("تعذر رفع الصورة — حاول مرة أخرى");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = async () => {
-    if (!form.customer_name || !form.phone || !form.product_name) return;
+    if (!form.customer_name || !form.phone || !form.product_name || !form.branch) return;
     setSaving(true);
+    setError("");
     try {
       const payload = editOrder
         ? { action: "update", id: editOrder.id, updates: form, timeline_note: "تعديل بيانات طلب الصيدلية" }
@@ -52,6 +60,8 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
       if (!result.success) throw new Error(result.error || "تعذر حفظ طلب الصيدلية");
       onSaved?.(result.record);
       onOpenChange(false);
+    } catch (err) {
+      setError(err?.message || "تعذر حفظ طلب الصيدلية");
     } finally {
       setSaving(false);
     }
@@ -78,7 +88,7 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
               <Input value={form.customer_code} onChange={(e) => set("customer_code", e.target.value)} placeholder="كود اختياري" className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">الفرع</label>
+              <label className="text-xs font-medium text-gray-600">الفرع *</label>
               <Select value={form.branch} onValueChange={(v) => set("branch", v)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
                 <SelectContent>{BRANCHES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
@@ -154,8 +164,9 @@ export default function PharmacyOrderFormDialog({ open, onOpenChange, teamMember
             />
           </div>
 
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name} className="flex-1 bg-violet-600 hover:bg-violet-700">
+            <Button onClick={handleSave} disabled={saving || !form.customer_name || !form.phone || !form.product_name || !form.branch} className="flex-1 bg-violet-600 hover:bg-violet-700">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editOrder ? "حفظ التعديلات" : "حفظ الطلب")}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
