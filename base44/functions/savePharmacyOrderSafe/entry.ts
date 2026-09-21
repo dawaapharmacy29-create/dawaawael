@@ -47,8 +47,9 @@ function validate(next: any) {
 
 async function validateAssignedEmployee(base44: any, name: string) {
   if (!name) return;
-  const rows = await base44.asServiceRole.entities.TeamMember.filter({ name, is_active: true });
-  if (!rows?.length) throw new Error('الموظف المسؤول غير موجود ضمن فريق العمل النشط');
+  const rows = await base44.asServiceRole.entities.TeamMember.filter({ name });
+  const isActive = (row: any) => row?.is_active !== false && !row?.archived_at;
+  if (!rows?.some(isActive)) throw new Error('الموظف المسؤول غير موجود ضمن فريق العمل النشط');
 }
 
 export default async function(req: Request): Promise<Response> {
