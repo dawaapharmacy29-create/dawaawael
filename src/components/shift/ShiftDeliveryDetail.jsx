@@ -1,3 +1,4 @@
+import ReclassifyShiftExpense from "./ReclassifyShiftExpense";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
 
   return (
     <Dialog open={!!item} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-xl p-0 overflow-hidden">
+      <DialogContent className="max-w-xl p-0 max-h-[90vh] overflow-y-auto">
         <div className="border-b bg-slate-50/70 px-5 py-4">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
@@ -152,7 +153,7 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
             )}
           </div>
 
-          {financial.realExpenses.length > 0 && (
+          {(item.expenses || []).length > 0 && (
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">بنود المصروفات</p>
               <div className="border rounded-lg overflow-hidden">
@@ -161,15 +162,15 @@ export default function ShiftDeliveryDetail({ item, onClose }) {
                     <TableRow>
                       <TableHead>الوصف</TableHead>
                       <TableHead>التصنيف</TableHead>
-                      <TableHead className="text-left">القيمة</TableHead>
+                      <TableHead className="text-left">القيمة</TableHead>{isAdmin && <TableHead>تغيير البند</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {financial.realExpenses.map((e, i) => (
+                    {(item.expenses || []).map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description || "—"}</TableCell>
                         <TableCell className="text-sm">{e.category || "—"}</TableCell>
-                        <TableCell className="text-sm font-medium text-red-600">{fmt(e.amount)}</TableCell>
+                        <TableCell className="text-sm font-medium text-red-600">{fmt(e.amount)}</TableCell>{isAdmin && <TableCell><ReclassifyShiftExpense record={item} expenseIndex={i} onSaved={onClose} /></TableCell>}
                       </TableRow>
                     ))}
                   </TableBody>
