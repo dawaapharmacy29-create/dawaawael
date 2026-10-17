@@ -22,7 +22,7 @@ export default function ShiftOperationsAnalytics({ deliveries = [] }) {
   const [from, setFrom] = useState(cycle.from);
   const [to, setTo] = useState(cycle.to);
 
-  const filtered = useMemo(() => deliveries.filter((r) => r.is_archived !== true && r.status !== "مراجعة" && r.shift_date >= from && r.shift_date <= to && (branch === "الكل" || r.branch === branch) && (shift === "الكل" || r.shift_type === shift)), [deliveries, from, to, branch, shift]);
+  const filtered = useMemo(() => deliveries.filter((r) => r.is_archived !== true && (r.calculation_date || r.shift_date) >= from && (r.calculation_date || r.shift_date) <= to && (branch === "الكل" || r.branch === branch) && (shift === "الكل" || r.shift_type === shift)), [deliveries, from, to, branch, shift]);
   const agg = useMemo(() => aggregateShiftFinancials(filtered), [filtered]);
   const days = useMemo(() => new Set(filtered.map((r)=>r.shift_date).filter(Boolean)).size || 1, [filtered]);
 
