@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarClock, Clock3, UserRound, WalletCards, Banknote } from "lucide-react";
+import { CalendarClock, Clock3, UserRound, WalletCards } from "lucide-react";
 import { useUserRole } from "@/lib/useUserRole";
 import { assertDailyCloseOpen } from "@/lib/dailyCloseGuard";
 import { shiftFinancialView } from "@/lib/shiftFinancials";

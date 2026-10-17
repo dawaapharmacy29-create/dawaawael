@@ -1,14 +1,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { getRecordedAt } from "@/lib/shiftUtils";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Wallet, Plus, Trash2, Save, Loader2, Banknote, CreditCard, Smartphone, Landmark, CircleDollarSign } from "lucide-react";
+import { Wallet, Plus, Trash2, Save, Loader2, CreditCard, Smartphone, Landmark } from "lucide-react";
 import { assertDailyCloseOpen, currentShiftBusinessDate } from "@/lib/dailyCloseGuard";
 
 
