@@ -240,9 +240,10 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
       if (filterBranch && d.branch !== filterBranch) return false;
       if (filterShift && d.shift_type !== filterShift) return false;
       if (filterEmployee && !String(d.submitted_by || "").includes(filterEmployee)) return false;
-      if (!d.shift_date && (fromDate || toDate)) return false;
-      if (fromDate && d.shift_date < fromDate) return false;
-      if (toDate && d.shift_date > toDate) return false;
+      if (!(d.calculation_date || d.shift_date) && (fromDate || toDate)) return false;
+      const accountingDate = d.calculation_date || d.shift_date;
+      if (fromDate && accountingDate < fromDate) return false;
+      if (toDate && accountingDate > toDate) return false;
       return true;
     });
   }, [deliveries, fromDate, toDate, showArchived, filterBranch, filterShift, filterEmployee]);
@@ -304,7 +305,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
   const grouped = useMemo(() => {
     const map = {};
     for (const d of dateFiltered) {
-      const key = d.shift_date || "—";
+      const key = d.calculation_date || d.shift_date || "—";
       if (!map[key]) map[key] = [];
       map[key].push(d);
     }
@@ -315,7 +316,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
   const dailyBranchTotals = useMemo(() => {
     const map = new Map();
     dateFiltered.forEach((r) => {
-      const d = r.shift_date || "—";
+      const d = r.calculation_date || r.shift_date || "—";
       if (!map.has(d)) map.set(d, Object.fromEntries(visibleBranches.map((b) => [b, 0])));
       const entry = map.get(d);
       if (visibleBranches.includes(r.branch)) entry[r.branch] = (entry[r.branch] || 0) + (r.total_sales || 0);
