@@ -55,16 +55,16 @@ export default function ShiftDeliveryReport({ deliveries }) {
       .filter((d) => filterBranch === "الكل" || d.branch === filterBranch)
       .filter((d) => filterShift === "الكل" || d.shift_type === filterShift)
       .filter((d) => {
-        if (!d.shift_date) return false;
-        if (fromDate && d.shift_date < fromDate) return false;
-        if (toDate && d.shift_date > toDate) return false;
+        const date = d.calculation_date || d.shift_date;
+        if (!date && (fromDate || toDate)) return false;
+        if (fromDate && date < fromDate) return false;
+        if (toDate && date > toDate) return false;
         return true;
       });
   }, [deliveries, filterBranch, filterShift, fromDate, toDate]);
 
-  const reviewRecords = useMemo(() => matching.filter((d) => d.status === "مراجعة"), [matching]);
+  const reviewRecords = [];
   const filtered = useMemo(() => matching
-    .filter((d) => d.status !== "مراجعة")
     .sort((a, b) => (a.shift_date < b.shift_date ? 1 : -1)), [matching]);
 
   const totals = useMemo(() => aggregateShiftFinancials(filtered), [filtered]);
@@ -97,7 +97,7 @@ export default function ShiftDeliveryReport({ deliveries }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-lg font-bold text-gray-800">تقرير التسليمات</h2>
+        <h2 className="text-lg font-bold text-gray-800">تحليل المصروفات</h2>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             {PERIODS.map(([key, label]) => (
