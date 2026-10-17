@@ -45,7 +45,26 @@ export default async function(req: Request): Promise<Response> {
     const shiftDate = clean(item.shift_date);
     let updates: Record<string, any> = {};
 
-    if (action === 'archive') {
+    if (action === 'reclassify_expense') {
+      if (clean(user.role) !== 'admin') return Response.json({ success:false, error:'تغيير بند المصروف متاح للمدير العام فقط' }, { status:403 });
+      if (item.is_archived === true) return Response.json({ success:false, error:'استعد التسليم من الأرشيف قبل التعديل' }, { status:409 });
+      await assertDayOpen(base44, branch, shiftDate);
+      await assertDayOpen(base44, branch, clean(item.calculation_date || shiftDate));
+      const index = body.expense_index;
+      const expenses = Array.isArray(item.expenses) ? item.expenses : [];
+      if (!Number.isInteger(index) || index < 0 || index >= expenses.length) return Response.json({ success:false, error:'المصروف غير موجود؛ حدّث الصفحة' }, { status:400 });
+      const expected = body.expected_expense;
+      const current = expenses[index];
+      if (!expected || String(body.expected_updated_date || '') !== String(item.updated_date || '') ||
+          JSON.stringify(current) !== JSON.stringify(expected)) {
+        return Response.json({ success:false, error:'تغير التسليم منذ فتحه؛ حدّث الصفحة ثم حاول مجددًا' }, { status:409 });
+      }
+      const category = clean(body.category);
+      const targets = await base44.asServiceRole.entities.ExpenseItem.filter({ name:category });
+      if (!category || !targets.some((t: any) => t.is_active !== false)) return Response.json({ success:false, error:'اختر بند مصروفات نشطًا من القائمة الحالية' }, { status:400 });
+      // Only the requested category changes. Preserve amounts, metadata and every other expense.
+      updates = { expenses: expenses.map((e: any, i: number) => i === index ? { ...e, category } : e) };
+    } else if (action === 'archive') {
       const reason = clean(body?.archive_reason) || 'أرشفة إدارية';
       const note = clean(body?.archive_note);
       updates = { is_archived:true, archived_at:new Date().toISOString(), archived_by:actor, archive_reason:reason, archive_note:note };
