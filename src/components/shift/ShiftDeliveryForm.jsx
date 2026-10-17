@@ -1,3 +1,4 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { getRecordedAt } from "@/lib/shiftUtils";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -38,8 +39,11 @@ const EXPENSE_SOURCES = [
   ["other", "أخرى"],
 ];
 
-export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
+export default function ShiftDeliveryForm({ onSaved, initialDraft = null, active = true }) {
   const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const saveLock = useRef(false);
+  const pendingDraft = useRef(null);
 
   const { data: expenseItems = [] } = useQuery({
     queryKey: ["expense-items"],
@@ -139,7 +143,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const { data: liveExpenseEvents = [] } = useQuery({
     queryKey: ["shift-expense-events", form.branch, liveBusinessDate, form.shift_type],
     queryFn: () => base44.entities.ShiftExpenseEvent.filter({ branch: form.branch, business_date: liveBusinessDate, shift_type: form.shift_type, status: "posted" }, "occurred_at", 300),
-    enabled: Boolean(form.branch && form.shift_type && liveBusinessDate),
+    enabled: active && Boolean(form.branch && form.shift_type && liveBusinessDate),
     staleTime: 5000,
     refetchOnWindowFocus: true,
   });
@@ -159,7 +163,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   const treasuryNet = netAmount;
 
   useEffect(() => {
-    if (!form.branch || !form.shift_type || !form.employee_map_id) return;
+    if (!active || saving || saveLock.current || !form.branch || !form.shift_type || !form.employee_map_id) return;
     const hasMeaningfulDraftData =
       (parseFloat(form.total_sales) || 0) > 0 ||
       collectionDetailsTotal > 0 ||
@@ -173,7 +177,9 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       draftKeyRef.current = draftKey;
       draftIdRef.current = null;
     }
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
+      if (saveLock.current) return;
+      const task = (async () => {
       try {
         setDraftState("جاري حفظ المسودة...");
         const payload = {
@@ -214,9 +220,11 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       } catch {
         setDraftState("تعذر حفظ المسودة — البيانات ما زالت موجودة على الشاشة");
       }
+      })();
+      pendingDraft.current = task;
     }, 1200);
     return () => clearTimeout(timer);
-  }, [form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap, cashHandover, cashVariance, draftBusinessDate, visaControl, visaTerminalAmount]);
+  }, [active, saving, form.branch, form.shift_type, form.employee_map_id, form.notes, payments, expenses, paymentTotal, employeeNameMap, cashHandover, cashVariance, draftBusinessDate, visaControl, visaTerminalAmount]);
 
   const updateExpense = (idx, field, value) => {
     setExpenses((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)));
@@ -276,12 +284,16 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
   };
 
   const handleSave = async () => {
+    if (saveLock.current) return;
     setError("");
     if (!form.branch) return setError("الرجاء اختيار الفرع");
     if (!form.shift_type) return setError("الرجاء اختيار نوع الشيفت");
     if (!form.employee_map_id) return setError("الرجاء اختيار اسمك الرسمي");
-    if (paymentTotal <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
+    if (!Number.isFinite(paymentTotal) || paymentTotal <= 0) return setError("الرجاء إدخال إجمالي مبيعات الشيفت");
     if (collectionDetailsTotal > paymentTotal + 0.01) return setError("تفاصيل التحصيل لا يمكن أن تكون أكبر من إجمالي المبيعات");
+
+    if (expenses.some(e => (e.category || e.amount || e.description) && (!e.category || !Number.isFinite(Number(e.amount)) || Number(e.amount) <= 0))) return setError("اختر البند وأدخل قيمة موجبة لكل مصروف");
+    if (Object.values(payments).some(v => v !== "" && (!Number.isFinite(Number(v)) || Number(v) < 0))) return setError("قيم التحصيل يجب أن تكون أرقامًا موجبة");
 
     const liveExpenses = liveExpenseEvents.map((e) => ({
       description: `${e.note || ""}${e.note ? " — " : ""}مسجل أثناء الشيفت ${e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : ""}`.trim(),
@@ -294,8 +306,10 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       .map((e) => ({ description: e.description || "", amount: parseFloat(e.amount) || 0, category: e.category || "أخرى", payment_source: e.payment_source || "cash" }));
     const validExpenses = [...liveExpenses, ...closingExpenses];
 
+    saveLock.current = true;
     setSaving(true);
     try {
+      if (pendingDraft.current) await pendingDraft.current;
       const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
       await assertDailyCloseOpen(form.branch, businessDate, "تسجيل تسليم شيفت جديد");
       const selectedEmployee = employeeNameMap.find((m) => m.id === form.employee_map_id);
@@ -424,6 +438,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
       }
       setError(message);
     } finally {
+      saveLock.current = false;
       setSaving(false);
     }
   };
@@ -434,16 +449,16 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-          <Wallet className="w-5 h-5 text-indigo-600" />
+        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
+          <Wallet className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-800">تسليم شفت جديد</h2>
+          <h2 className="text-xl font-bold text-gray-800">تسليم شيفت جديد</h2>
           <p className="text-sm text-gray-500">أدخل بيانات الشفت والمصروفات</p>
         </div>
       </div>
 
-      <Card className="p-6 space-y-6">
+      <Card className="p-4 space-y-4">
         {/* Section 1: Shift Details */}
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b">بيانات الشفت</h3>
@@ -492,13 +507,13 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
               </Select>
             </div>
           </div>
-          <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
+          <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
             <div className="flex items-end gap-3 flex-wrap">
               <div className="flex-1 min-w-[220px] space-y-1.5">
                 <Label className="text-sm font-bold text-slate-800">إجمالي مبيعات الشيفت *</Label>
                 <Input type="number" min="0" step="0.01" value={form.total_sales} onChange={(e) => setForm((f) => ({ ...f, total_sales: e.target.value }))} placeholder="0.00" className="h-12 bg-white text-lg font-bold" />
               </div>
-              <Button type="button" variant="outline" onClick={() => setAdvancedCollection((v) => !v)} className="h-12 border-indigo-200 text-indigo-700 bg-white">
+              <Button type="button" variant="outline" onClick={() => setAdvancedCollection((v) => !v)} className="h-12 border-blue-200 text-blue-700 bg-white">
                 <Plus className={`w-4 h-4 transition-transform ${advancedCollection ? "rotate-45" : ""}`} />
                 {advancedCollection ? "إخفاء التفاصيل" : "إضافة تفاصيل"}
               </Button>
@@ -506,7 +521,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             <p className="text-[11px] text-slate-500">إجمالي المبيعات هو الرقم الأساسي. تفاصيل التحصيل اختيارية وتُخصم منه تلقائيًا لإظهار الصافي المتبقي.</p>
 
             {advancedCollection && (
-              <div className="space-y-3 border-t border-indigo-100 pt-4">
+              <div className="space-y-3 border-t border-blue-100 pt-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { key:"insta", label:"إنستا باي", Icon:Landmark },
@@ -536,7 +551,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         </div>
 
         {/* Section 3: Expenses */}
-        <div>
+        <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
             <div><h3 className="text-sm font-semibold text-gray-700">المصروفات</h3><p className="text-[11px] text-gray-400 mt-0.5">أضف أي مصروفات تخص الشيفت. اتركها فارغة لو مفيش مصروفات.</p></div>
             <Button type="button" variant="outline" size="sm" onClick={addExpense} className="text-blue-600 border-blue-200 hover:bg-blue-50">
@@ -590,7 +605,7 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
             <p className="text-sm font-bold text-gray-800">{fmt(paymentTotal)} ج مبيعات</p>
             {collectionDetailsTotal > 0 && <p className="text-sm text-blue-600">− {fmt(collectionDetailsTotal)} ج تفاصيل تحصيل</p>}
             {totalExpenses > 0 && <p className="text-sm text-red-600">− {fmt(totalExpenses)} ج مصروفات</p>}
-            <p className="text-xl font-black text-indigo-700">= {fmt(paymentTotal - collectionDetailsTotal - totalExpenses)} ج</p>
+            <p className="text-xl font-black text-blue-700">= {fmt(paymentTotal - collectionDetailsTotal - totalExpenses)} ج</p>
           </div>
         </div>
 
@@ -603,14 +618,33 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null }) {
         {error && <p className="text-sm text-red-600 text-center font-medium">{error}</p>}
 
         <Button
-          onClick={handleSave}
+          onClick={() => { setError(""); setConfirmOpen(true); }}
           disabled={saving}
-          className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white"
+          className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           حفظ التسليم
         </Button>
       </Card>
+      <Dialog open={confirmOpen && active} onOpenChange={v => { if (!saving) setConfirmOpen(v); }}>
+        <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>تأكيد تسليم الشيفت</DialogTitle></DialogHeader>
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm">
+            <div className="flex gap-2 flex-wrap">{[form.branch, form.shift_type, employeeNameMap.find(m => m.id === form.employee_map_id)?.canonical_name, liveBusinessDate].filter(Boolean).map((v,i) => <span key={i} className="rounded-md bg-blue-100 text-blue-800 px-2 py-1">{v}</span>)}</div>
+            <p className="flex justify-between"><span>إجمالي المبيعات</span><b>{fmt(paymentTotal)} ج.م</b></p>
+            {collectionDetailsTotal > 0 && <p className="flex justify-between"><span>تفاصيل التحصيل</span><b>{fmt(collectionDetailsTotal)} ج.م</b></p>}
+            {expenses.filter(e => e.category || e.amount).map((e,i) => <div key={i}><p className="flex justify-between text-red-600"><span>{e.category || "بند غير محدد"}</span><span>{fmt(e.amount)} ج.م</span></p>{e.description && <p className="text-xs text-gray-500">{e.description}</p>}</div>)}
+            {liveExpenseTotal > 0 && <p className="flex justify-between"><span>مصروفات مسجلة أثناء الشيفت</span><b>{fmt(liveExpenseTotal)} ج.م</b></p>}
+            <p className="flex justify-between border-t pt-2"><span>إجمالي المصروفات</span><b className="text-red-600">{fmt(totalExpenses)} ج.م</b></p>
+            <p className="flex justify-between border-t pt-2"><span>صافي التسليم النقدي</span><b className="text-green-700">{fmt(expectedCashHandover)} ج.م</b></p>
+          </div>
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          <DialogFooter>
+            <Button variant="outline" disabled={saving} onClick={() => setConfirmOpen(false)}>رجوع للتعديل</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" disabled={saving} onClick={handleSave}>{saving ? "جاري الحفظ..." : "تأكيد الحفظ"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
