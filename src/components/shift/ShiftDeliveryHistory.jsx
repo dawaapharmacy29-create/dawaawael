@@ -163,8 +163,8 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                             <button onClick={() => onEdit(r)} className="w-6 h-6 flex items-center justify-center rounded text-indigo-600 hover:bg-indigo-50">
                               <Pencil className="w-3 h-3" />
                             </button>
-                            <button onClick={() => onDelete(r)} className="w-6 h-6 flex items-center justify-center rounded text-red-500 hover:bg-red-50" title="أرشفة">
-                              <Trash2 className="w-3 h-3" />
+                            <button onClick={() => onDelete(r)} className="h-8 px-2 flex items-center justify-center gap-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50 text-xs" title="حذف الشيفت" aria-label="حذف الشيفت">
+                              <Trash2 className="w-3.5 h-3.5" /> حذف
                             </button>
                           </>
                         )}
@@ -432,7 +432,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
           </div>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setShowArchived((v) => !v)} className={showArchived ? "border-amber-300 bg-amber-50 text-amber-700" : ""}>
-              {showArchived ? "عرض التسليمات الحالية" : "عرض الأرشيف"}
+              {showArchived ? "عرض التسليمات الحالية" : "المحذوفات / الأرشيف"}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={exportExcel}><Download className="w-3.5 h-3.5" /> Excel</Button>
@@ -573,9 +573,13 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
       <ArchiveDialog
         open={!!archiveItem}
         onOpenChange={(open) => !open && setArchiveItem(null)}
-        title="أرشفة تسليم الشيفت"
-        description="سيتم استبعاد التسليم من الحسابات والتقارير العادية مع الاحتفاظ به كاملًا في الأرشيف."
-        defaultReason="أرشفة تسليم شيفت"
+        title="تأكيد حذف الشيفت"
+        description={`هل تريد حذف تسليم ${archiveItem?.submitted_by || ""} — ${archiveItem?.branch || ""} — ${archiveItem?.shift_date || ""} — ${archiveItem?.shift_type || ""}؟ سيُستبعد من التسليمات والحسابات، ويمكن استرجاعه من المحذوفات / الأرشيف.`}
+        defaultReason="حذف شيفت مسجل بالخطأ"
+        confirmLabel="تأكيد الحذف"
+        pendingLabel="جاري الحذف..."
+        reasonLabel="سبب الحذف"
+        confirmClassName="bg-red-600 hover:bg-red-700"
         isLoading={deleteMutation.isPending}
         onConfirm={async ({ reason, note }) => {
           await deleteMutation.mutateAsync({ id: archiveItem.id, reason, note });
