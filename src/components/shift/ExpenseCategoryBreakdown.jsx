@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { shiftFinancialView } from "@/lib/shiftFinancials";
+import ReclassifyShiftExpense from "./ReclassifyShiftExpense";
 
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 
@@ -22,11 +22,13 @@ export default function ExpenseCategoryBreakdown({ deliveries, title = "تفصي
   const categories = useMemo(() => {
     const map = {};
     deliveries.forEach((d) => {
-      shiftFinancialView(d).realExpenses.forEach((e) => {
+      (d.expenses || []).forEach((e, expenseIndex) => {
         const cat = (e.category && e.category.trim()) || "أخرى";
         if (!map[cat]) map[cat] = { total: 0, items: [] };
         map[cat].total += e.amount || 0;
         map[cat].items.push({
+          record: d,
+          expenseIndex,
           description: e.description || "—",
           amount: e.amount || 0,
           branch: d.branch || "—",
@@ -91,7 +93,7 @@ export default function ExpenseCategoryBreakdown({ deliveries, title = "تفصي
                       <p className="text-gray-700 truncate">{item.description}</p>
                       <p className="text-gray-400 text-[10px]">{item.branch} • {item.shift_date}</p>
                     </div>
-                    <span className="font-medium text-gray-700 whitespace-nowrap">{fmt(item.amount)} ج.م</span>
+                    <div className="space-y-2 text-left"><span className="font-medium text-gray-700 whitespace-nowrap">{fmt(item.amount)} ج.م</span><ReclassifyShiftExpense record={item.record} expenseIndex={item.expenseIndex} /></div>
                   </div>
                 ))}
               </div>
