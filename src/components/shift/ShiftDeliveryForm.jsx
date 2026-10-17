@@ -172,14 +172,17 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null, active
     // لا ننشئ مسودة لمجرد اختيار الفرع/الشيفت/الاسم؛ لازم يكون المستخدم بدأ إدخال بيانات فعلية.
     if (!hasMeaningfulDraftData && !draftIdRef.current) return;
     const businessDate = draftBusinessDate || currentShiftBusinessDate(form.shift_type);
-    const draftKey = `${form.branch}|${businessDate}|${form.shift_type}|${form.employee_map_id}`;
+    const draftKey = initialDraft?.draft_key || `${form.branch}|${businessDate}|${form.shift_type}|${form.employee_map_id}|${submissionTokenRef.current}`;
     if (draftKeyRef.current !== draftKey) {
       draftKeyRef.current = draftKey;
       draftIdRef.current = null;
     }
     const timer = setTimeout(() => {
       if (saveLock.current) return;
+      const previousSave = pendingDraft.current;
       const task = (async () => {
+      if (previousSave) await previousSave;
+      if (draftKeyRef.current !== draftKey || saveLock.current) return;
       try {
         setDraftState("جاري حفظ المسودة...");
         const payload = {
@@ -207,10 +210,6 @@ export default function ShiftDeliveryForm({ onSaved, initialDraft = null, active
           last_saved_at: new Date().toISOString(),
           submission_token: submissionTokenRef.current,
         };
-        if (!draftIdRef.current) {
-          const existing = await base44.entities.ShiftDraft.filter({ draft_key: draftKey, status: "draft" }, "-updated_date", 1);
-          if (existing[0]) draftIdRef.current = existing[0].id;
-        }
         if (draftIdRef.current) await base44.entities.ShiftDraft.update(draftIdRef.current, payload);
         else {
           const created = await base44.entities.ShiftDraft.create(payload);
