@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock, RotateCcw, AlertTriangle } from "lucide-react";
+import { Trash2, Pencil, Eye, Plus, LayoutGrid, Table2, CalendarCheck, Clock, RotateCcw, AlertTriangle, Download, Printer } from "lucide-react";
 import ShiftDeliveryDetail from "./ShiftDeliveryDetail";
 import ShiftDeliveryEditDialog from "./ShiftDeliveryEditDialog";
 import { useUserRole } from "@/lib/useUserRole";
@@ -110,9 +110,9 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {visibleBranches.map((branch) => {
           const branchRecords = records
-            .filter((r) => r.branch === branch)
+            .filter((r) => (r.branch || "") === branch)
             .sort((a, b) => (SHIFT_ORDER[a.shift_type] ?? 99) - (SHIFT_ORDER[b.shift_type] ?? 99));
-          const colors = BRANCH_COLORS[branch];
+          const colors = BRANCH_COLORS[branch] || BRANCH_COLORS["دواء شكري"];
           if (branchRecords.length === 0) {
             return (
               <div key={branch} className={`rounded-xl border-2 border-dashed ${colors.border} p-4 text-center`}>
@@ -146,6 +146,7 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${SHIFT_BADGE[r.shift_type] || "bg-gray-100"}`}>{r.shift_type}</span>
                         <span className="text-xs font-medium text-gray-700">{r.submitted_by || "—"}</span>
+                        {(r.status === "مراجعة" || r.workflow_status === "under_review") && <span className="text-[10px] rounded bg-amber-50 text-amber-700 px-1">تحت المراجعة</span>}
                         {r.recorded_at && (
                           <span className="flex items-center gap-1 text-[10px] text-gray-400" title="وقت التسليم">
                             <Clock className="w-3 h-3" />
@@ -218,8 +219,8 @@ function DayCard({ dateStr, records, visibleBranches = BRANCHES, isAdmin, onView
   );
 }
 
-export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRANCHES, onNewShift, showDuplicateAlert = false, duplicateOnly = false }) {
-  const visibleBranches = allowedBranches?.length ? BRANCHES.filter((b) => allowedBranches.includes(b)) : [];
+export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRANCHES, onNewShift, showDuplicateAlert = false, duplicateOnly = false, fullFinancial = false }) {
+  const visibleBranches = fullFinancial ? [...new Set([...BRANCHES, ...(deliveries || []).map(d => d.branch || "")])] : (allowedBranches || []);
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const [detailItem, setDetailItem] = useState(null);
@@ -228,17 +229,23 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
   const [toDate, setToDate] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // cards | table
   const [showArchived, setShowArchived] = useState(false);
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterShift, setFilterShift] = useState("");
+  const [filterEmployee, setFilterEmployee] = useState("");
   const [archiveItem, setArchiveItem] = useState(null);
 
   const dateFilteredRaw = useMemo(() => {
     return (deliveries || []).filter((d) => {
       if (showArchived ? d.is_archived !== true : d.is_archived === true) return false;
-      if (!d.shift_date) return false;
+      if (filterBranch && d.branch !== filterBranch) return false;
+      if (filterShift && d.shift_type !== filterShift) return false;
+      if (filterEmployee && !String(d.submitted_by || "").includes(filterEmployee)) return false;
+      if (!d.shift_date && (fromDate || toDate)) return false;
       if (fromDate && d.shift_date < fromDate) return false;
       if (toDate && d.shift_date > toDate) return false;
       return true;
     });
-  }, [deliveries, fromDate, toDate, showArchived]);
+  }, [deliveries, fromDate, toDate, showArchived, filterBranch, filterShift, filterEmployee]);
 
   const duplicateShiftGroups = useMemo(() => {
     if (showArchived) return [];
@@ -308,8 +315,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
   const dailyBranchTotals = useMemo(() => {
     const map = new Map();
     dateFiltered.forEach((r) => {
-      const d = r.shift_date;
-      if (!d) return;
+      const d = r.shift_date || "—";
       if (!map.has(d)) map.set(d, Object.fromEntries(visibleBranches.map((b) => [b, 0])));
       const entry = map.get(d);
       if (visibleBranches.includes(r.branch)) entry[r.branch] = (entry[r.branch] || 0) + (r.total_sales || 0);
@@ -317,7 +323,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
     return Array.from(map.entries())
       .map(([dateStr, totals]) => ({
         dateStr,
-        dayName: new Date(dateStr).toLocaleDateString("ar-EG", { weekday: "long" }),
+        dayName: dateStr === "—" ? "بدون تاريخ" : new Date(dateStr).toLocaleDateString("ar-EG", { weekday: "long" }),
         totals,
         grandTotal: visibleBranches.reduce((s, b) => s + (totals[b] || 0), 0),
       }))
@@ -344,6 +350,20 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
     });
     return { totals, grand };
   }, [dailyBranchTotals, visibleBranches]);
+
+  const exportExcel = async () => {
+    const XLSX = await import("xlsx");
+    const rows = dateFiltered.map(d => ({
+      "تاريخ الشيفت": d.shift_date || "", "تاريخ الاحتساب": d.calculation_date || d.shift_date || "",
+      "الفرع": d.branch || "", "الموظف": d.submitted_by || "", "الشيفت": d.shift_type || "",
+      "المبيعات": d.total_sales || 0, "المصروفات المسجلة": d.total_expenses || 0,
+      "صافي التسليم المسجل": d.net_amount ?? "", "الحالة": d.status || "",
+      "مؤرشف": d.is_archived === true ? "نعم" : "لا",
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "التسليمات");
+    XLSX.writeFile(wb, "التسليمات.xlsx");
+  };
 
   if (duplicateOnly) {
     return (
@@ -414,6 +434,8 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
               {showArchived ? "عرض التسليمات الحالية" : "عرض الأرشيف"}
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={exportExcel}><Download className="w-3.5 h-3.5" /> Excel</Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="w-3.5 h-3.5" /> طباعة</Button>
           <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToDateChange={setToDate} />
           <SortControls
             columns={SHIFT_SORT_COLUMNS}
@@ -430,6 +452,16 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
         </div>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 rounded-xl border bg-white p-3">
+        <select aria-label="الفرع" className="h-9 border rounded-md px-2 text-sm" value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
+          <option value="">كل الفروع</option>{visibleBranches.filter(Boolean).map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <input aria-label="اسم الموظف" className="h-9 border rounded-md px-2 text-sm" placeholder="اسم الموظف" value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)} />
+        <select aria-label="نوع الشيفت" className="h-9 border rounded-md px-2 text-sm" value={filterShift} onChange={e => setFilterShift(e.target.value)}>
+          <option value="">كل الأنواع</option>{["صباحي", "مسائي", "ليلي"].map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <p className="text-xs text-gray-500 sm:col-span-3">عدد التسليمات المعروضة: {dateFiltered.length} — يشمل جميع حالات التسليم والتكرارات. الأرشيف متاح من زر عرض الأرشيف.</p>
+      </div>
       {showDuplicateAlert && duplicateShiftGroups.length > 0 && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
           <div className="flex items-start gap-2">
@@ -467,7 +499,7 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
                   {visibleBranches.map((b) => (
                     <th key={b} className="px-4 py-3.5 text-left">
                       <span className="flex items-center gap-1.5 justify-end">
-                        <span className={`w-2 h-2 rounded-full ${BRANCH_COLORS[b].dot}`} />
+                        <span className={`w-2 h-2 rounded-full ${(BRANCH_COLORS[b] || BRANCH_COLORS["دواء شكري"]).dot}`} />
                         <span className="font-bold text-gray-700">{b}</span>
                       </span>
                       <span className="block text-[10px] text-gray-400 font-normal mt-0.5">متوسط {Math.round(branchAverages[b] || 0).toLocaleString("ar-EG")}</span>
