@@ -65,10 +65,16 @@ export default async function(req: Request): Promise<Response> {
       // Only the requested category changes. Preserve amounts, metadata and every other expense.
       updates = { expenses: expenses.map((e: any, i: number) => i === index ? { ...e, category } : e) };
     } else if (action === 'archive') {
+      if (clean(user.role) !== 'admin') return Response.json({ success:false, error:'حذف الشيفت متاح للمدير العام فقط' }, { status:403 });
+      await assertDayOpen(base44, branch, shiftDate);
+      await assertDayOpen(base44, branch, clean(item.calculation_date || shiftDate));
       const reason = clean(body?.archive_reason) || 'أرشفة إدارية';
       const note = clean(body?.archive_note);
       updates = { is_archived:true, archived_at:new Date().toISOString(), archived_by:actor, archive_reason:reason, archive_note:note };
     } else if (action === 'restore_archive') {
+      if (clean(user.role) !== 'admin') return Response.json({ success:false, error:'استرجاع الشيفت متاح للمدير العام فقط' }, { status:403 });
+      await assertDayOpen(base44, branch, shiftDate);
+      await assertDayOpen(base44, branch, clean(item.calculation_date || shiftDate));
       updates = { is_archived:false, archived_at:'', archived_by:'', archive_reason:'', archive_note:'' };
     } else if (action === 'previous_calculation_day') {
       if (item.is_archived === true) return Response.json({ success:false, error:'لا يمكن تعديل تسليم مؤرشف قبل استعادته' }, { status:409 });
