@@ -2,192 +2,96 @@ import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
-import { PlusCircle, List, BarChart3, Settings2, AlertTriangle } from "lucide-react";
+import { PlusCircle, List, BarChart3, PieChart, Settings2 } from "lucide-react";
 import ShiftDeliveryForm from "@/components/shift/ShiftDeliveryForm";
 const ShiftDeliveryHistory = lazy(() => import("@/components/shift/ShiftDeliveryHistory"));
 const ShiftOperationsAnalytics = lazy(() => import("@/components/shift/ShiftOperationsAnalytics"));
 const ShiftDeliveryReport = lazy(() => import("@/components/shift/ShiftDeliveryReport"));
 const ExpenseItemsTab = lazy(() => import("@/components/shift/ExpenseItemsTab"));
 const ShiftRecoveryQueue = lazy(() => import("@/components/shift/ShiftRecoveryQueue"));
-import { cn } from "@/lib/utils";
-import { cycleRangeFor, cairoTodayKey } from "@/lib/smart-commerce-analytics";
 
-function dateDaysAgo(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+async function loadAll(entity, query = {}) {
+  const rows = [];
+  for (let skip = 0; ; skip += 500) {
+    const batch = await entity.filter(query, "id", 500, skip);
+    rows.push(...batch);
+    if (batch.length < 500) return rows;
+  }
 }
 
 export default function ShiftDelivery() {
   const { isAdmin, isManager, branchAccess, financialAccessLevel } = useUserRole();
   const fullFinancial = financialAccessLevel === "full";
-  const canReviewOperationally = isAdmin || isManager;
-  const scopedBranches = fullFinancial ? ["دواء شكري", "دواء الشامي"] : branchAccess;
+  const scopedBranches = fullFinancial ? ["دواء شكري", "دواء الشامي"] : [...new Set(branchAccess)];
   const hasHistoryScope = scopedBranches.length > 0;
   const [activeTab, setActiveTab] = useState("new");
   const [selectedDraft, setSelectedDraft] = useState(null);
-  const [showFullHistory, setShowFullHistory] = useState(false);
-  const [reviewMode, setReviewMode] = useState("duplicates");
-  const [reportMode, setReportMode] = useState("stats");
-  const currentCycle = cycleRangeFor(cairoTodayKey());
-
-  const needsHistoryData = ["history", "review", "reports"].includes(activeTab) && hasHistoryScope;
-  const historyRange = activeTab === "review"
-    ? { from: dateDaysAgo(120), to: cairoTodayKey() }
-    : fullFinancial && showFullHistory && activeTab === "history"
-      ? null
-      : currentCycle;
-  const { data: deliveries = [] } = useQuery({
-    queryKey: ["shift-deliveries", activeTab, historyRange?.from || "all", historyRange?.to || "all", scopedBranches.join("|")],
-    queryFn: async () => {
-      const PAGE = 500;
-      const loadBranch = async (branch) => {
-        let rows = []; let page = 0;
-        while (true) {
-          const query = {
-            ...(historyRange ? { shift_date: { $gte: historyRange.from, $lte: historyRange.to } } : {}),
-            ...(branch ? { branch } : {}),
-          };
-          const batch = Object.keys(query).length
-            ? await base44.entities.ShiftDelivery.filter(query, "-shift_date", PAGE, page * PAGE)
-            : await base44.entities.ShiftDelivery.list("-shift_date", PAGE, page * PAGE);
-          rows = [...rows, ...batch];
-          if (batch.length < PAGE) break;
-          page++;
-        }
-        return rows;
-      };
-      if (fullFinancial) return loadBranch(null);
-      const groups = await Promise.all(scopedBranches.map(loadBranch));
-      return groups.flat();
-    },
-    enabled: needsHistoryData,
-    staleTime: 120000,
+  const [formKey, setFormKey] = useState(0);
+  const scopeKey = scopedBranches.join("|");
+  const history = useQuery({
+    queryKey: ["shift-deliveries", "all-history", fullFinancial, scopeKey],
+    queryFn: async () => fullFinancial
+      ? loadAll(base44.entities.ShiftDelivery)
+      : (await Promise.all(scopedBranches.map(branch => loadAll(base44.entities.ShiftDelivery, { branch })))).flat(),
+    enabled: hasHistoryScope && ["history", "stats", "expenses"].includes(activeTab),
+    staleTime: 30000,
   });
-
-  const { data: rawActiveDrafts = [] } = useQuery({
-    queryKey: ["shift-drafts-active", scopedBranches.join("|")],
+  const drafts = useQuery({
+    queryKey: ["shift-drafts-active", fullFinancial, scopeKey],
     queryFn: async () => {
-      if (fullFinancial) return base44.entities.ShiftDraft.filter({ status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500);
-      const groups = await Promise.all(scopedBranches.map((branch) => base44.entities.ShiftDraft.filter({ branch, status: { $in: ["draft", "submitting"] } }, "-last_saved_at", 500)));
-      return groups.flat();
+      const query = { status: { $in: ["draft", "submitting"] } };
+      return fullFinancial ? loadAll(base44.entities.ShiftDraft, query)
+        : (await Promise.all(scopedBranches.map(branch => loadAll(base44.entities.ShiftDraft, { ...query, branch })))).flat();
     },
-    enabled: activeTab === "review" && canReviewOperationally && hasHistoryScope,
+    enabled: activeTab === "history" && isManager && hasHistoryScope,
     staleTime: 15000,
-    refetchOnWindowFocus: true,
   });
-
-  const activeDrafts = rawActiveDrafts.filter((d) => {
-    const hasSales = Number(d.total_sales || 0) > 0;
-    const hasPaymentDetails = Number(d.visa_sales || 0) > 0 || Number(d.insta_sales || 0) > 0 || Number(d.vodafone_sales || 0) > 0 || Number(d.other_sales || 0) > 0;
-    const hasExpenses = Array.isArray(d.expenses) && d.expenses.some((e) => Number(e?.amount || 0) > 0 || String(e?.category || "").trim() || String(e?.description || "").trim());
-    const hasNotes = String(d.notes || "").trim().length > 0;
-    const hasFailure = Boolean(d.last_error) || d.status === "submitting";
-    return hasSales || hasPaymentDetails || hasExpenses || hasNotes || hasFailure;
-  });
-
-  const activeDeliveries = deliveries.filter((d) => d.is_archived !== true);
-  const duplicateCount = (() => {
-    const groups = new Map();
-    activeDeliveries.filter((d) => d.shift_date).forEach((d) => {
-      const key = `${d.branch || ""}|${d.shift_date || ""}|${d.shift_type || ""}`;
-      groups.set(key, (groups.get(key) || 0) + 1);
-    });
-    return Array.from(groups.values()).filter((count) => count > 1).length;
-  })();
-
+  const deliveries = history.data || [];
   const tabs = [
     { key: "new", label: "تسليم جديد", icon: PlusCircle },
-    ...(hasHistoryScope ? [{ key: "history", label: "سجل الشيفتات", icon: List }] : []),
-    ...(canReviewOperationally && hasHistoryScope ? [{ key: "review", label: "مراجعة", icon: AlertTriangle, count: duplicateCount + activeDrafts.length }] : []),
-    ...(fullFinancial ? [{ key: "reports", label: "تقارير وتحليلات", icon: BarChart3 }] : []),
-    ...(isAdmin ? [{ key: "items", label: "إعدادات", icon: Settings2 }] : []),
+    ...(hasHistoryScope ? [{ key: "history", label: "التسليمات", icon: List }] : []),
+    ...(fullFinancial ? [
+      { key: "stats", label: "الإحصائيات والفروع", icon: BarChart3 },
+      { key: "expenses", label: "تحليل المصروفات", icon: PieChart },
+    ] : []),
+    ...(isAdmin ? [{ key: "items", label: "بنود المصروفات", icon: Settings2 }] : []),
   ];
-
-  return (
-    <div className="w-full">
-      {/* Tabs */}
-      <div className="px-3 md:px-6 pt-3 md:pt-4 border-b flex items-center gap-1 overflow-x-auto scrollbar-hide pb-0">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => { if (tab.key === "new") setSelectedDraft(null); setActiveTab(tab.key); }}
-            className={cn(
-              "flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-              activeTab === tab.key
-                ? "border-indigo-600 text-indigo-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            )}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-            {tab.count > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">{tab.count.toLocaleString("ar-EG")}</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="p-4 md:p-6 space-y-4">
-        {!hasHistoryScope && !fullFinancial && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-            يمكنك تسجيل تسليم جديد، لكن عرض سجل التسليمات متوقف حتى يحدد المدير فرع الحساب من «المستخدمين والصلاحيات». لن يعرض النظام كل الفروع تلقائيًا عند غياب نطاق واضح.
-          </div>
-        )}
-        {activeTab === "new" && <ShiftDeliveryForm initialDraft={selectedDraft} onSaved={() => { setSelectedDraft(null); hasHistoryScope && setActiveTab("history"); }} />}
-        {activeTab === "history" && hasHistoryScope && (
-          <>
-            {fullFinancial && (
-              <div className="flex justify-end">
-                <button type="button" onClick={() => setShowFullHistory((v) => !v)} className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                  {showFullHistory ? "العودة للدورة الحالية 26→25" : "تحميل كل سجل الشيفتات"}
-                </button>
-              </div>
-            )}
-            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل السجل...</div>}>
-              <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} />
-            </Suspense>
-          </>
-        )}
-        {activeTab === "review" && canReviewOperationally && hasHistoryScope && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-xl border bg-white p-2 w-fit">
-              <button type="button" onClick={() => setReviewMode("duplicates")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reviewMode === "duplicates" ? "bg-amber-100 text-amber-800" : "text-gray-500 hover:bg-gray-50")}>
-                التكرارات {duplicateCount > 0 ? `(${duplicateCount.toLocaleString("ar-EG")})` : ""}
-              </button>
-              <button type="button" onClick={() => setReviewMode("recovery")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reviewMode === "recovery" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
-                الاستعادة {activeDrafts.length > 0 ? `(${activeDrafts.length.toLocaleString("ar-EG")})` : ""}
-              </button>
-            </div>
-            {reviewMode === "duplicates" && (
-              <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل التكرارات...</div>}>
-                <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} onNewShift={() => setActiveTab("new")} duplicateOnly />
-              </Suspense>
-            )}
-            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري التحميل...</div>}>
-              {reviewMode === "recovery" && <ShiftRecoveryQueue drafts={activeDrafts} onResume={(draft) => { setSelectedDraft(draft); setActiveTab("new"); }} />}
-            </Suspense>
-          </div>
-        )}
-        {activeTab === "reports" && fullFinancial && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-xl border bg-white p-2 w-fit">
-              <button type="button" onClick={() => setReportMode("stats")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reportMode === "stats" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
-                ملخص وتحليلات
-              </button>
-              <button type="button" onClick={() => setReportMode("report")} className={cn("rounded-lg px-3 py-2 text-xs font-bold transition-colors", reportMode === "report" ? "bg-indigo-100 text-indigo-800" : "text-gray-500 hover:bg-gray-50")}>
-                المصروفات والتصدير
-              </button>
-            </div>
-            <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل التقرير...</div>}>
-              {reportMode === "stats" && <ShiftOperationsAnalytics deliveries={activeDeliveries} />}
-              {reportMode === "report" && <ShiftDeliveryReport deliveries={activeDeliveries} />}
-            </Suspense>
-          </div>
-        )}
-        <Suspense fallback={<div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري تحميل الإعدادات...</div>}>
-          {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
-        </Suspense>
-      </div>
+  const fallback = <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري التحميل...</div>;
+  return <div className="w-full" dir="rtl">
+    <div className="px-3 md:px-6 pt-3 md:pt-4 border-b flex overflow-x-auto scrollbar-hide gap-1 pb-0">
+      {tabs.map(({ key, label, icon: Icon }) => <button key={key} onClick={() => setActiveTab(key)}
+        className={`flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+        <Icon className="w-4 h-4" />{label}
+      </button>)}
     </div>
-  );
+    <div className="p-3 md:p-6 space-y-4">
+      {!hasHistoryScope && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">عرض التسليمات يحتاج تحديد فرع الحساب من المستخدمين والصلاحيات.</p>}
+      <div hidden={activeTab !== "new"}>
+        <ShiftDeliveryForm key={formKey} initialDraft={selectedDraft} active={activeTab === "new"} onSaved={() => {
+          setSelectedDraft(null); setFormKey(k => k + 1);
+          if (hasHistoryScope) setActiveTab("history");
+        }} />
+      </div>
+      {["history", "stats", "expenses"].includes(activeTab) && history.isPending && fallback}
+      {["history", "stats", "expenses"].includes(activeTab) && history.isError &&
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">تعذر تحميل التسليمات. <button onClick={() => history.refetch()} className="underline">إعادة المحاولة</button></div>}
+      <Suspense fallback={fallback}>
+        {activeTab === "history" && hasHistoryScope && history.isSuccess && <>
+          <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} fullFinancial={fullFinancial} onNewShift={() => setActiveTab("new")} />
+          {isManager && <details className="rounded-xl border bg-white p-4">
+            <summary className="cursor-pointer text-sm font-bold text-blue-700">مسودات التسليم غير المكتملة ({(drafts.data || []).length})</summary>
+            <div className="pt-4">
+              {drafts.isPending ? fallback : drafts.isError ? <button onClick={() => drafts.refetch()} className="text-red-700">تعذر تحميل المسودات — إعادة المحاولة</button> :
+                <ShiftRecoveryQueue drafts={drafts.data || []} onResume={draft => {
+                  setSelectedDraft(draft); setFormKey(k => k + 1); setActiveTab("new");
+                }} />}
+            </div>
+          </details>}
+        </>}
+        {activeTab === "stats" && fullFinancial && history.isSuccess && <ShiftOperationsAnalytics deliveries={deliveries} />}
+        {activeTab === "expenses" && fullFinancial && history.isSuccess && <ShiftDeliveryReport deliveries={deliveries} />}
+        {activeTab === "items" && isAdmin && <ExpenseItemsTab />}
+      </Suspense>
+    </div>
+  </div>;
 }
