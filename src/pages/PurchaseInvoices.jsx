@@ -17,7 +17,7 @@ import { useUserRole } from "@/lib/useUserRole";
 import { CATEGORY_LABELS, TRANSACTION_TYPE_LABELS, isInvoiceExcluded } from "@/lib/purchaseCalculations";
 import { fetchAllParallel } from "@/lib/paginatedFetch";
 import { loadInvoicesByFinancialDate } from "@/lib/invoiceRangeLoader";
-import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
+import { getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
 import { assertDailyCloseOpen, assertInvoiceDayOpen } from "@/lib/dailyCloseGuard";
 import { updatePurchaseInvoiceSafe } from "@/lib/purchaseInvoiceSafeUpdate";
 
@@ -196,19 +196,7 @@ export default function PurchaseInvoices() {
       if (getInvoiceEffectiveDate(nextIdentity) !== getInvoiceEffectiveDate(oldInv) || nextIdentity.branch !== oldInv.branch) {
         await assertInvoiceDayOpen(nextIdentity, "نقل الفاتورة إلى يوم أو فرع آخر");
       }
-      // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ: رقم البرنامج أو رقم المورد.
-      const identityChanged = ["system_invoice_number", "supplier_invoice_number", "branch"].some((field) => data[field] !== undefined && data[field] !== oldInv[field]);
-      if (identityChanged && nextIdentity.branch) {
-        const canonicalNumber = normalizeInvoiceNumber(nextIdentity.system_invoice_number);
-        const canonicalSupplierNumber = normalizeInvoiceNumber(nextIdentity.supplier_invoice_number || "");
-        const candidates = await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch }, "-created_date", 1000);
-        const duplicate = candidates.find((inv) => {
-          if (inv.id === id) return false;
-          if (canonicalNumber && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber) return true;
-          return Boolean(canonicalSupplierNumber) && canonicalSupplierNumber === normalizeInvoiceNumber(inv.supplier_invoice_number || "");
-        });
-        if (duplicate) throw new Error(`لا يمكن حفظ التعديل: الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${duplicate.supplier_invoice_number || duplicate.system_invoice_number}) مسجل بالفعل في ${nextIdentity.branch}`);
-      }
+      // منع التكرار داخل نفس الفرع يتم الآن داخل دالة updatePurchaseInvoiceSafe الخلفية ببحث مباشر سريع.
       await updatePurchaseInvoiceSafe(id, data);
       const trackedFields = ["total_value", "paid_value", "returned_value", "supplier_name", "branch", "payment_type", "purchase_category", "net_purchase_mode", "exclusion_reason", "status"];
       const changes = trackedFields.filter(f => data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(oldInv[f]));
