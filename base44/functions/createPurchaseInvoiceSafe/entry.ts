@@ -128,27 +128,22 @@ export default async function(req: Request): Promise<Response> {
       timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit'
     }).format(now);
     await assertDayOpen(base44, branch, invoiceDate);
-    const sameDayInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({
-      branch,
-      invoice_date: invoiceDate,
-    });
-    const exactDuplicate = sameDayInvoices.find((item: any) => clean(item.system_invoice_number) === systemInvoiceNumber);
-    if (exactDuplicate) {
-      return Response.json({
-        error: `رقم الفاتورة ${systemInvoiceNumber} موجود بالفعل في ${branch} بتاريخ ${invoiceDate}`,
-        code: 'duplicate_invoice',
-        existing_id: exactDuplicate.id,
-      }, { status: 409 });
-    }
+    // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ:
+    // رقم الفاتورة على البرنامج (المسلسل) أو رقم فاتورة المورد (الإيرابوطة).
+    // نفس الرقم في فرعين مختلفين مسموح.
+    const branchInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({ branch });
     const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
-    const nearDuplicate = normalizedNumber
-      ? sameDayInvoices.find((item: any) => normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber)
-      : null;
-    if (nearDuplicate) {
+    const canonicalSupplierNumber = normalizeInvoiceNumber(clean(invoice.supplier_invoice_number));
+    const duplicate = branchInvoices.find((item: any) => {
+      if (normalizedNumber && normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber) return true;
+      if (canonicalSupplierNumber && normalizeInvoiceNumber(item.supplier_invoice_number) === canonicalSupplierNumber) return true;
+      return false;
+    });
+    if (duplicate) {
       return Response.json({
-        error: `يوجد رقم فاتورة مشابه جدًا (${nearDuplicate.system_invoice_number}) في ${branch} بتاريخ ${invoiceDate}. راجع الرقم قبل الحفظ لمنع التكرار.`,
-        code: 'near_duplicate_invoice',
-        existing_id: nearDuplicate.id,
+        error: `الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${clean(duplicate.supplier_invoice_number) || duplicate.system_invoice_number}) مسجل بالفعل في ${branch}. لا يمكن تكرار نفس الرقم في نفس الفرع.`,
+        code: 'duplicate_invoice',
+        existing_id: duplicate.id,
       }, { status: 409 });
     }
 

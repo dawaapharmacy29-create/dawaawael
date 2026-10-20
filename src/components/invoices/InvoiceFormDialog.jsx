@@ -16,7 +16,7 @@ import {
   EXCLUSION_REASONS,
 } from "@/lib/purchaseCalculations";
 import { useInvoiceRulesResolver } from "@/hooks/useInvoiceRulesResolver";
-import { normalizeInvoiceNumber, getInvoiceEffectiveDate } from "@/lib/invoiceIdentity";
+import { normalizeInvoiceNumber } from "@/lib/invoiceIdentity";
 import { addDays } from "@/lib/supplierAging";
 import { isDeliveryStaffName } from "@/lib/operationalAccess";
 import { useUserRole } from "@/lib/useUserRole";
@@ -306,17 +306,20 @@ export default function InvoiceFormDialog({ open, onOpenChange, onSubmit, invoic
       }
     }
 
-    // المفتاح المالي الرسمي لمنع التكرار: رقم الفاتورة + الفرع + تاريخ الفاتورة.
+    // المفتاح المالي الرسمي لمنع التكرار: رقم البرنامج أو رقم المورد داخل نفس الفرع — بدون قيد التاريخ.
     // يتم تطبيع العلامات الطرفية حتى لا تتحول 17307 و 17307* إلى سجلين لنفس الفاتورة بالخطأ.
     const canonicalNumber = normalizeInvoiceNumber(form.system_invoice_number);
-    const effectiveDate = form.invoice_date || getInvoiceEffectiveDate(invoice) || "";
-    const isDuplicate = allInvoices.some((inv) => {
+    const canonicalSupplierNumber = normalizeInvoiceNumber(form.supplier_invoice_number || "");
+    const duplicateInfo = allInvoices.find((inv) => {
+      if (invoice && inv.id === invoice.id) return false;
+      if (inv.branch !== form.branch) return false;
       const invNumber = normalizeInvoiceNumber(inv.system_invoice_number);
-      const invDate = inv.invoice_date || inv.created_date?.slice(0, 10) || "";
-      return inv.branch === form.branch && invNumber === canonicalNumber && invDate === effectiveDate && (!invoice || inv.id !== invoice.id);
+      const invSupplierNumber = normalizeInvoiceNumber(inv.supplier_invoice_number || "");
+      if (canonicalNumber && invNumber === canonicalNumber) return true;
+      return Boolean(canonicalSupplierNumber) && canonicalSupplierNumber === invSupplierNumber;
     });
-    if (isDuplicate) {
-      setDupError(`الفاتورة "${form.system_invoice_number}" موجودة بالفعل في ${form.branch} بتاريخ ${effectiveDate}`);
+    if (duplicateInfo) {
+      setDupError(`الرقم "${duplicateInfo.system_invoice_number}" (فاتورة المورد: ${duplicateInfo.supplier_invoice_number || duplicateInfo.system_invoice_number}) مسجل بالفعل في ${form.branch}. لا يمكن تكرار نفس الرقم في نفس الفرع`);
       return;
     }
     setDupError("");

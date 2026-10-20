@@ -196,15 +196,18 @@ export default function PurchaseInvoices() {
       if (getInvoiceEffectiveDate(nextIdentity) !== getInvoiceEffectiveDate(oldInv) || nextIdentity.branch !== oldInv.branch) {
         await assertInvoiceDayOpen(nextIdentity, "نقل الفاتورة إلى يوم أو فرع آخر");
       }
-      const identityChanged = ["system_invoice_number", "branch", "invoice_date"].some((field) => data[field] !== undefined && data[field] !== oldInv[field]);
-      if (identityChanged && nextIdentity.branch && nextIdentity.system_invoice_number) {
-        const effectiveDate = getInvoiceEffectiveDate(nextIdentity) || "";
+      // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ: رقم البرنامج أو رقم المورد.
+      const identityChanged = ["system_invoice_number", "supplier_invoice_number", "branch"].some((field) => data[field] !== undefined && data[field] !== oldInv[field]);
+      if (identityChanged && nextIdentity.branch) {
         const canonicalNumber = normalizeInvoiceNumber(nextIdentity.system_invoice_number);
-        const candidates = effectiveDate
-          ? await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch, invoice_date: effectiveDate }, "-created_date", 1000)
-          : await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch }, "-created_date", 1000);
-        const duplicate = candidates.some((inv) => inv.id !== id && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber && getInvoiceEffectiveDate(inv) === effectiveDate);
-        if (duplicate) throw new Error(`لا يمكن حفظ التعديل: الفاتورة "${nextIdentity.system_invoice_number}" موجودة بالفعل في ${nextIdentity.branch} بتاريخ ${effectiveDate || "نفس التاريخ"}`);
+        const canonicalSupplierNumber = normalizeInvoiceNumber(nextIdentity.supplier_invoice_number || "");
+        const candidates = await base44.entities.PurchaseInvoice.filter({ branch: nextIdentity.branch }, "-created_date", 1000);
+        const duplicate = candidates.find((inv) => {
+          if (inv.id === id) return false;
+          if (canonicalNumber && normalizeInvoiceNumber(inv.system_invoice_number) === canonicalNumber) return true;
+          return Boolean(canonicalSupplierNumber) && canonicalSupplierNumber === normalizeInvoiceNumber(inv.supplier_invoice_number || "");
+        });
+        if (duplicate) throw new Error(`لا يمكن حفظ التعديل: الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${duplicate.supplier_invoice_number || duplicate.system_invoice_number}) مسجل بالفعل في ${nextIdentity.branch}`);
       }
       await updatePurchaseInvoiceSafe(id, data);
       const trackedFields = ["total_value", "paid_value", "returned_value", "supplier_name", "branch", "payment_type", "purchase_category", "net_purchase_mode", "exclusion_reason", "status"];

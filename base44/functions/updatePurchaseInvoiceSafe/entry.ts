@@ -107,11 +107,22 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ success: false, error: 'يجب تحديد سبب الاستثناء' }, { status: 400 });
     }
 
-    const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
-    const sameDay: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({ branch, invoice_date: invoiceDate }, '-created_date', 1000);
-    const duplicate = sameDay.find((item: any) => item.id !== id && normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber);
-    if (duplicate) {
-      return Response.json({ success: false, error: `الفاتورة ${systemInvoiceNumber} موجودة بالفعل في ${branch} بتاريخ ${invoiceDate}`, code: 'duplicate_invoice', existing_id: duplicate.id }, { status: 409 });
+    // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ (رقم البرنامج أو رقم المورد) —
+    // يُفحص فقط عند تغيير الأرقام أو الفرع حتى لا يتعطل سداد/تعديل قيمة فاتورة قديمة.
+    const identityTouched = ['system_invoice_number', 'supplier_invoice_number', 'branch'].some((k) => k in updates);
+    if (identityTouched) {
+      const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
+      const canonicalSupplierNumber = normalizeInvoiceNumber(clean(next.supplier_invoice_number));
+      const branchInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({ branch });
+      const duplicate = branchInvoices.find((item: any) => {
+        if (item.id === id) return false;
+        if (normalizedNumber && normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber) return true;
+        if (canonicalSupplierNumber && normalizeInvoiceNumber(item.supplier_invoice_number) === canonicalSupplierNumber) return true;
+        return false;
+      });
+      if (duplicate) {
+        return Response.json({ success: false, error: `الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${clean(duplicate.supplier_invoice_number) || duplicate.system_invoice_number}) مسجل بالفعل في ${branch}. لا يمكن تكرار نفس الرقم في نفس الفرع.`, code: 'duplicate_invoice', existing_id: duplicate.id }, { status: 409 });
+      }
     }
 
     if (updates.entered_by !== undefined || updates.branch !== undefined) {
