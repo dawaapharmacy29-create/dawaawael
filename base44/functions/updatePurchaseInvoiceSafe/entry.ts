@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
+import { findInvoiceDuplicate, duplicateInvoiceError } from '../../shared/invoiceDuplicateCheck.ts';
 
 const VALID_BRANCHES = new Set(['دواء شكري', 'دواء الشامي']);
 const VALID_PAYMENT_TYPES = new Set(['كاش', 'آجل', 'انستا', 'فودافون', 'مختلط']);
@@ -111,17 +112,13 @@ export default async function(req: Request): Promise<Response> {
     // يُفحص فقط عند تغيير الأرقام أو الفرع حتى لا يتعطل سداد/تعديل قيمة فاتورة قديمة.
     const identityTouched = ['system_invoice_number', 'supplier_invoice_number', 'branch'].some((k) => k in updates);
     if (identityTouched) {
-      const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
-      const canonicalSupplierNumber = normalizeInvoiceNumber(clean(next.supplier_invoice_number));
-      const branchInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({ branch });
-      const duplicate = branchInvoices.find((item: any) => {
-        if (item.id === id) return false;
-        if (normalizedNumber && normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber) return true;
-        if (canonicalSupplierNumber && normalizeInvoiceNumber(item.supplier_invoice_number) === canonicalSupplierNumber) return true;
-        return false;
+      const duplicate = await findInvoiceDuplicate(base44, branch, {
+        systemInvoiceNumber,
+        supplierInvoiceNumber: clean(next.supplier_invoice_number),
+        excludeId: id,
       });
       if (duplicate) {
-        return Response.json({ success: false, error: `الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${clean(duplicate.supplier_invoice_number) || duplicate.system_invoice_number}) مسجل بالفعل في ${branch}. لا يمكن تكرار نفس الرقم في نفس الفرع.`, code: 'duplicate_invoice', existing_id: duplicate.id }, { status: 409 });
+        return Response.json({ success: false, error: duplicateInvoiceError(duplicate), code: 'duplicate_invoice', existing_id: duplicate.id }, { status: 409 });
       }
     }
 

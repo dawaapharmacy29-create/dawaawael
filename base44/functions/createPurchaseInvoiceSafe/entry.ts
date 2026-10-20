@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
+import { findInvoiceDuplicate, duplicateInvoiceError } from '../../shared/invoiceDuplicateCheck.ts';
 
 const VALID_BRANCHES = new Set(['دواء شكري', 'دواء الشامي']);
 const VALID_PAYMENT_TYPES = new Set(['كاش', 'آجل', 'انستا', 'فودافون', 'مختلط']);
@@ -131,17 +132,13 @@ export default async function(req: Request): Promise<Response> {
     // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ:
     // رقم الفاتورة على البرنامج (المسلسل) أو رقم فاتورة المورد (الإيرابوطة).
     // نفس الرقم في فرعين مختلفين مسموح.
-    const branchInvoices: any[] = await base44.asServiceRole.entities.PurchaseInvoice.filter({ branch });
-    const normalizedNumber = normalizeInvoiceNumber(systemInvoiceNumber);
-    const canonicalSupplierNumber = normalizeInvoiceNumber(clean(invoice.supplier_invoice_number));
-    const duplicate = branchInvoices.find((item: any) => {
-      if (normalizedNumber && normalizeInvoiceNumber(item.system_invoice_number) === normalizedNumber) return true;
-      if (canonicalSupplierNumber && normalizeInvoiceNumber(item.supplier_invoice_number) === canonicalSupplierNumber) return true;
-      return false;
+    const duplicate = await findInvoiceDuplicate(base44, branch, {
+      systemInvoiceNumber,
+      supplierInvoiceNumber: clean(invoice.supplier_invoice_number),
     });
     if (duplicate) {
       return Response.json({
-        error: `الرقم "${duplicate.system_invoice_number}" (فاتورة المورد: ${clean(duplicate.supplier_invoice_number) || duplicate.system_invoice_number}) مسجل بالفعل في ${branch}. لا يمكن تكرار نفس الرقم في نفس الفرع.`,
+        error: duplicateInvoiceError(duplicate),
         code: 'duplicate_invoice',
         existing_id: duplicate.id,
       }, { status: 409 });
