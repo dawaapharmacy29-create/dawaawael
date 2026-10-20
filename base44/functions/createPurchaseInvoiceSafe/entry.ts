@@ -55,14 +55,19 @@ async function assertDayOpen(base44: any, branch: string, date: string) {
 
 export default async function(req: Request): Promise<Response> {
   try {
+    const startedAt = Date.now();
+    const trace = (stage) => console.info('invoice_create', { stage, elapsed_ms: Date.now() - startedAt });
+    trace('started');
     const base44 = createClientFromRequest(req);
     const user: any = await base44.auth.me();
+    trace('authenticated');
     if (!user) return Response.json({ error: 'يجب تسجيل الدخول أولًا' }, { status: 401 });
 
     const role = String(user.role || '');
     const linkedProfiles: any[] = clean(user.email)
       ? await base44.asServiceRole.entities.ManagementLoginDirectory.filter({ base44_email: clean(user.email), is_active: true }).catch(() => [])
       : [];
+    trace('access_profile_loaded');
     const linkedProfile = linkedProfiles[0] || null;
     if (isDeliveryIdentity(
       user.management_job_title,
@@ -106,6 +111,7 @@ export default async function(req: Request): Promise<Response> {
     });
     // الموظف يمكنه إدخال فاتورة لأي فرع لأنه قد يكون منقولًا أو يعمل مؤقتًا في الفرع الآخر.
     // نتحقق فقط أنه موظف نشط ومعتمد، بينما فرع الفاتورة يظل مستقلًا عن فرعه الأساسي.
+    trace('employee_loaded');
     const employee = employeeMappings.find((m: any) => clean(m.admin_staff_id)) || employeeMappings[0];
     if (!employee) {
       return Response.json({ error: 'مدخل الفاتورة غير موجود ضمن العاملين المعتمدين والنشطين' }, { status: 400 });
@@ -124,11 +130,13 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'هذا المورد مؤرشف ولا يمكن استخدامه في فاتورة جديدة. استعد المورد أولًا من صفحة الموردين.' }, { status: 400 });
     }
 
+    trace('supplier_loaded');
     const now = new Date();
     const invoiceDate = clean(invoice.invoice_date) || new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit'
     }).format(now);
     await assertDayOpen(base44, branch, invoiceDate);
+    trace('daily_close_checked');
     // منع التكرار داخل نفس الفرع بغض النظر عن التاريخ:
     // رقم الفاتورة على البرنامج (المسلسل) أو رقم فاتورة المورد (الإيرابوطة).
     // نفس الرقم في فرعين مختلفين مسموح.
@@ -136,6 +144,7 @@ export default async function(req: Request): Promise<Response> {
       systemInvoiceNumber,
       supplierInvoiceNumber: clean(invoice.supplier_invoice_number),
     });
+    trace('duplicates_checked');
     if (duplicate) {
       return Response.json({
         error: duplicateInvoiceError(duplicate),
@@ -209,6 +218,7 @@ export default async function(req: Request): Promise<Response> {
       }),
     });
 
+    trace('invoice_saved');
     try {
       await base44.asServiceRole.entities.ActivityLog.create({
         action_type: 'create',
@@ -224,6 +234,7 @@ export default async function(req: Request): Promise<Response> {
       });
     } catch (_) {}
 
+    trace('completed');
     return Response.json({ success: true, record: created });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'حدث خطأ أثناء إنشاء الفاتورة' }, { status: 500 });
