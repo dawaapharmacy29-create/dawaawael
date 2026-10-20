@@ -363,6 +363,9 @@ export default function CustomerOrders() {
         </div>
       ) : (
         <>
+          {/* فلتر الفروع: كروت الفرع مثل الإحصائيات — الضغط يعرض طلبات الفرع فقط في القائمة تحت */}
+          <OrderBranchOverview orders={operationalAccessibleOrders} activeBranch={filterBranch} onBranchChange={setFilterBranch} />
+
           {/* Search and view controls */}
           <div className="sticky top-14 md:top-0 z-20 bg-white/95 backdrop-blur rounded-xl border shadow-sm p-2.5 space-y-2">
             <div className="relative">
@@ -409,7 +412,7 @@ export default function CustomerOrders() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {activeSourceOrders.length} طلب {activeQueue === "archived" ? "في الأرشيف" : "في الدورة الحالية"}</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1"><span>عرض <strong className="text-gray-800">{filteredOrders.length}</strong> من {activeSourceOrders.length} طلب {filterBranch !== "all" && <span className="text-teal-700 font-semibold"> · فرع {filterBranch}</span>} {activeQueue === "archived" ? "في الأرشيف" : "في الدورة الحالية"}</span><button onClick={() => setShowEfficiency((v) => !v)} className="text-teal-700 hover:underline">{showEfficiency ? "إخفاء كفاءة الفروع" : "عرض كفاءة الفروع"}</button></div>
 
           {/* Branch Efficiency */}
           {showEfficiency && <Suspense fallback={<div className="rounded-xl border bg-white p-4 text-center text-xs text-gray-400">جاري تحميل كفاءة الفروع...</div>}><BranchEfficiencyCard orders={filteredOrders.filter((o) => o.is_archived !== true)} /></Suspense>}
