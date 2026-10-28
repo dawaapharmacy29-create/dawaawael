@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import ExpenseCategoryBreakdown from "./ExpenseCategoryBreakdown";
@@ -169,45 +168,8 @@ export default function ShiftDeliveryReport({ deliveries }) {
       </div>
 
       {/* Expense Category Breakdown */}
-      <ExpenseCategoryBreakdown deliveries={filtered} title="تفصيل المصروفات حسب البند" />
+      <ExpenseCategoryBreakdown deliveries={filtered} title="تفصيل المصروفات حسب البند" detailed />
 
-      {/* Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>التاريخ</TableHead>
-                <TableHead>الفرع</TableHead>
-                <TableHead>الشيفت</TableHead>
-                <TableHead>الموظف</TableHead>
-                <TableHead className="text-left">المبيعات</TableHead>
-                <TableHead className="text-left">المصروفات</TableHead>
-                <TableHead className="text-left">الصافي</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-400 py-8">لا توجد بيانات</TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="text-sm">{d.shift_date || "—"}</TableCell>
-                    <TableCell className="text-sm">{d.branch || "—"}</TableCell>
-                    <TableCell className="text-sm">{d.shift_type || "—"}</TableCell>
-                    <TableCell className="text-sm">{d.submitted_by || "—"}</TableCell>
-                    <TableCell className="text-sm font-medium text-blue-700">{fmt(d.total_sales)}</TableCell>
-                    <TableCell className="text-sm font-medium text-red-600">{fmt(shiftFinancialView(d).realExpenseTotal)}</TableCell>
-                    <TableCell className="text-sm font-bold text-green-600">{fmt(shiftFinancialView(d).operationalNet)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
     </div>
   );
 }
