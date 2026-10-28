@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useUserRole } from "@/lib/useUserRole";
@@ -20,11 +21,13 @@ async function loadAll(entity, query = {}) {
 }
 
 export default function ShiftDelivery() {
+  const { accountantMode = false } = useOutletContext() || {};
   const { isAdmin, isManager, branchAccess, financialAccessLevel } = useUserRole();
   const fullFinancial = financialAccessLevel === "full";
   const scopedBranches = fullFinancial ? ["دواء شكري", "دواء الشامي"] : [...new Set(branchAccess)];
   const hasHistoryScope = scopedBranches.length > 0;
-  const [activeTab, setActiveTab] = useState("new");
+  const [selectedTab, setActiveTab] = useState("new");
+  const activeTab = accountantMode && !["history", "stats", "expenses"].includes(selectedTab) ? "history" : selectedTab;
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [formKey, setFormKey] = useState(0);
   const scopeKey = scopedBranches.join("|");
@@ -43,18 +46,18 @@ export default function ShiftDelivery() {
       return fullFinancial ? loadAll(base44.entities.ShiftDraft, query)
         : (await Promise.all(scopedBranches.map(branch => loadAll(base44.entities.ShiftDraft, { ...query, branch })))).flat();
     },
-    enabled: activeTab === "history" && isManager && hasHistoryScope,
+    enabled: !accountantMode && activeTab === "history" && isManager && hasHistoryScope,
     staleTime: 15000,
   });
   const deliveries = history.data || [];
   const tabs = [
-    { key: "new", label: "تسليم جديد", icon: PlusCircle },
+    ...(!accountantMode ? [{ key: "new", label: "تسليم جديد", icon: PlusCircle }] : []),
     ...(hasHistoryScope ? [{ key: "history", label: "التسليمات", icon: List }] : []),
     ...(fullFinancial ? [
       { key: "stats", label: "الإحصائيات والفروع", icon: BarChart3 },
       { key: "expenses", label: "تحليل المصروفات", icon: PieChart },
     ] : []),
-    ...(isAdmin ? [{ key: "items", label: "بنود المصروفات", icon: Settings2 }] : []),
+    ...(!accountantMode && isAdmin ? [{ key: "items", label: "بنود المصروفات", icon: Settings2 }] : []),
   ];
   const fallback = <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">جاري التحميل...</div>;
   return <div className="w-full" dir="rtl">
@@ -66,19 +69,19 @@ export default function ShiftDelivery() {
     </div>
     <div className="p-3 md:p-6 space-y-4">
       {!hasHistoryScope && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">عرض التسليمات يحتاج تحديد فرع الحساب من المستخدمين والصلاحيات.</p>}
-      <div hidden={activeTab !== "new"}>
+      {!accountantMode && <div hidden={activeTab !== "new"}>
         <ShiftDeliveryForm key={formKey} initialDraft={selectedDraft} active={activeTab === "new"} onSaved={() => {
           setSelectedDraft(null); setFormKey(k => k + 1);
           if (hasHistoryScope) setActiveTab("history");
         }} />
-      </div>
+      </div>}
       {["history", "stats", "expenses"].includes(activeTab) && history.isPending && fallback}
       {["history", "stats", "expenses"].includes(activeTab) && history.isError &&
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">تعذر تحميل التسليمات. <button onClick={() => history.refetch()} className="underline">إعادة المحاولة</button></div>}
       <Suspense fallback={fallback}>
         {activeTab === "history" && hasHistoryScope && history.isSuccess && <>
-          <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} fullFinancial={fullFinancial} onNewShift={() => setActiveTab("new")} />
-          {isManager && <details className="rounded-xl border bg-white p-4">
+          <ShiftDeliveryHistory deliveries={deliveries} allowedBranches={scopedBranches} fullFinancial={fullFinancial} onNewShift={accountantMode ? undefined : () => setActiveTab("new")} />
+          {!accountantMode && isManager && <details className="rounded-xl border bg-white p-4">
             <summary className="cursor-pointer text-sm font-bold text-blue-700">مسودات التسليم غير المكتملة ({(drafts.data || []).length})</summary>
             <div className="pt-4">
               {drafts.isPending ? fallback : drafts.isError ? <button onClick={() => drafts.refetch()} className="text-red-700">تعذر تحميل المسودات — إعادة المحاولة</button> :
