@@ -1,4 +1,4 @@
-import { Link, useLocation, Outlet } from "react-router-dom";
+import { Link, Navigate, useLocation, Outlet } from "react-router-dom";
 import { LayoutDashboard, FileText, Users, Receipt, Menu, BarChart2, HandCoins, ClipboardList, ShieldCheck, UserCheck, FlaskConical, RotateCcw, PackageX, ShoppingBag, PackageSearch, Clock, FileSearch, AlertTriangle, Database, ChevronDown, Wallet, Landmark, ArchiveRestore, Activity, LockKeyhole, TrendingUp } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -93,6 +93,9 @@ export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(loadGroupState);
   const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials, financialAccessLevel, user, canUseCoreOperationalEntry } = useUserRole();
+  const [viewMode, setViewMode] = useState("manager");
+  const canSwitchView = user?.email?.trim().toLowerCase() === "drkimo91@gmail.com";
+  const accountantMode = canSwitchView && viewMode === "accountant";
   const visibleNavItems = navItems.filter((item) =>
     !item.hidden &&
     (!item.adminOnly || isAdmin) &&
@@ -202,7 +205,7 @@ export default function AppLayout() {
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-gray-50">
-      <aside className="hidden md:flex flex-col w-56 bg-white border-l shadow-sm shrink-0">
+      {!accountantMode && <aside className="hidden md:flex flex-col w-56 bg-white border-l shadow-sm shrink-0">
         <div className="p-4 border-b bg-teal-600">
           <h1 className="text-white font-bold text-lg">صيدليات دواء</h1>
           <p className="text-teal-100 text-xs mt-0.5">مشتريات</p>
@@ -214,15 +217,15 @@ export default function AppLayout() {
         <nav className="flex-1 p-2 overflow-y-auto">
           {renderNavSections(false)}
         </nav>
-      </aside>
+      </aside>}
 
-      <div className="md:hidden fixed top-0 right-0 left-0 z-[60] bg-teal-600 flex items-center justify-between px-4 py-3">
+      {!accountantMode && <div className="md:hidden fixed top-0 right-0 left-0 z-[60] bg-teal-600 flex items-center justify-between px-4 py-3">
         <p className="text-teal-100 text-sm">مشتريات</p>
         <h1 className="text-white font-bold">صيدليات دواء</h1>
         <button onClick={() => setOpen(true)} className="text-white p-2 -m-2 active:bg-teal-500 rounded-lg">
           <Menu className="w-6 h-6" />
         </button>
-      </div>
+      </div>}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-72 p-0 data-[state=open]:duration-150 data-[state=closed]:duration-150" dir="rtl">
@@ -240,9 +243,17 @@ export default function AppLayout() {
         </SheetContent>
       </Sheet>
 
-      <main className="flex-1 min-w-0 md:overflow-auto pt-14 md:pt-0 flex flex-col">
-        <div className="px-4 pt-3 pb-0 flex justify-end">
-          <SmartAlerts />
+      <main className={cn("flex-1 min-w-0 md:overflow-auto flex flex-col", !accountantMode && "pt-14 md:pt-0") }>
+        <div className={cn("px-4 pt-3 flex", canSwitchView ? "pb-3 items-center justify-between gap-3 flex-wrap" : "pb-0 justify-end", accountantMode && "bg-white border-b border-indigo-100")}>
+          {canSwitchView && <div className="flex items-center gap-2" aria-label="وضع العرض">
+            {["manager", "accountant"].map(mode => <button key={mode} type="button"
+              aria-pressed={(accountantMode ? "accountant" : "manager") === mode}
+              onClick={() => { setViewMode(mode); setOpen(false); }}
+              className={cn("rounded-lg border px-4 py-2 text-sm font-bold transition-colors", (accountantMode ? "accountant" : "manager") === mode ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200")}>
+              {mode === "manager" ? "مدير" : "محاسب"}
+            </button>)}
+          </div>}
+          {accountantMode ? <h1 className="text-lg font-bold text-indigo-800">صيدليات دواء — المحاسبة</h1> : <SmartAlerts />}
         </div>
         <div className="flex-1">
           <Suspense fallback={
@@ -253,7 +264,7 @@ export default function AppLayout() {
               </div>
             </div>
           }>
-            <Outlet />
+            {accountantMode && location.pathname !== "/shift-delivery" ? <Navigate to="/shift-delivery" replace /> : <Outlet context={{ accountantMode }} />}
           </Suspense>
         </div>
       </main>
