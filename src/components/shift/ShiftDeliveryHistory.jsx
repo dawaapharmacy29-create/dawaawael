@@ -447,9 +447,9 @@ export default function ShiftDeliveryHistory({ deliveries, allowedBranches = BRA
             onReset={resetSort}
             cardMode
           />
-          <Button onClick={onNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+          {onNewShift && <Button onClick={onNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
             <Plus className="w-4 h-4" /> تسليم جديد
-          </Button>
+          </Button>}
         </div>
       </div>
 
