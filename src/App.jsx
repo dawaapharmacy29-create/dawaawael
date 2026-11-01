@@ -51,6 +51,7 @@ const SystemHealth = lazy(() => import('./pages/SystemHealth'));
 const DataReconciliation = lazy(() => import('./pages/DataReconciliation'));
 const DailyClose = lazy(() => import('./pages/DailyClose'));
 import { setNumbersHidden } from "@/lib/westernDigits";
+import { isShiftReviewer } from "@/lib/shiftReviewerAccess";
 import { startNumberMasking, stopNumberMasking } from "@/lib/viewerNumberMask";
 
 const UnifiedLogin = lazy(() => import('./pages/UnifiedLogin'));
@@ -59,7 +60,7 @@ const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth, isLoadingPublicSettings, authError, user } = useAuth();
 
   // دور "مشاهد" (viewer): يتصفح التطبيق كاملًا بدون رؤية أي رقم
-  const isViewerRole = !!user && (user.role || "viewer") === "viewer";
+  const isViewerRole = !!user && (user.role || "viewer") === "viewer" && !isShiftReviewer(user);
   useEffect(() => {
     setNumbersHidden(isViewerRole);
     if (isViewerRole) startNumberMasking();

@@ -88,6 +88,8 @@ function loadGroupState() {
   }
 }
 
+import { isShiftReviewer } from "@/lib/shiftReviewerAccess";
+
 export default function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -95,7 +97,7 @@ export default function AppLayout() {
   const { isAdmin, isManager, canViewFinancialReports, canViewAllBranchesFinancials, financialAccessLevel, user, canUseCoreOperationalEntry } = useUserRole();
   const [viewMode, setViewMode] = useState("manager");
   const canSwitchView = user?.email?.trim().toLowerCase() === "drkimo91@gmail.com";
-  const accountantMode = canSwitchView && viewMode === "accountant";
+  const accountantMode = isShiftReviewer(user) || (canSwitchView && viewMode === "accountant");
   const visibleNavItems = navItems.filter((item) =>
     !item.hidden &&
     (!item.adminOnly || isAdmin) &&
