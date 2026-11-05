@@ -56,8 +56,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
     staleTime: 60000,
   });
   const branchNames = nameMap.filter((m) => m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()));
-  const verifiableBranchNames = branchNames.filter((m) => m.identity_verification_enabled !== false && !!m.admin_staff_id);
-  const nameOptions = [...new Set(verifiableBranchNames.map((m) => m.canonical_name).filter((name) => name && !isDeliveryStaffName(name)))];
+  const nameOptions = [...new Set(branchNames.map((m) => m.canonical_name).filter((name) => name && !isDeliveryStaffName(name)))];
   const selectedRecorder = nameMap.find((m) =>
     m.canonical_name === form.recorded_by &&
     (m.branch === "كل الفروع" || (!form.branch ? true : m.branch?.trim() === form.branch?.trim()))
@@ -81,8 +80,8 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       setSaveError("يجب اختيار خيار التسليم / التواصل");
       return;
     }
-    if (!editOrder && !selectedRecorder?.admin_staff_id) {
-      setSaveError("اسم مُسجِّل الطلب غير مربوط بحساب الإدارة");
+    if (!editOrder && !selectedRecorder) {
+      setSaveError("اسم مُسجِّل الطلب غير موجود في سجل الأسماء الرسمي");
       return;
     }
     setSaving(true);
@@ -90,7 +89,7 @@ export default function OrderFormDialog({ open, onOpenChange, teamMembers = [], 
       if (!editOrder) {
         const createRes = await base44.functions.invoke("createVerifiedCustomerOrder", {
           mode: "direct_verified",
-          admin_staff_id: selectedRecorder.admin_staff_id,
+          admin_staff_id: selectedRecorder.admin_staff_id || undefined,
           idempotency_key: idempotencyKey.current,
           order: form,
         });

@@ -63,6 +63,7 @@ function sanitizeDirectOrder(order: any) {
     assigned_employee: clean(order.assigned_employee),
     request_date: clean(order.request_date),
     quantity: Math.max(1, Number(order.quantity || 1)),
+    recorded_by: clean(order.recorded_by),
     customer_type: clean(order.customer_type) || 'عادي',
     request_type: clean(order.request_type) || 'عادي',
     promised_at: clean(order.promised_at),
@@ -167,7 +168,7 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'بيانات العميل والفرع والصنف مطلوبة' }, { status: 400 });
     }
     if (!VALID_BRANCHES.has(order.branch)) return Response.json({ error: 'الفرع غير صالح' }, { status: 400 });
-    if (!adminStaffId) return Response.json({ error: 'بيانات مُسجِّل الطلب مطلوبة' }, { status: 400 });
+    if (!adminStaffId && !order.recorded_by) return Response.json({ error: 'بيانات مُسجِّل الطلب مطلوبة' }, { status: 400 });
 
     const explicitBranches = Array.isArray((user as any)?.branch_access)
       ? (user as any).branch_access.map(clean).filter((b: string) => VALID_BRANCHES.has(b))
@@ -191,8 +192,14 @@ export default async function(req: Request): Promise<Response> {
       if (existingAttempt) return Response.json({ success: true, record: existingAttempt, idempotent: true });
     }
 
-    const mappings = await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true });
-    const mapping = mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === order.branch);
+    // mucسجِّل الطلب يُطابق برقم الموظف في الإدارة إن وُجد، وإلا باسمه في سجل الأسماء الرسمي.
+    const mappings = adminStaffId
+      ? await base44.asServiceRole.entities.EmployeeNameMap.filter({ admin_staff_id: adminStaffId, is_active: true })
+      : await base44.asServiceRole.entities.EmployeeNameMap.filter({ is_active: true });
+    const mapping = adminStaffId
+      ? mappings.find((m: any) => m.branch === 'كل الفروع' || clean(m.branch) === order.branch)
+      : mappings.find((m: any) => normalizeStaffName(m.canonical_name) === normalizeStaffName(order.recorded_by)
+          && (m.branch === 'كل الفروع' || clean(m.branch) === order.branch));
     if (!mapping) return Response.json({ error: 'الموظف غير مربوط بهذا الفرع في سجل الأسماء الرسمي' }, { status: 403 });
     if (isDeliveryName(mapping.canonical_name) || (Array.isArray(mapping.aliases) && mapping.aliases.some(isDeliveryName))) {
       return Response.json({ error: 'موظفو الدليفري غير مسموح لهم بتسجيل طلب عميل من هذا المسار' }, { status: 403 });
