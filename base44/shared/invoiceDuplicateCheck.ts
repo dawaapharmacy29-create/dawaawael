@@ -1,7 +1,10 @@
 // فحص تكرار أرقام الفواتير داخل نفس الفرع (رقم البرنامج أو رقم فاتورة المورد).
 // بحث مستهدف على الرقم نفسه بدل تحميل كل فواتير الفرع — تحميل آلاف السجلات في كل تعديل يسبب 503.
 export function normalizeInvoiceNumber(value: unknown): string {
-  return String(value ?? '').trim().replace(/\s+/g, '').replace(/[.،,*-]+$/g, '');
+  return String(value ?? '').trim()
+    .replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+    .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
+    .replace(/\s+/g, '').replace(/[.،,*_:\-]+$/g, '');
 }
 
 function escapeRegex(value: string): string {

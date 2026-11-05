@@ -1,3 +1,4 @@
+import { findInvoiceDuplicate } from '../../shared/invoiceDuplicateCheck.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
 function clean(value: unknown) {
@@ -51,11 +52,9 @@ export default async function(req: Request): Promise<Response> {
       if (!invoiceNumber || !branch) {
         return Response.json({ error: 'Snapshot الفاتورة ناقص رقم الفاتورة أو الفرع' }, { status: 400 });
       }
-      const existing = await base44.asServiceRole.entities.PurchaseInvoice.filter({
-        system_invoice_number: invoiceNumber,
-        branch,
-      });
-      if (existing?.[0]) {
+      const duplicate = await findInvoiceDuplicate(base44, branch, { systemInvoiceNumber: invoiceNumber });
+      const existing = duplicate ? [duplicate] : [];
+      if (existing[0]) {
         return Response.json({
           error: `يوجد بالفعل فاتورة رقم ${invoiceNumber} في ${branch}. تم منع الاستعادة لتجنب التكرار.`,
           duplicate_id: existing[0].id,

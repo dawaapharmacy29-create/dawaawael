@@ -1,5 +1,8 @@
 export function normalizeInvoiceNumber(value) {
-  return String(value || "").trim().replace(/[\s\-_.:*]+$/g, "");
+  return String(value ?? "").trim()
+    .replace(/[٠-٩]/g, (c) => String("٠١٢٣٤٥٦٧٨٩".indexOf(c)))
+    .replace(/[۰-۹]/g, (c) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+    .replace(/\s+/g, "").replace(/[.،,*_:\-]+$/g, "");
 }
 
 export function getInvoiceOfficialDate(invoice) {

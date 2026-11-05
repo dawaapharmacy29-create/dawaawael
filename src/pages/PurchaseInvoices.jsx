@@ -83,6 +83,9 @@ export default function PurchaseInvoices() {
 
   const invalidatePurchaseDerivedCaches = () => {
     [
+      ["purchase-invoices"],
+      ["limited-financial-summary"],
+      ["pending-invoices-count"],
       ["purchase-reports-invoices"],
       ["purchase-reports-categorization-month"],
       ["purchase-invoices-monthly-chart"],
