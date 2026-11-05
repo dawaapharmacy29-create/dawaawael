@@ -13,7 +13,11 @@ function escapeRegex(value: string): string {
 
 // نمط مثبّت الطرفين يسمح فقط بمسافات/علامات ختامية قديمة حول الرقم، فلا يلتقط أرقامًا أطول (20191 لا يطابق 201912).
 function anchoredPattern(normalized: string): string {
-  return `^\\s*${escapeRegex(normalized)}\\s*[.،,*-]*\\s*$`;
+  const digits = '٠١٢٣٤٥٦٧٨٩';
+  const persian = '۰۱۲۳۴۵۶۷۸۹';
+  const body = [...normalized].map((c) => /[0-9]/.test(c)
+    ? `[${c}${digits[Number(c)]}${persian[Number(c)]}]` : escapeRegex(c)).join('\\s*');
+  return `^\\s*${body}\\s*[.،,*_:\\-]*\\s*$`;
 }
 
 export async function findInvoiceDuplicate(
