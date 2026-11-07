@@ -66,6 +66,7 @@ async function reconcileCustomerOrdersToManagement(base44) {
   let reachedWatermark = false;
   const pageSize = 200;
   const maxPages = 10;
+  const sendBatchSize = 20;
 
   for (let page = 0; page < maxPages && !reachedWatermark; page += 1) {
     const rows = await base44.asServiceRole.entities.CustomerOrder.list('-updated_date', pageSize, offset);
@@ -99,8 +100,8 @@ async function reconcileCustomerOrdersToManagement(base44) {
   collected.sort((a, b) => String(a.updated_date || '').localeCompare(String(b.updated_date || '')));
 
   let sent = 0;
-  for (let i = 0; i < collected.length; i += 200) {
-    const batch = collected.slice(i, i + 200);
+  for (let i = 0; i < collected.length; i += sendBatchSize) {
+    const batch = collected.slice(i, i + sendBatchSize);
     const result = await sendCustomerOrderRecords(batch, 'reconcile_watermark');
     if (!result.success) {
       const now = new Date().toISOString();
